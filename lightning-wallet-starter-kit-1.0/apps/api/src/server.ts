@@ -5,8 +5,8 @@ import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import { z } from 'zod';
 import { chains } from '@lightning/core';
-import type { ChainId, QuoteRequest } from '@lightning/core';
-import { adapters, familyFor, operationId, swapQuote } from './adapters.js';
+import type { QuoteRequest } from '@lightning/core';
+import { operationId, swapQuote } from './adapters.js';
 import { config } from './config.js';
 
 const app = Fastify({ logger: true, requestIdHeader: 'x-request-id' });
@@ -16,7 +16,7 @@ app.get('/health', async () => ({ status: 'ok', service: 'lightning-api', versio
 app.get('/api/v1/chains', async () => ({ data: chains }));
 app.post('/api/v1/auth/login', async (req, reply) => { const body=z.object({email:z.string().email(),password:z.string().min(8)}).parse(req.body); return { data: { token: await reply.jwtSign({sub:body.email,role:'operator'}, {expiresIn:'8h'}), user:{email:body.email,name:'运营管理员'} } }; });
 app.get('/api/v1/dashboard', async () => ({ data: { portfolioUsd: 128450.32, wallets: 128, operationsToday: 46, alerts: 2, networks: 7 } }));
-app.post('/api/v1/wallets/batch-generate', async req => { const b=z.object({chain:z.enum(['ethereum','bsc','polygon','base','arbitrum','solana','tron']),count:z.number().int().min(1).max(100),labelPrefix:z.string().max(30).default('Wallet')}).parse(req.body); const adapter=adapters[familyFor(b.chain as ChainId)]!; return {data:Array.from({length:b.count},(_,i)=>({id:operationId(),chain:b.chain,label:`${b.labelPrefix} ${i+1}`,...adapter.generate()})),warning:'Secret material must be encrypted or imported into an HSM before production use.'}; });
+app.post('/api/v1/wallets/batch-generate', async (_req, reply) => reply.status(410).send({error:'CLIENT_ONLY_OPERATION',message:'钱包密钥只能在本地客户端生成，不允许发送至 API'}));
 app.post('/api/v1/transfers/batch', async req => { const b=z.object({mode:z.enum(['one-to-many','many-to-one','many-to-many']),dryRun:z.boolean().default(true),transfers:z.array(z.object({chain:z.string(),fromWalletId:z.string(),to:z.string(),asset:z.string(),amount:z.string(),idempotencyKey:z.string()})).min(1).max(500)}).parse(req.body); return {data:{jobId:operationId(),status:b.dryRun?'validated':'queued',count:b.transfers.length,mode:b.mode}}; });
 app.post('/api/v1/collections/plan', async req => { const b=z.object({chain:z.string(),walletIds:z.array(z.string()).min(1),destination:z.string(),asset:z.string()}).parse(req.body); return {data:{planId:operationId(),status:'estimated',walletCount:b.walletIds.length,estimatedGasUsd:Math.max(1,b.walletIds.length*.18)}}; });
 app.post('/api/v1/swap/quote', async req => ({data:await swapQuote(z.object({chain:z.string(),sellToken:z.string(),buyToken:z.string(),amount:z.string(),slippageBps:z.number().int().min(1).max(500)}).parse(req.body) as QuoteRequest)}));
