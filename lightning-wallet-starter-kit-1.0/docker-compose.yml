@@ -18,7 +18,7 @@ services:
     ports: ["3001:3001"]
     depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_healthy } }
   web:
-    build: { context: ., dockerfile: docker/web.Dockerfile, args: { VITE_API_URL: http://localhost:3001/api/v1 } }
+    build: { context: ., dockerfile: docker/web.Dockerfile, args: { VITE_API_URL: http://localhost:3001/api/v1, VITE_FLASH_LOAN_URL: http://localhost:32104 } }
     ports: ["4173:4173"]
     depends_on: [api]
 volumes: { postgres_data: {}, redis_data: {} }

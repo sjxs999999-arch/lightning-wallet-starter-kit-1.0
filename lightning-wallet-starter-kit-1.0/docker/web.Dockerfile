@@ -1,7 +1,9 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 ARG VITE_API_URL=http://localhost:3001/api/v1
+ARG VITE_FLASH_LOAN_URL=http://localhost:32104
 ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_FLASH_LOAN_URL=$VITE_FLASH_LOAN_URL
 COPY package*.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
