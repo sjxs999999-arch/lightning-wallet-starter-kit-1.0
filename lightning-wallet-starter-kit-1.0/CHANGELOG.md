@@ -2,6 +2,35 @@
 
 All notable stable Lightning Wallet releases are recorded here.
 
+## stable-v1.9-market-center
+
+### Added
+
+- Read-only EVM, Solana and TRON market overview and Token search.
+- Live Token price, market cap, FDV, liquidity, volume and 24-hour transaction metrics.
+- OHLCV price-history chart and recent public transaction activity.
+- Browser-local watchlist and price alerts.
+- Optional normalized holder-count and top-holder provider integration.
+- Explicit unavailable states for missing holder data and upstream provider failures.
+
+### Security
+
+- Market endpoints are authenticated, read-only GET routes.
+- No private keys, mnemonics, signing or transaction broadcasting were introduced.
+- External market calls use bounded timeouts and sanitized normalized responses.
+- Watchlists and alerts store public Token metadata locally and never upload wallet material.
+- No simulated holder or market data is presented as real data.
+
+### Verification
+
+- Implementation commit: `88d0827`
+- API and web tests: 65/65 PASS
+- Type check, production build and Docker build: PASS
+- Live EVM WETH search and market-detail lookup: PASS
+- Nine public pools, 100 OHLCV points and 100 recent trades loaded: PASS
+- Preview route, provider degradation and no-white-screen behavior: PASS
+- Preview: `http://localhost:4173/markets`
+
 ## stable-v1.8-project-center
 
 ### Added

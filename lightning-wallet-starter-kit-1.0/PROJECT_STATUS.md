@@ -2,13 +2,13 @@
 
 ## Current stable release
 
-- Version: `stable-v1.8-project-center`
+- Version: `stable-v1.9-market-center`
 - Branch: `stable/v1.0-deploy`
-- Project Center implementation: `2b34013`
+- Market Center implementation: `88d0827`
 - Status: Approved
 - Build: PASS
 - Docker: PASS
-- Preview: `http://localhost:4173/projects`
+- Preview: `http://localhost:4173/markets`
 
 ## Completed milestones
 
@@ -21,6 +21,7 @@
 - `stable-v1.6-gasfree`: secure Sepolia GasFree orchestration
 - `stable-v1.7-launchpad`: secure multichain Token Launchpad
 - `stable-v1.8-project-center`: read-only multichain Project Center
+- `stable-v1.9-market-center`: read-only multichain Market Center
 
 ## Stable modules
 
@@ -45,6 +46,11 @@
 - Public logo, banner, website, social and whitepaper metadata views
 - Read-only contract, deployment and version histories
 - Parameterized project search with chain and status filters
+- EVM, Solana and TRON market search and overview
+- Live price, market cap, FDV, liquidity and 24-hour volume
+- OHLCV price history and recent public transaction activity
+- Browser-local watchlists and price alerts
+- Optional read-only holder-data provider with explicit unavailable state
 - CSV import and export
 - Dry Run, Worker progress, pause, resume and failed-task retry
 - Docker Compose, PostgreSQL and Redis
@@ -59,7 +65,18 @@
 
 ## Development state
 
-Development is stopped after Phase 9. Market Center, Bots, AI, Analytics and other future modules remain out of scope until the next approved phase.
+Development is stopped after Phase 10. Bots, AI, Analytics and other future modules remain out of scope until the next approved phase.
+
+## Phase 10 verification note
+
+- Market Center implementation commit: `88d0827`.
+- API and web tests: 65/65 PASS.
+- Type check, production build and Docker build: PASS.
+- Live EVM WETH market lookup, nine-pool search and normalized metrics: PASS.
+- 100-hour OHLCV price history and 100 recent public trades: PASS.
+- Watchlist, local price-alert evaluation and provider-failure isolation: PASS.
+- Preview rendering and route reload: PASS; no blank page.
+- Holder data is explicitly unavailable until a trusted read-only provider is configured; no simulated data is shown.
 
 ## Phase 9 verification note
 
