@@ -1,0 +1,1 @@
+import type{ProjectChain,ProjectStatus}from'./types';export function projectQuery(search:string,chain:''|ProjectChain,status:''|ProjectStatus){const query=new URLSearchParams();if(search.trim())query.set('q',search.trim());if(chain)query.set('chain',chain);if(status)query.set('status',status);const value=query.toString();return value?`?${value}`:''}

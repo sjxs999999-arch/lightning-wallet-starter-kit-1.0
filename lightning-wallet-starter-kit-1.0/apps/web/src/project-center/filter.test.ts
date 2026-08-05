@@ -1,0 +1,1 @@
+import{describe,expect,it}from'vitest';import{projectQuery}from'./filter';describe('Project Center filters',()=>{it('encodes search and filters',()=>expect(projectQuery('A&B','EVM','deployed')).toBe('?q=A%26B&chain=EVM&status=deployed'));it('omits empty filters',()=>expect(projectQuery('','','')).toBe(''))});
