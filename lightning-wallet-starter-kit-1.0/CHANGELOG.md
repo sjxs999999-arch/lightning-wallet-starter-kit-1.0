@@ -2,6 +2,37 @@
 
 All notable stable Lightning Wallet releases are recorded here.
 
+## stable-v1.7-launchpad
+
+### Added
+
+- Five-step Token creation, metadata, media, liquidity and review wizard.
+- EVM Sepolia, Solana Devnet and TRON Nile deployment-plan support.
+- Logo and banner preview plus PDF whitepaper validation.
+- Website and social-link editor with HTTP(S)-only validation.
+- Realtime Token information preview.
+- Worker-based fixed-point liquidity initialization planning.
+- Deployment checklist and EVM, Solana and TRON wallet-signature adapters.
+
+### Security
+
+- Uploads remain local; the API receives only sanitized file descriptors.
+- SVG, executable, unsupported and oversized files are rejected.
+- Private keys and mnemonics are never accepted or stored.
+- The server does not sign or broadcast deployment transactions.
+- Non-Dry-Run flows require explicit user-wallet confirmation.
+
+### Verification
+
+- Implementation commit: `8c23402`
+- API and web tests: 56/56 PASS
+- Type check, production build and Docker build: PASS
+- Three-chain Dry Run plans: PASS
+- 1,000 Worker liquidity plans: approximately 0.542 ms
+- Preview reload and error-boundary validation: PASS
+- Browser console errors: 0
+- Preview: `http://localhost:4173/launchpad`
+
 ## stable-v1.6-gasfree
 
 ### Added

@@ -2,13 +2,13 @@
 
 ## Current stable release
 
-- Version: `stable-v1.6-gasfree`
+- Version: `stable-v1.7-launchpad`
 - Branch: `stable/v1.0-deploy`
-- GasFree implementation: `eaf7c92`
+- Launchpad implementation: `8c23402`
 - Status: Approved
 - Build: PASS
 - Docker: PASS
-- Preview: `http://localhost:4173/gasfree`
+- Preview: `http://localhost:4173/launchpad`
 
 ## Completed milestones
 
@@ -19,6 +19,7 @@
 - `stable-v1.4-swap`: secure EVM, Solana and TRON Swap aggregation
 - `stable-v1.5-flash-loan`: existing FlashForge application integration
 - `stable-v1.6-gasfree`: secure Sepolia GasFree orchestration
+- `stable-v1.7-launchpad`: secure multichain Token Launchpad
 
 ## Stable modules
 
@@ -35,6 +36,10 @@
 - Gas Sponsor and configurable HTTP Paymaster abstractions
 - Live Sepolia gas estimation, VIP policy and automatic top-up planning
 - Worker-based GasFree planning, 30-second monitoring and metadata-only history
+- Five-step multichain Token creation and metadata wizard
+- Local logo, banner and whitepaper validation with Token preview
+- Worker-based liquidity initialization planning and deployment checklist
+- EVM, Solana and TRON user-wallet signature adapters
 - CSV import and export
 - Dry Run, Worker progress, pause, resume and failed-task retry
 - Docker Compose, PostgreSQL and Redis
@@ -49,7 +54,18 @@
 
 ## Development state
 
-Development is stopped after Phase 7. Launchpad, Bots and other future modules remain out of scope until the next approved phase.
+Development is stopped after Phase 8. Bots and other future modules remain out of scope until the next approved phase.
+
+## Phase 8 verification note
+
+- Launchpad implementation commit: `8c23402`.
+- API and web tests: 56/56 PASS.
+- Type check, production build and Docker build: PASS.
+- EVM Sepolia, Solana Devnet and TRON Nile Dry Run plans: PASS.
+- All plans return `broadcast=false` and `serverSigning=false`.
+- 1,000 Worker liquidity plans: approximately 0.542 ms.
+- Preview workflow and reload: PASS; browser console errors: 0.
+- No real Token deployment was signed or broadcast during verification.
 
 ## Phase 7 verification note
 
