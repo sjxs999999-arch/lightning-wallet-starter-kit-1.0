@@ -2,13 +2,13 @@
 
 ## Current stable release
 
-- Version: `stable-v1.7-launchpad`
+- Version: `stable-v1.8-project-center`
 - Branch: `stable/v1.0-deploy`
-- Launchpad implementation: `8c23402`
+- Project Center implementation: `2b34013`
 - Status: Approved
 - Build: PASS
 - Docker: PASS
-- Preview: `http://localhost:4173/launchpad`
+- Preview: `http://localhost:4173/projects`
 
 ## Completed milestones
 
@@ -20,6 +20,7 @@
 - `stable-v1.5-flash-loan`: existing FlashForge application integration
 - `stable-v1.6-gasfree`: secure Sepolia GasFree orchestration
 - `stable-v1.7-launchpad`: secure multichain Token Launchpad
+- `stable-v1.8-project-center`: read-only multichain Project Center
 
 ## Stable modules
 
@@ -40,6 +41,10 @@
 - Local logo, banner and whitepaper validation with Token preview
 - Worker-based liquidity initialization planning and deployment checklist
 - EVM, Solana and TRON user-wallet signature adapters
+- PostgreSQL-backed multichain project list and details
+- Public logo, banner, website, social and whitepaper metadata views
+- Read-only contract, deployment and version histories
+- Parameterized project search with chain and status filters
 - CSV import and export
 - Dry Run, Worker progress, pause, resume and failed-task retry
 - Docker Compose, PostgreSQL and Redis
@@ -54,7 +59,18 @@
 
 ## Development state
 
-Development is stopped after Phase 8. Bots and other future modules remain out of scope until the next approved phase.
+Development is stopped after Phase 9. Market Center, Bots, AI, Analytics and other future modules remain out of scope until the next approved phase.
+
+## Phase 9 verification note
+
+- Project Center implementation commit: `2b34013`.
+- API and web tests: 62/62 PASS.
+- Type check, production build and Docker build: PASS.
+- PostgreSQL project, version and deployment queries: PASS.
+- EVM, Solana and TRON list, details and combined filters: PASS.
+- Metadata sensitive-field filtering and unauthenticated-request rejection: PASS.
+- Preview reload: PASS; browser console errors: 0.
+- Temporary verification records were removed after testing.
 
 ## Phase 8 verification note
 

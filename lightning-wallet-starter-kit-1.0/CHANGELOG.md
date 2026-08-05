@@ -2,6 +2,38 @@
 
 All notable stable Lightning Wallet releases are recorded here.
 
+## stable-v1.8-project-center
+
+### Added
+
+- PostgreSQL-backed EVM, Solana and TRON project registry.
+- Project list, details, status and current version views.
+- Public logo, banner, website, social and whitepaper metadata presentation.
+- Contract information and deployment history.
+- Metadata version history.
+- Name and Symbol search with chain and status filters.
+- Project version and deployment-history database tables and indexes.
+
+### Security
+
+- Project Center exposes authenticated read-only GET endpoints only.
+- No project mutation, transaction signing or broadcasting routes were added.
+- Metadata responses use a strict public-field whitelist.
+- Private-key and mnemonic fields are not returned.
+- Search and filter queries are parameterized.
+- Non-HTTP(S) metadata links are removed.
+
+### Verification
+
+- Implementation commit: `2b34013`
+- API and web tests: 62/62 PASS
+- Type check, production build and Docker build: PASS
+- Three-chain project list and detail queries: PASS
+- Version, deployment and combined-filter queries: PASS
+- Preview reload and error-boundary validation: PASS
+- Browser console errors: 0
+- Preview: `http://localhost:4173/projects`
+
 ## stable-v1.7-launchpad
 
 ### Added
