@@ -1,0 +1,18 @@
+{
+  "name": "lightning-wallet-starter-kit",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "concurrently -n web,api -c cyan,magenta \"npm run dev -w @lightning/web\" \"npm run dev -w @lightning/api\"",
+    "build": "npm run build -w @lightning/core && npm run build -w @lightning/api && npm run build -w @lightning/web",
+    "start": "concurrently -n web,api \"npm run start -w @lightning/web\" \"npm run start -w @lightning/api\"",
+    "typecheck": "npm run build -w @lightning/core && npm run typecheck -w @lightning/api && npm run typecheck -w @lightning/web",
+    "test": "npm run test --workspaces --if-present",
+    "db:init": "psql \"$DATABASE_URL\" -f database/init.sql",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "devDependencies": { "concurrently": "^9.2.1" },
+  "engines": { "node": ">=20", "npm": ">=10" }
+}

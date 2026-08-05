@@ -1,0 +1,2 @@
+import React from 'react';
+export class ErrorBoundary extends React.Component<React.PropsWithChildren,{failed:boolean}> { state={failed:false}; static getDerivedStateFromError(){return{failed:true}} componentDidCatch(error:Error,info:React.ErrorInfo){console.error('UI boundary',error,info)} render(){return this.state.failed?<main className="fatal"><div><span className="logo-mark">ϟ</span><h1>页面暂时无法加载</h1><p>系统已保护其他功能不受影响。请刷新页面或返回控制台。</p><button onClick={()=>location.assign('/')}>返回控制台</button></div></main>:this.props.children} }
