@@ -8,6 +8,7 @@ import { chains } from '@lightning/core';
 import { operationId } from './adapters.js';
 import { config } from './config.js';
 import { fetchSwapCandidates } from './swap.js';
+import { flashLoanSessionClaims } from './flash-loan.js';
 
 const app = Fastify({ logger: true, requestIdHeader: 'x-request-id' });
 await app.register(helmet); await app.register(cors, { origin: config.CORS_ORIGIN.split(',') }); await app.register(jwt, { secret: config.JWT_SECRET });
@@ -21,6 +22,13 @@ app.post('/api/v1/transfers/batch', async req => { const b=z.object({mode:z.enum
 app.post('/api/v1/collections/plan', async req => { const b=z.object({chain:z.string(),walletIds:z.array(z.string()).min(1),destination:z.string(),asset:z.string()}).parse(req.body); return {data:{planId:operationId(),status:'estimated',walletCount:b.walletIds.length,estimatedGasUsd:Math.max(1,b.walletIds.length*.18)}}; });
 app.post('/api/v1/swap/quotes', async req => ({data:await fetchSwapCandidates(z.object({chain:z.enum(['EVM','SOL','TRON']),chainId:z.number().int().positive().optional(),sellToken:z.string().min(1),buyToken:z.string().min(1),sellAmount:z.string().regex(/^\d+$/),taker:z.string().min(20),slippageBps:z.number().int().min(1).max(500)}).parse(req.body))}));
 app.get('/api/v1/integrations/flash-loan', async () => ({data:{appUrl:config.FLASH_LOAN_URL,apiUrl:config.FLASH_LOAN_API_URL,mode:'external'}}));
+app.post('/api/v1/integrations/flash-loan/session', async (req, reply) => {
+  await req.jwtVerify();
+  let claims: ReturnType<typeof flashLoanSessionClaims>;
+  try { claims=flashLoanSessionClaims(req.body,req.user); }
+  catch { return reply.status(400).send({error:'INVALID_FLASH_LOAN_SESSION',message:'Only authenticated Sepolia dry-run sessions are allowed'}); }
+  return {data:{token:await reply.jwtSign(claims,{expiresIn:'5m'}),expiresIn:300}};
+});
 app.get('/api/v1/integrations/flash-loan/health', async (_req, reply) => {
   try {
     const target=new URL(config.FLASH_LOAN_URL);
