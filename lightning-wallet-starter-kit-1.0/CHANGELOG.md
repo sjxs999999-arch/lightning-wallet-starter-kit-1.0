@@ -2,6 +2,33 @@
 
 All notable stable Lightning Wallet releases are recorded here.
 
+## stable-v1.4-swap
+
+### Added
+
+- EVM 0x AllowanceHolder, Solana Jupiter and configurable TRON Swap adapters.
+- Aggregated quotes, best-route selection, minimum received amount and price impact.
+- Slippage controls, exact-amount approval and wallet-signature execution boundaries.
+- Dry Run, Worker quote requests, 30-second automatic refresh and local Swap history.
+- Quote timeout and empty-route failure handling.
+
+### Security
+
+- No private keys, mnemonics or server-side transaction signing.
+- Mainnet execution remains disabled unless explicitly enabled.
+- Wallet rejection results in no broadcast.
+- High slippage and excessive price impact are blocked.
+
+### Verification
+
+- Implementation commit: `343f617`
+- Final validation commit: `e7f1358`
+- Swap tests: 9/9 PASS
+- 1,000-route selection performance: approximately 1 ms
+- 100 live Jupiter quote requests: 52.94 ms average, 100/100 successful
+- Production build and Docker Preview: PASS
+- No real testnet Swap was broadcast because authorized funded test wallets were unavailable.
+
 ## stable-v1.3-asset-collector
 
 ### Added
