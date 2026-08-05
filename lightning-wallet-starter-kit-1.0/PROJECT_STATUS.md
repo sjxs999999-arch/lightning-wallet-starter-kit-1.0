@@ -2,13 +2,13 @@
 
 ## Current stable release
 
-- Version: `stable-v1.5-flash-loan`
+- Version: `stable-v1.6-gasfree`
 - Branch: `stable/v1.0-deploy`
-- Flash Loan integration: `64f622d`
+- GasFree implementation: `eaf7c92`
 - Status: Approved
 - Build: PASS
 - Docker: PASS
-- Preview: `http://localhost:4173/flash-loan`
+- Preview: `http://localhost:4173/gasfree`
 
 ## Completed milestones
 
@@ -18,6 +18,7 @@
 - `stable-v1.3-asset-collector`: client-side multichain asset scanning and collection
 - `stable-v1.4-swap`: secure EVM, Solana and TRON Swap aggregation
 - `stable-v1.5-flash-loan`: existing FlashForge application integration
+- `stable-v1.6-gasfree`: secure Sepolia GasFree orchestration
 
 ## Stable modules
 
@@ -31,6 +32,9 @@
 - FlashForge navigation, authenticated integration session and embedded application
 - Shared Sepolia, dark-theme and mandatory Dry Run integration context
 - Metadata-only Flash Loan history bridge and isolated error handling
+- Gas Sponsor and configurable HTTP Paymaster abstractions
+- Live Sepolia gas estimation, VIP policy and automatic top-up planning
+- Worker-based GasFree planning, 30-second monitoring and metadata-only history
 - CSV import and export
 - Dry Run, Worker progress, pause, resume and failed-task retry
 - Docker Compose, PostgreSQL and Redis
@@ -45,7 +49,18 @@
 
 ## Development state
 
-Development is stopped after Phase 6. GasFree, Launchpad, Bots and other future modules remain out of scope until the next approved phase.
+Development is stopped after Phase 7. Launchpad, Bots and other future modules remain out of scope until the next approved phase.
+
+## Phase 7 verification note
+
+- GasFree implementation commit: `eaf7c92`.
+- API and web tests: 48/48 PASS.
+- Type check, production build and Docker build: PASS.
+- Live Sepolia RPC gas estimation: PASS.
+- Unauthenticated requests and mainnet Sponsor requests are rejected.
+- 1,000 Worker planning operations: approximately 0.597 ms.
+- Preview reload, local history persistence and error isolation: PASS; browser console errors: 0.
+- No external Paymaster is configured in the stable environment, so the module remains `dry-run-only` until an approved provider URL is supplied.
 
 ## Phase 6 verification note
 

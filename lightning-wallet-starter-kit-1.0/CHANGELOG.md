@@ -2,6 +2,36 @@
 
 All notable stable Lightning Wallet releases are recorded here.
 
+## stable-v1.6-gasfree
+
+### Added
+
+- Gas Sponsor abstraction and configurable HTTP Paymaster adapter.
+- Authenticated Sepolia RPC gas estimation.
+- Automatic gas top-up planning with minimum-reserve controls.
+- Standard, Silver and Gold VIP gas policies.
+- Worker-based planning, 30-second gas monitoring and metadata-only local history.
+- Dry Run Sponsor eligibility validation and isolated provider failures.
+
+### Security
+
+- Private keys, mnemonics and signing material are never accepted or stored.
+- The API does not sign or broadcast transactions.
+- Real execution remains behind explicit user-wallet confirmation and signature.
+- Unauthenticated requests and mainnet Sponsor requests are rejected.
+- The stable environment remains Dry Run only until an approved Paymaster is configured.
+
+### Verification
+
+- Implementation commit: `eaf7c92`
+- API and web tests: 48/48 PASS
+- Type check, production build and Docker build: PASS
+- Live Sepolia RPC estimate: PASS
+- 1,000 Worker plans: approximately 0.597 ms
+- Preview reload and history persistence: PASS
+- Browser console errors: 0
+- Preview: `http://localhost:4173/gasfree`
+
 ## stable-v1.5-flash-loan
 
 ### Added
