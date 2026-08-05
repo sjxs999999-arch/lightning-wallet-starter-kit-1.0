@@ -1,0 +1,1 @@
+import{planLiquidity}from'./liquidity';import type{LaunchDraft}from'./types';self.onmessage=(event:MessageEvent<LaunchDraft>)=>{try{postMessage({type:'planned',plan:planLiquidity(event.data)})}catch(error){postMessage({type:'error',message:error instanceof Error?error.message:'流动性规划失败'})}};

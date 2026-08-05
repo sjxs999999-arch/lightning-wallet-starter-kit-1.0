@@ -1,0 +1,2 @@
+import type{MediaDescriptor}from'./types';
+const imageTypes=['image/png','image/jpeg','image/webp'];export function validateMedia(file:File,kind:'logo'|'banner'|'whitepaper'):MediaDescriptor{const max=kind==='logo'?2_000_000:kind==='banner'?5_000_000:10_000_000;if(kind==='whitepaper'?file.type!=='application/pdf':!imageTypes.includes(file.type))throw new Error(kind==='whitepaper'?'白皮书必须为 PDF':'图片必须为 PNG、JPEG 或 WebP');if(file.size>max)throw new Error(`${kind} 文件超过大小限制`);return{name:file.name.slice(0,120),type:file.type,size:file.size}}
