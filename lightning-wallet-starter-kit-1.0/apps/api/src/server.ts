@@ -9,6 +9,7 @@ import { operationId } from './adapters.js';
 import { config } from './config.js';
 import { fetchSwapCandidates } from './swap.js';
 import { flashLoanSessionClaims } from './flash-loan.js';
+import { evaluateVipPolicy, gasEstimateSchema, HttpPaymasterAdapter, rpcGasEstimate, sponsorRequestSchema } from './gasfree.js';
 
 const app = Fastify({ logger: true, requestIdHeader: 'x-request-id' });
 await app.register(helmet); await app.register(cors, { origin: config.CORS_ORIGIN.split(',') }); await app.register(jwt, { secret: config.JWT_SECRET });
@@ -38,6 +39,8 @@ app.get('/api/v1/integrations/flash-loan/health', async (_req, reply) => {
     return reply.status(503).send({error:'FLASH_LOAN_UNAVAILABLE',message:'闪电贷应用暂时不可用，请稍后重试',data:{status:'offline',appUrl:config.FLASH_LOAN_URL,network:'sepolia',mainnetEnabled:false}});
   }
 });
-app.get('/api/v1/gasfree/status', async () => ({data:{configured:Boolean(config.GASFREE_PROVIDER_URL),capabilities:['sponsor','gas-detection','gas-topup','monitoring'],status:config.GASFREE_PROVIDER_URL?'ready':'adapter-required'}}));
+app.get('/api/v1/gasfree/status', async () => ({data:{configured:Boolean(config.GASFREE_PROVIDER_URL),network:'sepolia',chainId:11155111,mainnetEnabled:false,capabilities:['sponsor','paymaster','gas-estimation','gas-topup','vip-policy','monitoring'],status:config.GASFREE_PROVIDER_URL?'ready':'dry-run-only'}}));
+app.post('/api/v1/gasfree/estimate',async(req,reply)=>{await req.jwtVerify();try{return{data:await rpcGasEstimate(config.GASFREE_EVM_RPC_URL,gasEstimateSchema.parse(req.body))}}catch(error){return reply.status(503).send({error:'GAS_ESTIMATE_UNAVAILABLE',message:error instanceof Error?error.message:'Gas estimate unavailable'})}});
+app.post('/api/v1/gasfree/sponsor',async(req,reply)=>{await req.jwtVerify();let input;try{input=sponsorRequestSchema.parse(req.body)}catch{return reply.status(400).send({error:'INVALID_SPONSOR_REQUEST',message:'Only Sepolia sponsor requests without sensitive material are accepted'})}const policy=evaluateVipPolicy(input);if(input.dryRun||!policy.eligible||!config.GASFREE_PROVIDER_URL)return{data:{...policy,dryRun:true,signatureRequired:true,broadcast:false}};try{return{data:{...await new HttpPaymasterAdapter(config.GASFREE_PROVIDER_URL).sponsor(input),dryRun:false,signatureRequired:true,broadcast:false}}}catch{return reply.status(502).send({error:'PAYMASTER_UNAVAILABLE',message:'Paymaster provider unavailable; no transaction was broadcast'})}});
 app.get('/api/v1/projects', async () => ({data:[{id:'prj_1',name:'Lightning Demo',chain:'ethereum',status:'draft',version:1}]}));
 app.listen({port:config.API_PORT,host:'0.0.0.0'}).catch(err=>{app.log.error(err);process.exit(1)});

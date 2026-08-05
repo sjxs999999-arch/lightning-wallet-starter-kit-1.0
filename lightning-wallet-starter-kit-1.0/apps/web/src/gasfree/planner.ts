@@ -1,0 +1,3 @@
+import type{GasEstimate,GasPlan,VipTier}from'./types';
+const limits:Record<VipTier,bigint>={standard:0n,silver:5_000_000_000_000_000n,gold:25_000_000_000_000_000n};
+export function planGas(estimate:GasEstimate,tier:VipTier,minReserveWei:string):GasPlan{const cost=BigInt(estimate.estimatedCostWei),reserve=BigInt(minReserveWei),balance=BigInt(estimate.balanceWei),required=cost+reserve,topUp=required>balance?required-balance:0n,sponsorEligible=limits[tier]>0n&&cost<=limits[tier];return{requiredWei:required.toString(),topUpWei:topUp.toString(),sponsorEligible,action:sponsorEligible?'sponsor':topUp>0n?'top-up':'none',risk:[...(!estimate.sufficient?['INSUFFICIENT_TRANSACTION_BALANCE']:[]),...(tier==='standard'?['VIP_SPONSOR_NOT_AVAILABLE']:[])]}}

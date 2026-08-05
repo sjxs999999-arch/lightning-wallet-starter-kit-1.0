@@ -1,0 +1,2 @@
+import{describe,expect,it}from'vitest';import{loadGasHistory,saveGasHistory}from'./history';
+describe('GasFree history',()=>{it('stores metadata only',()=>{let value:string|null=null;const storage={getItem:()=>value,setItem:(_k:string,v:string)=>{value=v}};saveGasHistory({at:new Date(0).toISOString(),address:'0x1',network:'Sepolia',estimatedCostWei:'1',topUpWei:'0',vipTier:'gold',dryRun:true,status:'eligible'},storage);expect(loadGasHistory(storage)).toHaveLength(1);expect(value).not.toMatch(/private|mnemonic/)})});

@@ -1,0 +1,3 @@
+import{describe,expect,it}from'vitest';import{planGas}from'./planner';
+const estimate={chainId:11155111,network:'Sepolia',balanceWei:'100',gasLimit:'21000',gasPriceWei:'1',estimatedCostWei:'50',sufficient:true};
+describe('GasFree planner',()=>{it('plans an automatic top-up',()=>expect(planGas({...estimate,balanceWei:'10'},'standard','20')).toMatchObject({topUpWei:'60',action:'top-up'}));it('applies VIP sponsor policy',()=>expect(planGas(estimate,'gold','20')).toMatchObject({sponsorEligible:true,action:'sponsor'}));it('never creates signing material',()=>expect(JSON.stringify(planGas(estimate,'silver','0'))).not.toMatch(/private|mnemonic|signature/i))});
