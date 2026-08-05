@@ -2,6 +2,39 @@
 
 All notable stable Lightning Wallet releases are recorded here.
 
+## stable-v2.0-lightning-wallet
+
+### Added
+
+- PostgreSQL-backed Automation Center with a persistent task scheduler.
+- Price, watchlist, portfolio, Gas and health-monitoring rules.
+- Telegram, Email and signed HTTPS Webhook channel management.
+- Notification Center with masked destinations and Dry Run delivery checks.
+- Thirty-second API, PostgreSQL and scheduler health monitoring.
+- Retry queue and complete job history with attempt tracking.
+- Automatic schema initialization for existing and new deployments.
+
+### Security
+
+- Automation is read-only by default and never invokes wallet signing or transaction broadcasting.
+- Private keys, mnemonics and seed phrases are rejected by strict request schemas.
+- New notification channels are disabled by default; real delivery requires an explicit server flag.
+- Telegram tokens, Email credentials and Webhook signing secrets are environment-only.
+- Webhooks require public HTTPS destinations and use HMAC-SHA256 signatures.
+- Notification destinations are masked in API responses and the UI.
+- All Automation endpoints require an authenticated operator session.
+
+### Verification
+
+- Implementation commit: `59a2395`
+- API and web tests: 70/70 PASS
+- Type check, production build and Docker build: PASS
+- Scheduler, Dry Run execution, health monitor and job history: PASS
+- Notification validation, masking and disabled-delivery boundary: PASS
+- Unauthenticated request rejection: PASS
+- Preview route and no-white-screen behavior: PASS
+- Preview: `http://localhost:4173/automation`
+
 ## stable-v1.9-market-center
 
 ### Added

@@ -2,13 +2,13 @@
 
 ## Current stable release
 
-- Version: `stable-v1.9-market-center`
+- Version: `stable-v2.0-lightning-wallet`
 - Branch: `stable/v1.0-deploy`
-- Market Center implementation: `88d0827`
+- Automation Center implementation: `59a2395`
 - Status: Approved
 - Build: PASS
 - Docker: PASS
-- Preview: `http://localhost:4173/markets`
+- Preview: `http://localhost:4173/automation`
 
 ## Completed milestones
 
@@ -22,6 +22,7 @@
 - `stable-v1.7-launchpad`: secure multichain Token Launchpad
 - `stable-v1.8-project-center`: read-only multichain Project Center
 - `stable-v1.9-market-center`: read-only multichain Market Center
+- `stable-v2.0-lightning-wallet`: stable integrated Lightning Wallet v2.0 release with Automation Center
 
 ## Stable modules
 
@@ -51,6 +52,10 @@
 - OHLCV price history and recent public transaction activity
 - Browser-local watchlists and price alerts
 - Optional read-only holder-data provider with explicit unavailable state
+- PostgreSQL-backed monitoring task scheduler and job history
+- Price, watchlist, portfolio, Gas and service-health alerts
+- Telegram, Email and signed HTTPS Webhook notification adapters
+- Notification Dry Run, health monitor and failed-job retry queue
 - CSV import and export
 - Dry Run, Worker progress, pause, resume and failed-task retry
 - Docker Compose, PostgreSQL and Redis
@@ -65,7 +70,19 @@
 
 ## Development state
 
-Development is stopped after Phase 10. Bots, AI, Analytics and other future modules remain out of scope until the next approved phase.
+Development is stopped after Phase 11 and the Lightning Wallet v2.0 stable release. AI, Analytics and other future modules remain out of scope until the next approved phase.
+
+## Phase 11 verification note
+
+- Automation Center implementation commit: `59a2395`.
+- API and web tests: 70/70 PASS.
+- Type check, production build and Docker build: PASS.
+- Scheduler rule creation, enable/disable and immediate Dry Run: PASS.
+- PostgreSQL job history, retry queue and 30-second health monitoring: PASS.
+- Telegram, Email and Webhook configuration validation and destination masking: PASS.
+- Unauthenticated access rejected with HTTP 401; real notification delivery disabled by default.
+- Preview navigation, tab switching and route reload: PASS; no blank page.
+- Temporary verification rules, jobs and notification channels were removed after testing.
 
 ## Phase 10 verification note
 
