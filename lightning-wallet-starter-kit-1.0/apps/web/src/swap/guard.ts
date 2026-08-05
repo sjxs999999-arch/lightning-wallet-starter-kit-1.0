@@ -1,0 +1,1 @@
+export function validateSlippage(value:number){if(!Number.isFinite(value)||value<=0)throw new Error('滑点必须大于 0');if(value>5)throw new Error('滑点超过 5% 安全上限');return Math.round(value*100)}export function validateImpact(value:number){if(!Number.isFinite(value)||value<0)throw new Error('报价价格影响无效');if(value>5)throw new Error('价格影响超过 5%，已阻止交易');return value}

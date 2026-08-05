@@ -1,0 +1,1 @@
+import{describe,expect,it}from'vitest';import{validateImpact,validateSlippage}from'./guard';describe('swap security guards',()=>{it('converts safe slippage to basis points',()=>expect(validateSlippage(.5)).toBe(50));it('blocks excessive slippage and price impact',()=>{expect(()=>validateSlippage(6)).toThrow('安全上限');expect(()=>validateImpact(5.1)).toThrow('阻止交易')})});

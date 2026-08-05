@@ -1,0 +1,1 @@
+import type{SwapHistory}from'./types';const key='lightning-swap-history-v1';export function loadSwapHistory():SwapHistory[]{try{return JSON.parse(localStorage.getItem(key)??'[]')}catch{return[]}}export function saveSwapHistory(item:SwapHistory){const items=[item,...loadSwapHistory()].slice(0,100);localStorage.setItem(key,JSON.stringify(items));return items}

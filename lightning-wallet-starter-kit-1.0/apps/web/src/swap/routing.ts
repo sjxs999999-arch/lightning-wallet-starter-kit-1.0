@@ -1,0 +1,1 @@
+import type{SwapCandidate}from'./types';export function bestRoute(candidates:SwapCandidate[]){if(!candidates.length)throw new Error('没有可用报价');return[...candidates].sort((a,b)=>{const left=BigInt(a.amountOut),right=BigInt(b.amountOut);return left===right?a.priceImpactPct-b.priceImpactPct:left>right?-1:1})[0]!}

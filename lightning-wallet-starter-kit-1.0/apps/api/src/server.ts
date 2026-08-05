@@ -5,9 +5,9 @@ import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import { z } from 'zod';
 import { chains } from '@lightning/core';
-import type { QuoteRequest } from '@lightning/core';
-import { operationId, swapQuote } from './adapters.js';
+import { operationId } from './adapters.js';
 import { config } from './config.js';
+import { fetchSwapCandidates } from './swap.js';
 
 const app = Fastify({ logger: true, requestIdHeader: 'x-request-id' });
 await app.register(helmet); await app.register(cors, { origin: config.CORS_ORIGIN.split(',') }); await app.register(jwt, { secret: config.JWT_SECRET });
@@ -19,7 +19,7 @@ app.get('/api/v1/dashboard', async () => ({ data: { portfolioUsd: 128450.32, wal
 app.post('/api/v1/wallets/batch-generate', async (_req, reply) => reply.status(410).send({error:'CLIENT_ONLY_OPERATION',message:'钱包密钥只能在本地客户端生成，不允许发送至 API'}));
 app.post('/api/v1/transfers/batch', async req => { const b=z.object({mode:z.enum(['one-to-many','many-to-one','many-to-many']),dryRun:z.boolean().default(true),transfers:z.array(z.object({chain:z.string(),fromWalletId:z.string(),to:z.string(),asset:z.string(),amount:z.string(),idempotencyKey:z.string()})).min(1).max(500)}).parse(req.body); return {data:{jobId:operationId(),status:b.dryRun?'validated':'queued',count:b.transfers.length,mode:b.mode}}; });
 app.post('/api/v1/collections/plan', async req => { const b=z.object({chain:z.string(),walletIds:z.array(z.string()).min(1),destination:z.string(),asset:z.string()}).parse(req.body); return {data:{planId:operationId(),status:'estimated',walletCount:b.walletIds.length,estimatedGasUsd:Math.max(1,b.walletIds.length*.18)}}; });
-app.post('/api/v1/swap/quote', async req => ({data:await swapQuote(z.object({chain:z.string(),sellToken:z.string(),buyToken:z.string(),amount:z.string(),slippageBps:z.number().int().min(1).max(500)}).parse(req.body) as QuoteRequest)}));
+app.post('/api/v1/swap/quotes', async req => ({data:await fetchSwapCandidates(z.object({chain:z.enum(['EVM','SOL','TRON']),chainId:z.number().int().positive().optional(),sellToken:z.string().min(1),buyToken:z.string().min(1),sellAmount:z.string().regex(/^\d+$/),taker:z.string().min(20),slippageBps:z.number().int().min(1).max(500)}).parse(req.body))}));
 app.get('/api/v1/integrations/flash-loan', async () => ({data:{appUrl:config.FLASH_LOAN_URL,apiUrl:config.FLASH_LOAN_API_URL,mode:'external'}}));
 app.get('/api/v1/integrations/flash-loan/health', async (_req, reply) => {
   try {

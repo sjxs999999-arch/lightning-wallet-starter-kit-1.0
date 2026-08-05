@@ -6,6 +6,6 @@ const schema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:4173'),
   DATABASE_URL: z.string().default('postgresql://lightning:lightning_dev@localhost:5432/lightning_wallet'), REDIS_URL: z.string().default('redis://localhost:6379'),
   FLASH_LOAN_URL: z.string().url().default('http://localhost:5174'), FLASH_LOAN_API_URL: z.string().url().default('http://localhost:3002/api'),
-  GASFREE_PROVIDER_URL: z.string().optional(), SWAP_PROVIDER_URL: z.string().optional()
+  GASFREE_PROVIDER_URL: z.string().optional(), ZEROX_API_KEY: z.string().optional(), TRON_SWAP_PROVIDER_URL: z.string().url().optional(), SWAP_PROVIDER_URLS: z.string().optional()
 });
 export const config = schema.parse(process.env);
