@@ -2,6 +2,34 @@
 
 All notable stable Lightning Wallet releases are recorded here.
 
+## stable-v1.5-flash-loan
+
+### Added
+
+- Navigation and embedded integration for the existing FlashForge application.
+- Five-minute authenticated integration sessions restricted to the operator role.
+- Shared public wallet address, Sepolia network, dark theme and mandatory Dry Run context.
+- Metadata-only Flash Loan history bridge with strict field sanitization.
+- Standalone launch fallback, service health status and isolated error handling.
+
+### Security
+
+- Flash Loan logic was not rewritten and server-side signing was not added.
+- Private keys, mnemonics, seed phrases and signing capability are never shared.
+- Unauthenticated, mainnet and non-Dry-Run integration sessions are rejected.
+- Cross-window messages require the configured origin and reject sensitive fields.
+- The embedded application is constrained by an iframe sandbox.
+
+### Verification
+
+- Integration commit: `64f622d`
+- API and web tests: 40/40 PASS
+- Type check, production build and Docker build: PASS
+- API health, authenticated session and browser refresh checks: PASS
+- Browser console errors: 0
+- Preview: `http://localhost:4173/flash-loan`
+- FlashForge currently operates in legacy compatibility mode because its existing build does not acknowledge the optional shared message protocol.
+
 ## stable-v1.4-swap
 
 ### Added

@@ -2,14 +2,13 @@
 
 ## Current stable release
 
-- Version: `stable-v1.4-swap`
+- Version: `stable-v1.5-flash-loan`
 - Branch: `stable/v1.0-deploy`
-- Swap implementation: `343f617`
-- Swap validation: `e7f1358`
+- Flash Loan integration: `64f622d`
 - Status: Approved
 - Build: PASS
 - Docker: PASS
-- Preview: `http://localhost:4173/swap`
+- Preview: `http://localhost:4173/flash-loan`
 
 ## Completed milestones
 
@@ -18,6 +17,7 @@
 - `stable-v1.2-batch-transfer`: client-side multichain batch transfers
 - `stable-v1.3-asset-collector`: client-side multichain asset scanning and collection
 - `stable-v1.4-swap`: secure EVM, Solana and TRON Swap aggregation
+- `stable-v1.5-flash-loan`: existing FlashForge application integration
 
 ## Stable modules
 
@@ -28,6 +28,9 @@
 - EVM, Solana and TRON Swap adapters with route aggregation
 - Slippage, price-impact, exact-allowance and Dry Run safeguards
 - Local Swap history and 30-second quote refresh
+- FlashForge navigation, authenticated integration session and embedded application
+- Shared Sepolia, dark-theme and mandatory Dry Run integration context
+- Metadata-only Flash Loan history bridge and isolated error handling
 - CSV import and export
 - Dry Run, Worker progress, pause, resume and failed-task retry
 - Docker Compose, PostgreSQL and Redis
@@ -42,7 +45,17 @@
 
 ## Development state
 
-Development is stopped after Phase 5. GasFree, Launchpad and other future modules remain out of scope until the next approved phase.
+Development is stopped after Phase 6. GasFree, Launchpad, Bots and other future modules remain out of scope until the next approved phase.
+
+## Phase 6 verification note
+
+- Flash Loan integration commit: `64f622d`.
+- API and web tests: 40/40 PASS.
+- Type check, production build and Docker build: PASS.
+- Authenticated Sepolia Dry Run session: PASS; unauthenticated and mainnet sessions rejected.
+- Preview reload and error isolation: PASS; browser console errors: 0.
+- The existing FlashForge teaching simulator loads successfully without changes to its loan logic.
+- The current external FlashForge version does not acknowledge the optional shared message protocol, so the UI reports `legacy` and does not claim transaction-history synchronization.
 
 ## Phase 5 verification note
 
