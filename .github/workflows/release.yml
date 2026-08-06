@@ -1,0 +1,18 @@
+name: Release
+on:
+  push:
+    tags: ["stable-v*"]
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    defaults: { run: { working-directory: lightning-wallet-starter-kit-1.0 } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: lightning-wallet-starter-kit-1.0/package-lock.json }
+      - run: npm ci && npm run typecheck && npm test && npm run build
+      - run: docker compose build api web
+      - run: tar --exclude=node_modules --exclude=dist -czf ../lightning-wallet-${GITHUB_REF_NAME}.tar.gz .
+      - uses: softprops/action-gh-release@v2
+        with: { files: "lightning-wallet-${{ github.ref_name }}.tar.gz", generate_release_notes: true }

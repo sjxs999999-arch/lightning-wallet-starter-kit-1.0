@@ -8,6 +8,7 @@ const schema = z.object({
   FLASH_LOAN_URL: z.string().url().default('http://localhost:5174'), FLASH_LOAN_API_URL: z.string().url().default('http://localhost:3002/api'),
   GASFREE_PROVIDER_URL: z.preprocess(value=>value===''?undefined:value,z.string().url().optional()), GASFREE_EVM_RPC_URL:z.string().url().default('https://ethereum-sepolia-rpc.publicnode.com'), ZEROX_API_KEY: z.string().optional(), TRON_SWAP_PROVIDER_URL: z.string().url().optional(), SWAP_PROVIDER_URLS: z.string().optional(),
   MARKET_DEXSCREENER_URL:z.string().url().default('https://api.dexscreener.com'), MARKET_GECKOTERMINAL_URL:z.string().url().default('https://api.geckoterminal.com/api/v2'), MARKET_HOLDER_PROVIDER_URL:z.preprocess(value=>value===''?undefined:value,z.string().url().optional()),
-  AUTOMATION_ENABLE_DELIVERY:z.string().default('false').transform(value=>value==='true'),TELEGRAM_BOT_TOKEN:z.string().optional(),EMAIL_PROVIDER_URL:z.preprocess(value=>value===''?undefined:value,z.string().url().optional()),EMAIL_API_KEY:z.string().optional(),WEBHOOK_SIGNING_SECRET:z.string().min(32).optional()
+  AUTOMATION_ENABLE_DELIVERY:z.string().default('false').transform(value=>value==='true'),TELEGRAM_BOT_TOKEN:z.string().optional(),EMAIL_PROVIDER_URL:z.preprocess(value=>value===''?undefined:value,z.string().url().optional()),EMAIL_API_KEY:z.string().optional(),WEBHOOK_SIGNING_SECRET:z.string().min(32).optional(),
+  EVM_RPC_FALLBACK_URLS:z.string().optional(),SOLANA_RPC_FALLBACK_URLS:z.string().optional(),TRON_RPC_FALLBACK_URLS:z.string().optional(),RATE_LIMIT_MAX:z.coerce.number().int().positive().default(120),CRASH_REPORT_DSN:z.preprocess(value=>value===''?undefined:value,z.string().url().optional())
 });
 export const config = schema.parse(process.env);

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import{fetchWithFallback}from'./resilience.js';
 
 export const gasEstimateSchema=z.object({
   from:z.string().regex(/^0x[0-9a-fA-F]{40}$/),
@@ -36,9 +37,10 @@ export class HttpPaymasterAdapter implements PaymasterAdapter {
   }
 }
 
-export async function rpcGasEstimate(rpcUrl:string,input:z.infer<typeof gasEstimateSchema>){
+export async function rpcGasEstimate(rpcUrl:string|string[],input:z.infer<typeof gasEstimateSchema>){
+  const endpoints=Array.isArray(rpcUrl)?rpcUrl:[rpcUrl];
   const rpc=async(method:string,params:unknown[])=>{
-    const response=await fetch(rpcUrl,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:AbortSignal.timeout(5000)});
+    const response=await fetchWithFallback(endpoints,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})},{timeoutMs:5000,retries:1});
     if(!response.ok)throw new Error(`RPC ${response.status}`);
     const body=z.object({result:z.string().optional(),error:z.object({message:z.string()}).optional()}).parse(await response.json());
     if(body.error||!body.result)throw new Error(body.error?.message||'RPC result missing'); return body.result;

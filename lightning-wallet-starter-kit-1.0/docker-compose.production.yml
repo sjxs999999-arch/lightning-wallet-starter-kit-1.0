@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment: { POSTGRES_USER: lightning, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?required}", POSTGRES_DB: lightning_wallet }
+    volumes: ["postgres_data:/var/lib/postgresql/data", "./database/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U lightning -d lightning_wallet"], interval: 10s, timeout: 5s, retries: 10 }
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server","--appendonly","yes","--requirepass","${REDIS_PASSWORD:?required}"]
+    volumes: ["redis_data:/data"]
+    healthcheck: { test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping"], interval: 10s, timeout: 5s, retries: 10 }
+    environment: { REDIS_PASSWORD: "${REDIS_PASSWORD:?required}" }
+  api:
+    build: { context: ., dockerfile: docker/api.Dockerfile }
+    restart: unless-stopped
+    env_file: "${PRODUCTION_ENV_FILE:-.env.production}"
+    environment:
+      DATABASE_URL: "postgresql://lightning:${POSTGRES_PASSWORD}@postgres:5432/lightning_wallet"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
+      NODE_ENV: production
+    depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_healthy } }
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args: { VITE_API_URL: "/api/v1", VITE_FLASH_LOAN_URL: "${FLASH_LOAN_PUBLIC_URL}", VITE_WALLETCONNECT_PROJECT_ID: "${VITE_WALLETCONNECT_PROJECT_ID}" }
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/var/cache/nginx", "/var/run"]
+    security_opt: ["no-new-privileges:true"]
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    environment: { DOMAIN: "${DOMAIN:?required}" }
+    volumes: ["./docker/nginx-production.conf:/etc/nginx/templates/default.conf.template:ro", "./certbot/conf:/etc/letsencrypt:ro", "./certbot/www:/var/www/certbot:ro"]
+    ports: ["80:80", "443:443"]
+    depends_on: [web, api]
+    security_opt: ["no-new-privileges:true"]
+volumes: { postgres_data: {}, redis_data: {} }
