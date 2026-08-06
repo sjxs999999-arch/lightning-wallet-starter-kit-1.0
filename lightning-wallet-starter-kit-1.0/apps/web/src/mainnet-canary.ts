@@ -6,7 +6,7 @@ const SOL_SENDER = '7qDtJXnNGWpccPmdVwMUKYuAGGE7uDiXgtVSYxw3eeDL';
 const SOL_RECIPIENT = '7kDsBgHa7EfY54bFmQgfhuz2RN7u91UNHkw6dvttaimq';
 const TRON_SENDER = 'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA';
 const TRON_RECIPIENT = 'TQxgyuuj43UrFhYtgkBGNTZtLY4iuvm7CL';
-const SUPPORTED_EVM_MAINNETS = new Set(['0x1', '0x38', '0x89', '0x2105', '0xa4b1']);
+const SUPPORTED_EVM_MAINNETS = new Set(['0x38']);
 const DAILY_EXECUTION_LIMIT = 10;
 
 const limits = { EVM: 0.0001, SOL: 0.001, TRON: 1 } as const;
@@ -23,7 +23,7 @@ export function assertMainnetCanaryTask(task: TransferTask, network: string) {
   }
 
   if (task.chain === 'EVM') {
-    if (!SUPPORTED_EVM_MAINNETS.has(network.toLowerCase())) throw new Error('当前 EVM 主网不在灰度范围');
+    if (!SUPPORTED_EVM_MAINNETS.has(network.toLowerCase())) throw new Error('当前灰度仅允许 BSC 主网，请将 OKX Wallet 切换到 Chain ID 56');
     if (!sameEvm(task.from, EVM_SENDER) || !sameEvm(task.to, EVM_RECIPIENT)) throw new Error('主网灰度仅允许已审批的 EVM 地址对');
   } else if (task.chain === 'SOL') {
     if (network !== 'mainnet-beta') throw new Error('Solana 主网灰度网络配置错误');

@@ -6,10 +6,11 @@ const task: TransferTask = { id:'1', row:2, chain:'EVM', assetKind:'native', fro
 
 describe('mainnet canary policy', () => {
   it('allows only the approved native transfer pair and supported network', () => {
-    expect(() => assertMainnetCanaryTask(task, '0x2105')).not.toThrow();
-    expect(() => assertMainnetCanaryTask({...task,to:'0x0000000000000000000000000000000000000001'}, '0x2105')).toThrow(/地址对/);
-    expect(() => assertMainnetCanaryTask({...task,token:'0x0000000000000000000000000000000000000001'}, '0x2105')).toThrow(/Token/);
-    expect(() => assertMainnetCanaryTask({...task,amount:'0.0002'}, '0x2105')).toThrow(/上限/);
+    expect(() => assertMainnetCanaryTask(task, '0x38')).not.toThrow();
+    expect(() => assertMainnetCanaryTask(task, '0x1')).toThrow(/BSC/);
+    expect(() => assertMainnetCanaryTask({...task,to:'0x0000000000000000000000000000000000000001'}, '0x38')).toThrow(/地址对/);
+    expect(() => assertMainnetCanaryTask({...task,token:'0x0000000000000000000000000000000000000001'}, '0x38')).toThrow(/Token/);
+    expect(() => assertMainnetCanaryTask({...task,amount:'0.0002'}, '0x38')).toThrow(/上限/);
   });
 
   it('enforces ten browser-side executions per UTC day', () => {
