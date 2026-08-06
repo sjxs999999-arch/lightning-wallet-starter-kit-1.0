@@ -6,8 +6,10 @@ const SOL_SENDER = '7qDtJXnNGWpccPmdVwMUKYuAGGE7uDiXgtVSYxw3eeDL';
 const SOL_RECIPIENT = '7kDsBgHa7EfY54bFmQgfhuz2RN7u91UNHkw6dvttaimq';
 const TRON_SENDER = 'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA';
 const TRON_RECIPIENT = 'TQxgyuuj43UrFhYtgkBGNTZtLY4iuvm7CL';
+const TRON_USDT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const SUPPORTED_EVM_MAINNETS = new Set(['0x38']);
 const DAILY_EXECUTION_LIMIT = 10;
+const TRON_USDT_LIMIT = 1;
 
 const limits = { EVM: 0.0001, SOL: 0.001, TRON: 1 } as const;
 
@@ -16,9 +18,14 @@ function sameEvm(left: string, right: string) {
 }
 
 export function assertMainnetCanaryTask(task: TransferTask, network: string) {
-  if (task.token) throw new Error('主网灰度首轮仅允许原生币，Token 仍保持关闭');
   const amount = Number(task.amount);
-  if (!Number.isFinite(amount) || amount <= 0 || amount > limits[task.chain]) {
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('主网灰度金额必须大于 0');
+
+  if (task.token) {
+    if (task.chain !== 'TRON' || task.token !== TRON_USDT) throw new Error('当前仅允许 TRON 官方 USDT 合约，其他 Token 仍保持关闭');
+    if (task.decimals !== 6) throw new Error('TRON USDT decimals 必须明确设置为 6');
+    if (amount > TRON_USDT_LIMIT) throw new Error(`超过 TRON USDT 主网灰度单笔上限：${TRON_USDT_LIMIT} USDT`);
+  } else if (amount > limits[task.chain]) {
     throw new Error(`超过主网灰度单笔上限：${limits[task.chain]}`);
   }
 
@@ -49,3 +56,4 @@ export function reserveMainnetCanaryExecution(storage: Pick<Storage, 'getItem'|'
 }
 
 export const mainnetCanaryLimits = limits;
+export const tronUsdtCanary = { contract: TRON_USDT, decimals: 6, limit: TRON_USDT_LIMIT } as const;
