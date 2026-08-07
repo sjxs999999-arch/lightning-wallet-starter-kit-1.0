@@ -4,6 +4,7 @@ const EVM_SENDER = '0x42bae181b2fbd5cc8f04762770942c719dd4d30a';
 const EVM_RECIPIENT = '0x1311897252bd6d7e5705443d9e7c32ee22e73067';
 const SOL_SENDER = '7qDtJXnNGWpccPmdVwMUKYuAGGE7uDiXgtVSYxw3eeDL';
 const SOL_RECIPIENT = '7kDsBgHa7EfY54bFmQgfhuz2RN7u91UNHkw6dvttaimq';
+const SOL_TOKEN_2022 = '4iUHJ2pBr29SNwRcAnj3smoCCCbhicYQ3zvn7eMRWNYB';
 const TRON_SENDER = 'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA';
 const TRON_RECIPIENT = 'TQxgyuuj43UrFhYtgkBGNTZtLY4iuvm7CL';
 const TRON_USDT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
@@ -41,6 +42,18 @@ export function assertMainnetCanaryTask(task: TransferTask, network: string) {
   }
 }
 
+export function assertSolanaTokenBatch(tasks:TransferTask[],network:string){
+  if(network!=='mainnet-beta')throw new Error('Solana 主网批量网络配置错误');
+  if(!tasks.length||tasks.length>1000)throw new Error('Solana Token 批量任务必须为 1–1000 笔');
+  const recipients=new Set<string>();let total=0;
+  for(const task of tasks){
+    const amount=Number(task.amount);if(task.chain!=='SOL'||task.from!==SOL_SENDER||task.token!==SOL_TOKEN_2022||task.decimals!==6)throw new Error('当前批量许可仅适用于已审批的 Solana Token-2022、发送地址和 decimals=6');
+    if(!Number.isFinite(amount)||amount<100||amount>1000)throw new Error(`第 ${task.row} 行金额必须在 100–1000`);
+    if(recipients.has(task.to))throw new Error(`第 ${task.row} 行接收地址重复`);recipients.add(task.to);total+=amount;
+  }
+  if(total>600_000)throw new Error('整批代币总量超过 600,000 安全上限');
+}
+
 export function reserveMainnetCanaryExecution(storage: Pick<Storage, 'getItem'|'setItem'> = localStorage, now = new Date()) {
   const day = now.toISOString().slice(0, 10);
   const key = 'lightning-mainnet-canary-v1';
@@ -57,3 +70,4 @@ export function reserveMainnetCanaryExecution(storage: Pick<Storage, 'getItem'|'
 
 export const mainnetCanaryLimits = limits;
 export const tronUsdtCanary = { contract: TRON_USDT, decimals: 6, limit: TRON_USDT_LIMIT } as const;
+export const solanaToken2022Canary={mint:SOL_TOKEN_2022,sender:SOL_SENDER,decimals:6,maxTotal:600_000}as const;

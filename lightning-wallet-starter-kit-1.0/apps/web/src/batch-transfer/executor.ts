@@ -6,7 +6,7 @@ import { api } from '../api';
 type EvmProvider={request(args:{method:string;params?:unknown[]}):Promise<unknown>};
 type TronSendResult=string|{txid?:string;txID?:string};
 type TronWeb={defaultAddress?:{base58?:string};fullNode?:{host?:string};trx:{sendTransaction(to:string,amount:number):Promise<{result:boolean;txid:string}>};contract():{at(address:string):Promise<{transfer(to:string,amount:string):{send():Promise<TronSendResult>}}>}};
-type SolanaProvider={publicKey?:{toString():string};connect?():Promise<{publicKey?:{toString():string}}>;signAndSendTransaction(tx:unknown):Promise<{signature:string}>};
+export type SolanaProvider={publicKey?:{toString():string};connect?():Promise<{publicKey?:{toString():string}}>;signAndSendTransaction(tx:unknown):Promise<{signature:string}>;signAllTransactions?(transactions:unknown[]):Promise<{serialize():Uint8Array}[]>};
 type OkxWallet=EvmProvider&{tronLink?:{request(args:{method:string;params?:unknown[]}):Promise<{code?:number}|unknown>;tronWeb?:TronWeb};solana?:SolanaProvider};
 declare global{interface Window{ethereum?:EvmProvider;okxwallet?:OkxWallet;tronWeb?:TronWeb;solana?:SolanaProvider}}
 export function getSolanaProvider(){return window.okxwallet?.solana??window.solana}
