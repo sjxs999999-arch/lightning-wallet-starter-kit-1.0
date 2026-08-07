@@ -18,6 +18,7 @@ import{createChannelSchema,createRule,dispatchNotification,ensureAutomationSchem
 import{createClient}from'redis';
 import{rpcEndpoints}from'./resilience.js';
 import{verifyOperatorCredentials}from'./auth.js';
+import{latestSolanaBlockhash}from'./solana-rpc.js';
 
 const app = Fastify({ logger: {level:config.NODE_ENV==='production'?'info':'debug',redact:['req.headers.authorization','req.headers.cookie','body.privateKey','body.mnemonic','body.seedPhrase','body.password','body.token']}, requestIdHeader: 'x-request-id' });
 const projectDb=new pg.Pool({connectionString:config.DATABASE_URL,max:5});
@@ -32,6 +33,7 @@ app.get('/health/ready',async(_req,reply)=>{try{await projectDb.query('SELECT 1'
 app.get('/metrics',async(_req,reply)=>{reply.type('text/plain; version=0.0.4');return`# HELP lightning_uptime_seconds Process uptime\n# TYPE lightning_uptime_seconds gauge\nlightning_uptime_seconds ${Math.floor((Date.now()-startedAt)/1000)}\n# HELP lightning_http_requests_total HTTP requests\n# TYPE lightning_http_requests_total counter\nlightning_http_requests_total ${requestCount}\n# HELP lightning_http_errors_total HTTP errors\n# TYPE lightning_http_errors_total counter\nlightning_http_errors_total ${errorCount}\n`});
 app.post('/api/v1/errors/report',async(req,reply)=>{await req.jwtVerify();const body=z.object({name:z.string().max(100),message:z.string().max(500),route:z.string().max(200),stack:z.string().max(4000).optional(),release:z.string().max(50).optional()}).strict().parse(req.body);app.log.error({crash:{...body,stack:body.stack?.replace(/(token|key|secret|mnemonic)[^\s]*/gi,'[redacted]')}},'client crash report');return reply.status(202).send({data:{accepted:true}})});
 app.get('/api/v1/chains', async () => ({ data: chains }));
+app.get('/api/v1/solana/latest-blockhash',async(req,reply)=>{await req.jwtVerify();try{return{data:await latestSolanaBlockhash(rpcEndpoints(config.SOLANA_RPC_URL,config.SOLANA_RPC_FALLBACK_URLS))}}catch{return reply.status(503).send({error:'SOLANA_RPC_UNAVAILABLE',message:'Solana RPC 暂时不可用，交易未签名、未广播'})}});
 app.post('/api/v1/auth/login', async (req, reply) => { const body=z.object({email:z.string().email(),password:z.string().min(12).max(256)}).strict().parse(req.body);if(!verifyOperatorCredentials(body.email,body.password,config.ADMIN_EMAIL,config.ADMIN_PASSWORD_HASH)){return reply.status(401).send({error:'INVALID_CREDENTIALS',message:'Invalid email or password'})} return { data: { token: await reply.jwtSign({sub:config.ADMIN_EMAIL,role:'operator'}, {expiresIn:'8h'}), user:{email:config.ADMIN_EMAIL,name:'运营管理员'} } }; });
 app.get('/api/v1/dashboard', async () => ({ data: { portfolioUsd: 128450.32, wallets: 128, operationsToday: 46, alerts: 2, networks: 7 } }));
 app.post('/api/v1/wallets/batch-generate', async (_req, reply) => reply.status(410).send({error:'CLIENT_ONLY_OPERATION',message:'钱包密钥只能在本地客户端生成，不允许发送至 API'}));
