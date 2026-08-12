@@ -11,11 +11,21 @@ export interface FlashLoanHistoryItem {
   createdAt: string;
   network: FlashLoanNetwork;
   walletAddress?: string;
-  status: 'dry-run' | 'submitted' | 'confirmed' | 'failed' | 'rejected';
+  status: 'dry-run' | 'failed' | 'rejected';
   transactionHash?: string;
   protocol?: string;
   asset?: string;
   amount?: string;
+}
+
+export interface FlashLoanAuditJob {
+  id: string;
+  kind: 'flash-loan';
+  status: string;
+  payload: {clientRecordId:string;externalCreatedAt:string;network:FlashLoanNetwork;walletAddress?:string;protocol?:string;asset?:string;amount?:string;dryRun:true};
+  result: {status:FlashLoanHistoryItem['status'];transactionHash:null;broadcast:false;serverSigning:false;serverBroadcast:false};
+  created_at: string;
+  updated_at: string;
 }
 
 export interface FlashLoanContext {

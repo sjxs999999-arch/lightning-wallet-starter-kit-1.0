@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@neondatabase/serverless": "1.0.2",
+    "@noble/curves": "2.2.0",
+    "bs58": "6.0.0",
+    "ethers": "6.17.0"
+  }
+}

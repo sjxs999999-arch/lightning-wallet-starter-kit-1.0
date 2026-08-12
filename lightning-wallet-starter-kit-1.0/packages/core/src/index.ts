@@ -1,5 +1,5 @@
 export type ChainFamily = 'evm' | 'solana' | 'tron';
-export type ChainId = 'ethereum' | 'bsc' | 'polygon' | 'base' | 'arbitrum' | 'solana' | 'tron';
+export type ChainId = 'ethereum' | 'bsc' | 'polygon' | 'base' | 'arbitrum' | 'optimism' | 'avalanche' | 'solana' | 'tron';
 export interface ChainConfig { id: ChainId; name: string; family: ChainFamily; nativeSymbol: string; enabled: boolean }
 export interface WalletAccount { id: string; address: string; chain: ChainId; label: string; createdAt: string }
 export interface TransferRequest { chain: ChainId; fromWalletId: string; to: string; asset: string; amount: string; idempotencyKey: string }
@@ -12,6 +12,8 @@ export const chains: ChainConfig[] = [
   { id: 'polygon', name: 'Polygon', family: 'evm', nativeSymbol: 'POL', enabled: true },
   { id: 'base', name: 'Base', family: 'evm', nativeSymbol: 'ETH', enabled: true },
   { id: 'arbitrum', name: 'Arbitrum', family: 'evm', nativeSymbol: 'ETH', enabled: true },
+  { id: 'optimism', name: 'Optimism', family: 'evm', nativeSymbol: 'ETH', enabled: true },
+  { id: 'avalanche', name: 'Avalanche C-Chain', family: 'evm', nativeSymbol: 'AVAX', enabled: true },
   { id: 'solana', name: 'Solana', family: 'solana', nativeSymbol: 'SOL', enabled: true },
   { id: 'tron', name: 'TRON', family: 'tron', nativeSymbol: 'TRX', enabled: true }
 ];

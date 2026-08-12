@@ -1,8 +1,5 @@
 import type { FlashLoanContext, FlashLoanHistoryItem } from './types';
 
-const HISTORY_KEY = 'lightning-flash-loan-history-v1';
-const MAX_HISTORY_ITEMS = 100;
-
 export function integrationOrigin(appUrl: string): string {
   return new URL(appUrl).origin;
 }
@@ -21,7 +18,7 @@ export function sanitizeHistory(input: unknown): FlashLoanHistoryItem | null {
   if (!input || typeof input !== 'object') return null;
   const item = input as Record<string, unknown>;
   const status = item.status;
-  if (!['dry-run', 'submitted', 'confirmed', 'failed', 'rejected'].includes(String(status))) return null;
+  if (!['dry-run', 'failed', 'rejected'].includes(String(status))) return null;
   const clean = (value: unknown, max = 160) => typeof value === 'string' ? value.slice(0, max) : undefined;
   return {
     id: clean(item.id, 80) || crypto.randomUUID(),
@@ -36,20 +33,9 @@ export function sanitizeHistory(input: unknown): FlashLoanHistoryItem | null {
   };
 }
 
-export function readHistory(storage: Pick<Storage, 'getItem'> = localStorage): FlashLoanHistoryItem[] {
-  try {
-    const value = JSON.parse(storage.getItem(HISTORY_KEY) || '[]');
-    return Array.isArray(value) ? value.map(sanitizeHistory).filter((item): item is FlashLoanHistoryItem => Boolean(item)).slice(0, MAX_HISTORY_ITEMS) : [];
-  } catch { return []; }
-}
-
-export function saveHistory(item: FlashLoanHistoryItem, storage: Pick<Storage, 'getItem' | 'setItem'> = localStorage): FlashLoanHistoryItem[] {
-  const next = [item, ...readHistory(storage).filter(existing => existing.id !== item.id)].slice(0, MAX_HISTORY_ITEMS);
-  storage.setItem(HISTORY_KEY, JSON.stringify(next));
-  return next;
-}
-
-export function containsSensitiveFields(value: unknown): boolean {
+export function containsSensitiveFields(value: unknown, seen = new WeakSet<object>(), depth = 0): boolean {
   if (!value || typeof value !== 'object') return false;
-  return Object.keys(value as object).some(key => /private|mnemonic|seed|secret/i.test(key));
+  if (depth > 8 || seen.has(value)) return depth > 8;
+  seen.add(value);
+  return Object.entries(value as Record<string, unknown>).some(([key, nested]) => /private|mnemonic|seed|secret/i.test(key) || containsSensitiveFields(nested, seen, depth + 1));
 }

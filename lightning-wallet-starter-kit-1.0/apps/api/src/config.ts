@@ -1,8 +1,10 @@
 import 'dotenv/config';
 import { z } from 'zod';
-const schema = z.object({
+const DEVELOPMENT_CHAT_SECRET='development-chat-secret-change-me-123456';
+export const configSchema = z.object({
   NODE_ENV: z.enum(['development','test','production']).default('development'), API_PORT: z.coerce.number().default(3001),
   JWT_SECRET: z.string().min(32).default('development-only-secret-change-me-123456'),
+  CHAT_JWT_SECRET: z.string().min(32).default(DEVELOPMENT_CHAT_SECRET),
   ADMIN_EMAIL: z.string().email().default('admin@lightning.local'),
   ADMIN_PASSWORD_HASH: z.string().default(''),
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:4173,http://localhost:32104'),
@@ -16,5 +18,8 @@ const schema = z.object({
   if(value.NODE_ENV==='production'&&!/^scrypt\$[a-f0-9]{32}\$[a-f0-9]{64}$/i.test(value.ADMIN_PASSWORD_HASH)){
     ctx.addIssue({code:'custom',path:['ADMIN_PASSWORD_HASH'],message:'A valid scrypt admin password hash is required in production'});
   }
+  if(value.NODE_ENV==='production'&&(value.CHAT_JWT_SECRET===DEVELOPMENT_CHAT_SECRET||value.CHAT_JWT_SECRET===value.JWT_SECRET)){
+    ctx.addIssue({code:'custom',path:['CHAT_JWT_SECRET'],message:'A distinct production chat signing secret is required'});
+  }
 });
-export const config = schema.parse(process.env);
+export const config = configSchema.parse(process.env);

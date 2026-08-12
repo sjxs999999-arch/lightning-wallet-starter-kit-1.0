@@ -17,6 +17,7 @@
     "@fastify/jwt": "^10.0.0",
     "@fastify/rate-limit": "^11.2.0",
     "@lightning/core": "*",
+    "bs58": "6.0.0",
     "dotenv": "^17.2.1",
     "fastify": "^5.5.0",
     "pg": "^8.16.3",

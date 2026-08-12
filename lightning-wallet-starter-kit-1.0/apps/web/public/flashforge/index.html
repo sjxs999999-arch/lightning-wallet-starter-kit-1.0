@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FlashForge Dry Run</title>
+  <style>:root{font-family:system-ui,sans-serif;color:#eaf2f7;background:#081522}*{box-sizing:border-box}body{margin:0;padding:24px;background:radial-gradient(circle at 50% 0,#153d49,#081522 55%)}main{max-width:760px;margin:auto}.tag{font-size:11px;letter-spacing:2px;color:#73f3ce}h1{margin:8px 0}p{color:#8ca4b3}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{background:#0d1d2b;border:1px solid #1f3a49;border-radius:12px;padding:18px}.row{display:flex;justify-content:space-between;border-bottom:1px solid #1a3141;padding:11px 0}.safe{color:#73f3ce}button{width:100%;margin-top:16px;border:0;border-radius:8px;padding:12px;background:#73f3ce;color:#07151b;font-weight:800;cursor:pointer}button:disabled{opacity:.45}@media(max-width:600px){.grid{grid-template-columns:1fr}}</style>
+</head>
+<body>
+  <main><div class="tag">BUILT-IN · SEPOLIA · NO BROADCAST</div><h1>FlashForge Dry Run</h1><p>仅验证闪电贷计划与公开参数；不接收私钥、不请求签名、不广播交易。</p><div class="grid"><section class="card"><div class="row"><span>统一会话</span><b id="session">等待</b></div><div class="row"><span>钱包</span><b id="wallet">未连接</b></div><div class="row"><span>网络</span><b>Sepolia</b></div></section><section class="card"><div class="row"><span>模式</span><b class="safe">Dry Run</b></div><div class="row"><span>服务端签名</span><b>关闭</b></div><div class="row"><span>广播</span><b>关闭</b></div></section></div><button id="run" disabled>执行安全模拟</button></main>
+  <script>let context=null;
+const parentOrigin=new URL(location.href).origin;
+const session=document.querySelector('#session'),wallet=document.querySelector('#wallet'),run=document.querySelector('#run');
+parent.postMessage({type:'FLASH_LOAN_READY'},parentOrigin);
+addEventListener('message',event=>{if(event.origin!==parentOrigin||event.source!==parent||event.data?.type!=='LIGHTNING_FLASH_LOAN_CONTEXT')return;context=event.data;session.textContent=context.sessionToken?'已授权':'等待';wallet.textContent=context.walletAddress?`${context.walletAddress.slice(0,6)}…${context.walletAddress.slice(-4)}`:'未连接';run.disabled=!context.sessionToken});
+run.addEventListener('click',()=>{if(!context)return;const item={id:crypto.randomUUID(),createdAt:new Date().toISOString(),status:'dry-run',transactionHash:'',protocol:'FlashForge',asset:'ETH',amount:'0'};parent.postMessage({type:'FLASH_LOAN_HISTORY',payload:item},parentOrigin);run.textContent='模拟通过 · 未签名 · 未广播'});</script>
+</body>
+</html>

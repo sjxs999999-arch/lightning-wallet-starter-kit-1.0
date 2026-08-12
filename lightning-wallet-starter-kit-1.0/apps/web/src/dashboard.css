@@ -1,0 +1,15 @@
+.dashboard-error { margin-bottom: 17px; }
+.dashboard-activity { min-height: 320px; }
+.activity-bars { height: 230px; display: grid; grid-template-columns: repeat(7, 1fr); align-items: end; gap: 14px; padding: 28px 8px 0; }
+.activity-bars > div { height: 100%; display: flex; flex-direction: column; justify-content: end; align-items: center; gap: 10px; }
+.activity-bars span { position: relative; width: min(54px, 72%); min-height: 4px; border-radius: 8px 8px 3px 3px; background: linear-gradient(180deg, #73f3ce, #1f765f); box-shadow: 0 0 22px #73f3ce20; }
+.activity-bars b { position: absolute; left: 50%; top: -20px; transform: translateX(-50%); color: #a7bdc8; font-size: 10px; }
+.activity-bars small { color: #6f8999; font-size: 9px; }
+.recent-projects > .panel-head a { color: #73f3ce; font-size: 10px; text-decoration: none; }
+.recent-projects > a { display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center; padding: 13px 0; border-bottom: 1px solid #172d3c; color: #dce9ef; text-decoration: none; }
+.recent-projects > a > span { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; color: #73f3ce; background: #173c3d; font-size: 11px; font-weight: 700; }
+.recent-projects > a > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.recent-projects small { color: #6f8999; font-size: 10px; }
+.recent-projects em { color: #73f3ce; font-size: 9px; font-style: normal; }
+.dashboard-empty { min-height: 210px; display: grid; place-items: center; text-align: center; color: #607b8b; font-size: 11px; }
+@media (max-width: 560px) { .activity-bars { gap: 6px; padding-inline: 0; } .activity-bars span { width: 70%; } }

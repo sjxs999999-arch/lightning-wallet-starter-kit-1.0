@@ -1,0 +1,15 @@
+.operator {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.route-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: #73f3ce;
+  background: #07111f;
+}
