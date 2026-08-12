@@ -11,10 +11,10 @@ beforeEach(() => { process.env.CHAT_JWT_SECRET = 'chat-test-secret-that-is-disti
 afterEach(() => { if (previousChatSecret === undefined) delete process.env.CHAT_JWT_SECRET; else process.env.CHAT_JWT_SECRET = previousChatSecret; if (previousOperatorSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = previousOperatorSecret; });
 
 describe('production serverless chat security', () => {
-  it('binds the challenge to wallet.br.com, purpose, address, and device key', () => {
+  it('binds the challenge to lightingwallet.com, purpose, address, and device key', () => {
     expect(__chatTest.challengeInput(identity)).toEqual(identity);
     const message = __chatTest.canonicalChallenge(identity, 'nonce', '2026-01-01T00:00:00.000Z', '2026-01-01T00:05:00.000Z');
-    expect(message).toContain('Domain: wallet.br.com');
+    expect(message).toContain('Domain: lightingwallet.com');
     expect(message).toContain('Purpose: chat-device-bind');
     expect(message).toContain(identity.address);
     expect(message).toContain(devicePublicKey);

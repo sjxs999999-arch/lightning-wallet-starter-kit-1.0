@@ -6,7 +6,7 @@ import { verifyMessage } from 'ethers';
 const CHAINS = new Set(['EVM', 'SOL']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
-const CHAT_ISSUER = 'wallet.br.com';
+const CHAT_ISSUER = 'lightingwallet.com';
 const CHAT_AUDIENCE = 'lightning-chat';
 
 const object = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -57,8 +57,8 @@ function challengeInput(input) {
 function canonicalChallenge(input, nonce, issuedAt, expiresAt) {
   return [
     'Lightning Wallet Chat Authentication',
-    'Domain: wallet.br.com',
-    'URI: https://wallet.br.com/chat',
+    'Domain: lightingwallet.com',
+    'URI: https://lightingwallet.com/chat',
     'Purpose: chat-device-bind',
     `Chain: ${input.chain}`,
     `Address: ${input.address}`,
@@ -88,7 +88,7 @@ function envelopeInput(input) {
 }
 
 function bearer(req) { return String(req.headers.authorization ?? '').replace(/^Bearer\s+/i, ''); }
-function queryUrl(req) { return new URL(req.url, 'https://wallet.br.com'); }
+function queryUrl(req) { return new URL(req.url, 'https://lightingwallet.com'); }
 function publicDevice(row) { return { deviceId: row.device_id, chain: row.chain, address: row.address, publicKey: row.public_key, updatedAt: new Date(row.updated_at).toISOString(), ...(row.revoked_at ? { revokedAt: new Date(row.revoked_at).toISOString() } : {}) }; }
 
 async function requireChat(req, res, send) {
@@ -112,7 +112,7 @@ export async function handleChatRequest({ req, res, route, method, bodyOf, query
     await Promise.all([query("DELETE FROM chat_challenges WHERE id IN (SELECT id FROM chat_challenges WHERE expires_at<now()-interval '1 day' LIMIT 500)"), query('DELETE FROM chat_envelopes WHERE id IN (SELECT id FROM chat_envelopes WHERE expires_at<now() LIMIT 500)')]);
     const challengeId = randomUUID(), nonce = randomBytes(24).toString('base64url'), issuedAt = new Date().toISOString(), expiresAt = new Date(Date.now() + 5 * 60_000).toISOString(), message = canonicalChallenge(input, nonce, issuedAt, expiresAt);
     await query('INSERT INTO chat_challenges(id,chain,address,device_id,device_public_key,message,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7)', [challengeId, input.chain, input.address, input.deviceId, input.devicePublicKey, message, expiresAt]);
-    return send(res, 200, { data: { challengeId, challenge: { domain: CHAT_ISSUER, uri: 'https://wallet.br.com/chat', purpose: 'chat-device-bind', nonce, issuedAt, expiresAt }, message, expiresAt } });
+    return send(res, 200, { data: { challengeId, challenge: { domain: CHAT_ISSUER, uri: 'https://lightingwallet.com/chat', purpose: 'chat-device-bind', nonce, issuedAt, expiresAt }, message, expiresAt } });
   }
 
   if (method === 'POST' && route === 'chat/auth/verify') {

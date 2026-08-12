@@ -75,11 +75,11 @@ describe('wallet signature verification', () => {
 });
 
 describe('wallet-bound chat authentication', () => {
-  it('creates a five-minute, wallet.br.com-bound challenge without transaction authority', async () => {
+  it('creates a five-minute, lightingwallet.com-bound challenge without transaction authority', async () => {
     const query = vi.fn().mockResolvedValue({ rows: [] });
     const result = await createChatChallenge({ query }, { chain: 'EVM', address: EVM_ADDRESS.toUpperCase().replace('0X', '0x'), deviceId: DEVICE_ONE, devicePublicKey: PUBLIC_KEY }, NOW);
-    expect(result.message).toContain('Domain: wallet.br.com');
-    expect(result.message).toContain('URI: https://wallet.br.com');
+    expect(result.message).toContain('Domain: lightingwallet.com');
+    expect(result.message).toContain('URI: https://lightingwallet.com/chat');
     expect(result.message).toContain(`Device ID: ${DEVICE_ONE}`);
     expect(result.message).toContain('This request cannot authorize a transaction');
     expect(Date.parse(result.expiresAt) - NOW.getTime()).toBe(300_000);

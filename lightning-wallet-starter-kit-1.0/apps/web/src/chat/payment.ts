@@ -6,7 +6,7 @@ import type { PaymentRequest } from './types';
 type UnsignedPaymentRequest = Omit<PaymentRequest, 'signature'>;
 
 export function canonicalPaymentRequest(payment: UnsignedPaymentRequest) {
-  return JSON.stringify({ domain: 'wallet.br.com', purpose: 'chat-payment-request', requestId: payment.requestId, chain: payment.chain, chainId: payment.chainId, asset: payment.asset, amount: payment.amount, payTo: payment.payTo, requesterAddress: payment.requesterAddress, expiresAt: payment.expiresAt, memo: payment.memo, status: payment.status });
+  return JSON.stringify({ domain: 'lightingwallet.com', purpose: 'chat-payment-request', requestId: payment.requestId, chain: payment.chain, chainId: payment.chainId, asset: payment.asset, amount: payment.amount, payTo: payment.payTo, requesterAddress: payment.requesterAddress, expiresAt: payment.expiresAt, memo: payment.memo, status: payment.status });
 }
 
 export function amountValid(value: string) { return value.length <= 80 && /^\d+(?:\.\d{1,18})?$/.test(value) && Number.isFinite(Number(value)) && Number(value) > 0; }

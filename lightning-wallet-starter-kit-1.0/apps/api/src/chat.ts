@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from
 import { z } from 'zod';
 import { decodeBase58, decodeStrictBase64, verifyEvmPersonalSignature, verifySolanaSignature } from './chat-crypto.js';
 
-export const CHAT_DOMAIN = 'wallet.br.com';
+export const CHAT_DOMAIN = 'lightingwallet.com';
 export const CHAT_CHALLENGE_TTL_MS = 5 * 60 * 1000;
 export const CHAT_TOKEN_TTL_SECONDS = 60 * 60;
 export const CHAT_MESSAGE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -76,7 +76,7 @@ function challengeMessage(input: ChatIdentity, nonce: string, issuedAt: string, 
   return [
     'Lightning Wallet Chat Authentication',
     `Domain: ${CHAT_DOMAIN}`,
-    `URI: https://${CHAT_DOMAIN}`,
+    `URI: https://${CHAT_DOMAIN}/chat`,
     `Chain: ${input.chain}`,
     `Address: ${input.address}`,
     `Device ID: ${input.deviceId}`,
@@ -207,11 +207,11 @@ export function chatAuthorizationClaims(authorization: string | undefined, secre
 }
 
 export function isChatApiRoute(requestUrl: string) {
-  return new URL(requestUrl, 'https://wallet.br.com').pathname.startsWith('/api/v1/chat/');
+  return new URL(requestUrl, 'https://lightingwallet.com').pathname.startsWith('/api/v1/chat/');
 }
 
 export function isPublicChatRoute(method: string | undefined, requestUrl: string) {
-  const path = new URL(requestUrl, 'https://wallet.br.com').pathname.replace(/\/+$/, '');
+  const path = new URL(requestUrl, 'https://lightingwallet.com').pathname.replace(/\/+$/, '');
   return (method ?? 'GET').toUpperCase() === 'POST' && (path === '/api/v1/chat/auth/challenge' || path === '/api/v1/chat/auth/verify');
 }
 

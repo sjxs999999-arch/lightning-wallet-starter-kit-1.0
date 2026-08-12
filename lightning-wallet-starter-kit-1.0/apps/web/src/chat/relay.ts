@@ -117,7 +117,7 @@ export async function validateServerChallenge(value: RelayAuthChallenge, request
   const expiry = Date.parse(value.expiresAt);
   if (!value.challengeId || !value.message || !Number.isFinite(expiry) || expiry <= now.getTime() || expiry > now.getTime() + 5 * 60_000 + 30_000) return false;
   const message = value.message, addressBound = request.chain === 'EVM' ? message.toLowerCase().includes(request.address.toLowerCase()) : message.includes(request.address);
-  if (!message.includes('wallet.br.com') || !message.includes(request.chain) || !addressBound || !message.includes(request.deviceId)) return false;
+  if (!message.includes('lightingwallet.com') || !message.includes(request.chain) || !addressBound || !message.includes(request.deviceId)) return false;
   const keyBytes = Uint8Array.from(atob(request.devicePublicKey), character => character.charCodeAt(0));
   const keyHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', keyBytes))].map(byte => byte.toString(16).padStart(2, '0')).join('');
   const keyBound = message.includes(request.devicePublicKey) || message.toLowerCase().includes(keyHash);
