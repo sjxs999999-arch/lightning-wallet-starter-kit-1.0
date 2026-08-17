@@ -1,0 +1,13 @@
+{
+  "name": "闪电钱包 · Lightning Wallet",
+  "short_name": "闪电钱包",
+  "description": "非托管多链钱包客户端",
+  "start_url": "/wallets",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "icons": [
+    { "src": "/lightning-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
