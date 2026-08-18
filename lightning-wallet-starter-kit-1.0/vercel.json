@@ -34,7 +34,7 @@
   "rewrites": [
     {
       "source": "/api/v1/:path*",
-      "destination": "/api/v1/dispatch?path=:path*"
+      "destination": "https://api.lightingwallet.com/api/v1/:path*"
     },
     {
       "source": "/((?!api/|assets/|favicon\\.ico$|robots\\.txt$).*)",
