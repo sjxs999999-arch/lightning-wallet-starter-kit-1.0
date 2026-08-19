@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { adminLoginUrl, resolveAppSurface } from './app-surface';
 
-const clientPaths = new Set(['/', '/wallets', '/chat', '/batch-wallets', '/vanity']);
+const clientPaths = new Set(['/', '/home', '/wallets', '/chat', '/batch-wallets', '/vanity']);
 
 describe('application surface routing', () => {
   it('keeps the public domain client-only', () => {
@@ -16,6 +16,7 @@ describe('application surface routing', () => {
 
   it('supports local development and explicit preview overrides', () => {
     expect(resolveAppSurface({ hostname: 'localhost', pathname: '/wallets', clientPaths })).toBe('client');
+    expect(resolveAppSurface({ hostname: 'localhost', pathname: '/home', clientPaths })).toBe('client');
     expect(resolveAppSurface({ hostname: 'localhost', pathname: '/dashboard', clientPaths })).toBe('admin');
     expect(resolveAppSurface({ hostname: 'preview.vercel.app', pathname: '/dashboard', clientPaths, override: 'admin' })).toBe('admin');
   });
