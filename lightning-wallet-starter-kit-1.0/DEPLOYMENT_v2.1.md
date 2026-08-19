@@ -35,7 +35,7 @@ Verify `https://<domain>/health`, `/health/ready` and `/metrics`. The readiness 
 
 ## Backup and restore
 
-Run `BACKUP_DIR=/secure/backups ./scripts/backup.sh` from cron and copy encrypted backups off-host. Retention defaults to 14 days.
+Run `BACKUP_DIR=/secure/backups ./scripts/backup.sh` from cron and copy encrypted backups off-host. The script explicitly uses `.env.production`, the `lightning-wallet` Compose project, private file permissions, an atomic temporary file, and verifies that every dump is non-empty. Retention defaults to 14 days.
 
 Restore only during a maintenance window:
 
