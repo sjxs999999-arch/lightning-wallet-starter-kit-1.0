@@ -47,6 +47,10 @@ describe('operator credentials', () => {
     expect(apiRouteRequiresAuth('GET', '/api/v1/solana/latest-blockhash')).toBe(false);
     expect(apiRouteRequiresAuth('POST', '/api/v1/swap/quotes')).toBe(false);
     expect(apiRouteRequiresAuth('POST', '/api/v1/swap/solana-transaction')).toBe(false);
+    expect(apiRouteRequiresAuth('POST', '/api/v1/integrations/flash-loan/session')).toBe(false);
+    expect(apiRouteRequiresAuth('POST', '/api/v1/gasfree/estimate')).toBe(false);
+    expect(apiRouteRequiresAuth('POST', '/api/v1/gasfree/sponsor')).toBe(false);
+    expect(apiRouteRequiresAuth('POST', '/api/v1/launchpad/validate')).toBe(false);
     expect(apiRouteRequiresAuth('POST', '/api/v1/solana/send-signed-batch')).toBe(true);
     expect(apiRouteRequiresAuth('GET', '/api/v1/integrations/flash-loan')).toBe(true);
     expect(apiRouteRequiresAuth('POST', '/api/v1/future-sensitive-route')).toBe(true);

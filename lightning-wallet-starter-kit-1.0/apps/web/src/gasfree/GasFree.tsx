@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Fuel, RefreshCw, ShieldCheck } from 'lucide-react';
 import { formatEther, ZeroHash } from 'ethers';
-import { api } from '../api';
+import { ApiError, api } from '../api';
 import type { GasAuditJob, GasEstimate, GasPlan, VipTier } from './types';
 
 const empty = '0x0000000000000000000000000000000000000000';
@@ -23,15 +23,13 @@ export function GasFree() {
   const workerRef = useRef<Worker | null>(null);
 
   const loadHistory = useCallback(async () => {
-    const response = await api<{ data: GasAuditJob[] }>('/gasfree/history?limit=20');
-    setHistory(response.data);
+    try { const response = await api<{ data: GasAuditJob[] }>('/gasfree/history?limit=20'); setHistory(response.data); }
+    catch (cause) { if (!(cause instanceof ApiError&&cause.status===401)) throw cause; }
   }, []);
 
   useEffect(() => {
-    void Promise.all([
-      api<{ data: { status: string } }>('/gasfree/status').then(response => setStatus(response.data.status)),
-      loadHistory(),
-    ]).catch(() => setStatus('不可用'));
+    void api<{ data: { status: string } }>('/gasfree/status').then(response => setStatus(response.data.status)).catch(() => setStatus('不可用'));
+    void loadHistory().catch(()=>undefined);
     return () => workerRef.current?.terminate();
   }, [loadHistory]);
 
@@ -42,7 +40,7 @@ export function GasFree() {
     try {
       const response = await api<{ data: GasEstimate }>('/gasfree/estimate', {
         method: 'POST',
-        body: JSON.stringify({ from, to, value, data: '0x', audit: record }),
+        body: JSON.stringify({ from, to, value, data: '0x', audit: false }),
       });
       setEstimate(response.data);
       const worker = new Worker(new URL('./planner.worker.ts', import.meta.url), { type: 'module' });
@@ -57,8 +55,7 @@ export function GasFree() {
         }
         setPlan(event.data.plan);
         if (record) {
-          setNotice(`Gas 估算已写入服务器审计历史${response.data.jobId ? ` · ${shortId(response.data.jobId)}` : ''}`);
-          void loadHistory().catch(() => setError('估算成功，但历史刷新失败，请点击刷新历史'));
+          setNotice('Gas 估算完成；客户端仅处理公开交易参数。');
         }
       };
       worker.onerror = () => {
@@ -90,8 +87,7 @@ export function GasFree() {
         method: 'POST',
         body: JSON.stringify({ chainId: 11155111, sender: from, userOperationHash: ZeroHash, estimatedCostWei: estimate.estimatedCostWei, vipTier: tier, dryRun: true }),
       });
-      setNotice(`${response.data.eligible ? '赞助策略验证通过' : `赞助策略未通过：${response.data.reason}`}；Dry Run 已写入审计历史${response.data.jobId ? ` · ${shortId(response.data.jobId)}` : ''}`);
-      await loadHistory();
+      setNotice(`${response.data.eligible ? '赞助策略验证通过' : `赞助策略未通过：${response.data.reason}`}；本次为无签名、无广播 Dry Run。`);
     } catch {
       setError('Paymaster 策略验证失败；没有提交 UserOperation、没有签名或广播');
     } finally {
@@ -150,8 +146,4 @@ function historyLabel(item: GasAuditJob) {
 function formatDate(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
-}
-
-function shortId(value: string) {
-  return value.length > 12 ? `${value.slice(0, 8)}…` : value;
 }

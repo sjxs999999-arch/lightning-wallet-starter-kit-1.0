@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { flashLoanHistorySchema, flashLoanSessionClaims, listFlashLoanHistory, recordFlashLoanHistory } from './flash-loan.js';
+import { flashLoanHistorySchema, flashLoanSessionClaims, listFlashLoanHistory, publicFlashLoanSessionClaims, recordFlashLoanHistory } from './flash-loan.js';
 
 const history = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -13,6 +13,7 @@ const history = {
 };
 
 describe('flash loan integration session and audit history', () => {
+  it('issues a public session with dry-run-only wallet scope',()=>expect(publicFlashLoanSessionClaims({network:'sepolia',dryRun:true})).toMatchObject({sub:'public-wallet-client',scope:['wallet:public'],dryRun:true}));
   it('creates only a five-minute-compatible Sepolia metadata scope', () => {
     expect(flashLoanSessionClaims({ network: 'sepolia', dryRun: true }, { sub: 'operator@example.com', role: 'operator' })).toEqual({ sub: 'operator@example.com', aud: 'flash-loan', scope: ['wallet:public', 'history:metadata'], network: 'sepolia', dryRun: true });
   });

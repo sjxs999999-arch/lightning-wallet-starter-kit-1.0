@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, RefreshCw, ShieldCheck, WalletCards, Zap } from 'lucide-react';
-import { api } from '../api';
+import { ApiError, api } from '../api';
 import { buildExternalUrl, containsSensitiveFields, integrationOrigin, sanitizeHistory } from './bridge';
 import type { FlashLoanAuditJob, FlashLoanContext, FlashLoanSettings } from './types';
 
@@ -30,8 +30,8 @@ export function FlashLoanIntegration() {
   }, [context, sessionToken]);
 
   const loadHistory = useCallback(async () => {
-    const response = await api<{data:FlashLoanAuditJob[]}>('/integrations/flash-loan/history?limit=20');
-    setHistory(response.data);
+    try { const response = await api<{data:FlashLoanAuditJob[]}>('/integrations/flash-loan/history?limit=20'); setHistory(response.data); }
+    catch (cause) { if (!(cause instanceof ApiError && cause.status===401)) throw cause; }
   }, []);
 
   const recordHistory = useCallback(async (input: unknown) => {
@@ -42,7 +42,7 @@ export function FlashLoanIntegration() {
       const response = await api<{data:{id:string}}>('/integrations/flash-loan/history', {method:'POST', body:JSON.stringify({...item,walletAddress:item.walletAddress??walletAddress})});
       setNotice(`FlashForge Dry Run 已写入服务器审计历史 · ${shortId(response.data.id)}`);
       await loadHistory();
-    } catch { setError('Dry Run 已完成，但审计记录未保存；没有签名或广播交易。'); }
+    } catch (cause) { if (cause instanceof ApiError&&cause.status===401)setNotice('FlashForge Dry Run 已完成；客户端未上传交易密钥或敏感数据。');else setError('Dry Run 已完成，但审计记录未保存；没有签名或广播交易。'); }
   }, [loadHistory, walletAddress]);
 
   const check = useCallback(async () => {

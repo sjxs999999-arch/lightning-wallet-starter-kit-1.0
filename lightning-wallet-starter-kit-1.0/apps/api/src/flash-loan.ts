@@ -25,6 +25,11 @@ export function flashLoanSessionClaims(body: unknown, user: unknown) {
   return { sub: identity.sub, aud: 'flash-loan', scope: ['wallet:public', 'history:metadata'], network: request.network, dryRun: true as const };
 }
 
+export function publicFlashLoanSessionClaims(body: unknown) {
+  const request = requestSchema.parse(body);
+  return { sub: 'public-wallet-client', aud: 'flash-loan', scope: ['wallet:public'], network: request.network, dryRun: true as const };
+}
+
 export async function recordFlashLoanHistory(db: Queryable, input: unknown) {
   const value = flashLoanHistorySchema.parse(input);
   const id = randomUUID();
