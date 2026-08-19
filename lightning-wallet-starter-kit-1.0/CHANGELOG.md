@@ -28,6 +28,9 @@ All notable stable Lightning Wallet releases are recorded here.
 - Added AES-256-GCM protection for stored TOTP secrets and one-time recovery codes stored only as server-keyed hashes.
 - Added Authenticator recovery-code login and verified disable flow while preserving the legacy environment-managed TOTP mode.
 - Added an 8 GiB deployment disk preflight so Docker releases fail before image construction instead of exhausting the host mid-build.
+- Replaced the Launchpad message-only deployment intent with client-built testnet deployments for Sepolia ERC-20, Solana Devnet SPL Token and TRON Nile TRC-20.
+- Added pre-signature fee/cap disclosure, strict network guards, explicit wallet confirmation, on-chain confirmation, explorer links and browser-local public deployment history.
+- Added reproducible OpenZeppelin artifacts from pinned upstream and checksum-verified official TRON Solidity compilers; fixed-supply deployment revokes Solana mint authority and exposes no later mint function on EVM/TRON.
 
 ### Production verification
 
@@ -39,7 +42,7 @@ All notable stable Lightning Wallet releases are recorded here.
 ### Release gate
 
 - This section is not a stable release and has no final mainnet approval.
-- EVM Swap, TRON Swap, sponsored GasFree, real Flash Loan logic and real Launchpad deployments remain provider/adapter gated.
+- EVM Swap, TRON Swap, sponsored GasFree and real Flash Loan logic remain provider/adapter gated; Launchpad still requires real-wallet testnet acceptance.
 - Mainnet transaction flags remain disabled until chain-specific acceptance is complete.
 
 ## stable-v2.0-lightning-wallet

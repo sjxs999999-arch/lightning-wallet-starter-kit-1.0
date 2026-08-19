@@ -1,0 +1,72 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Keypair } from '@solana/web3.js';
+import { createFixedSupplySolanaInstructions, deployLaunchToken, prepareLaunchDeployment } from './deployer';
+import type { LaunchDraft } from './types';
+import tronArtifact from './artifacts/LightningFixedSupplyToken.tron.json';
+import evmArtifact from './artifacts/LightningFixedSupplyToken.json';
+
+const draft: LaunchDraft = {
+  chain: 'TRON', network: 'tron-nile', name: 'Lightning Test', symbol: 'LTEST', decimals: 6, supply: '1000000',
+  description: 'testnet token', website: '', socials: { x: '', telegram: '', discord: '' }, media: {},
+  liquidity: { tokenAmount: '1000', quoteSymbol: 'USDT', quoteAmount: '100', lockDays: 30 }, dryRun: false,
+};
+
+describe('client-side Launchpad deployment', () => {
+  beforeEach(() => { Object.defineProperty(globalThis, 'window', { value: {}, writable: true, configurable: true }); });
+
+  it('rejects any broadcast while Dry Run is enabled', async () => {
+    await expect(deployLaunchToken({ ...draft, dryRun: true })).rejects.toThrow('Dry Run');
+    await expect(prepareLaunchDeployment({ ...draft, dryRun: true })).rejects.toThrow('Dry Run');
+  });
+
+  it('ships fixed-supply artifacts without a public mint function', () => {
+    for (const candidate of [evmArtifact, tronArtifact]) {
+      expect(candidate.abi.filter(item => item.type === 'function').map(item => 'name' in item ? item.name : '')).not.toContain('mint');
+    }
+  });
+
+  it('rejects a TRON mainnet provider before building or signing', async () => {
+    const createSmartContract = vi.fn();
+    Object.assign(window, { tronWeb: { defaultAddress: { base58: 'TMainnet' }, fullNode: { host: 'https://api.trongrid.io' }, transactionBuilder: { createSmartContract } } });
+    await expect(prepareLaunchDeployment(draft)).rejects.toThrow('Nile');
+    expect(createSmartContract).not.toHaveBeenCalled();
+  });
+
+  it('constructs SPL Token initialize, ATA, mint and irreversible mint-authority revoke instructions', () => {
+    const owner = Keypair.generate().publicKey;
+    const mint = Keypair.generate().publicKey;
+    const token = createFixedSupplySolanaInstructions(owner, mint, 123_456_789n, 9);
+    expect(token.instructions).toHaveLength(4);
+    expect([...token.instructions[0]!.data]).toEqual([20, 9, ...owner.toBytes(), 0]);
+    expect(token.instructions[1]!.data).toHaveLength(0);
+    expect([...token.instructions[2]!.data]).toEqual([7, 21, 205, 91, 7, 0, 0, 0, 0]);
+    expect([...token.instructions[3]!.data]).toEqual([6, 0, 0]);
+  });
+
+  it('builds, wallet-signs, broadcasts and confirms a Nile deployment without a server signer', async () => {
+    expect(tronArtifact).toMatchObject({ compilerFamily: 'tronprotocol/solidity', compilerSha256: '59bb6f8f91793045bce0cc5bb9c6547a7425612b1ac66fd666f9ef1dad75ea46' });
+    const createSmartContract = vi.fn().mockResolvedValue({ txID: 'unsigned-id', contract_address: '41abc' });
+    const sign = vi.fn().mockResolvedValue({ txID: 'signed-id' });
+    const sendRawTransaction = vi.fn().mockResolvedValue({ result: true, txid: 'nile-tx-id' });
+    const getTransactionInfo = vi.fn().mockResolvedValue({ id: 'nile-tx-id', receipt: { result: 'SUCCESS' }, contract_address: '41abc' });
+    Object.assign(window, { tronWeb: {
+      defaultAddress: { base58: 'TNileWallet' }, fullNode: { host: 'https://nile.trongrid.io' }, address: { fromHex: () => 'TNileContract' },
+      transactionBuilder: { createSmartContract }, trx: { sign, sendRawTransaction, getTransactionInfo },
+    } });
+    const estimate = await prepareLaunchDeployment(draft);
+    expect(estimate).toMatchObject({ network: 'TRON Nile', walletAddress: 'TNileWallet', exact: false });
+    const result = await deployLaunchToken(draft);
+    expect(result).toMatchObject({ contractAddress: 'TNileContract', transactionHash: 'nile-tx-id', status: 'confirmed' });
+    expect(createSmartContract).toHaveBeenCalledWith(expect.objectContaining({ feeLimit: 150_000_000, parameters: ['Lightning Test', 'LTEST', 6, '1000000000000'] }), 'TNileWallet');
+    expect(sign).toHaveBeenCalledTimes(1);
+    expect(sendRawTransaction).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(createSmartContract.mock.calls)).not.toMatch(/privateKey|mnemonic|seedPhrase/i);
+  });
+
+  it('refuses EVM deployment when the wallet remains outside Sepolia', async () => {
+    const request = vi.fn(async ({ method }: { method: string }) => method === 'eth_requestAccounts' ? ['0x0000000000000000000000000000000000000001'] : '0x1');
+    Object.assign(window, { ethereum: { request } });
+    await expect(prepareLaunchDeployment({ ...draft, chain: 'EVM', network: 'sepolia', decimals: 18 })).rejects.toThrow('Sepolia');
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({ method: 'wallet_switchEthereumChain' }));
+  });
+});

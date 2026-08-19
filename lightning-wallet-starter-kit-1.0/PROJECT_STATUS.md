@@ -6,7 +6,8 @@ Updated: 2026-08-20
 
 - Development branch: `codex/final-production`
 - Latest deployed candidate commit: `184c5ea`
-- Candidate application version: `2.19.0`
+- Current code candidate version: `2.20.0` (deployment pending verification)
+- Latest deployed application version: `2.19.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -27,7 +28,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 | Swap | Provider availability endpoint, quote Worker, route/impact guards, exact approval and wallet signing | Solana/Jupiter available; EVM needs `ZEROX_API_KEY`; TRON needs `TRON_SWAP_PROVIDER_URL`; mainnet flag off |
 | Flash Loan | Isolated Sepolia session bridge and built-in no-broadcast compatibility shell | Referenced historical repository contains no completed Flash Loan app; real integration is blocked on an actual provider application/API |
 | GasFree | Sepolia estimates, VIP policy, Paymaster abstraction, top-up planning and user-wallet signing | Sponsored transactions blocked until an approved Paymaster URL is configured |
-| Launchpad | Validated multichain token plans, local media validation, liquidity planning and wallet signature request | Real EVM/Solana/TRON deployment adapters are not approved |
+| Launchpad | OpenZeppelin fixed-supply ERC-20/TRC-20 and SPL Token deployment transactions are built client-side for Sepolia, Solana Devnet and TRON Nile | Automated adapter tests pass; real wallet testnet acceptance is still required before approval |
 | Project Center | Public read and local validated project plans; authenticated operator metadata management | Ready for metadata use |
 | Market Center | Read-only price, liquidity, FDV, volume, history, trades, watchlists and alerts | Holder data needs an optional provider |
 | Automation Center | Scheduler, monitoring, Dry Run notifications, retries and job history | Real delivery remains off until provider credentials and explicit enablement |
@@ -50,7 +51,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 ## Current verification baseline
 
 - API tests: 113 passing across 26 files.
-- Web tests: 192 passing across 55 files.
+- Web tests: 199 passing across 56 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
 - CI for candidate `184c5ea` (run `32289956843`): passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.

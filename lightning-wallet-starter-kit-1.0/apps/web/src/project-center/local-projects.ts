@@ -1,5 +1,6 @@
 import type { LaunchDraft } from '../launchpad/types';
 import type { ProjectDetails, ProjectStatus } from './types';
+import type { ProjectDeployment } from './types';
 
 const KEY = 'lightning-client-projects-v1';
 const MAX_ITEMS = 100;
@@ -39,6 +40,15 @@ export function saveLocalProject(project: ProjectDetails, storage: Pick<Storage,
   const projects = [project, ...loadLocalProjects(storage).filter(item => item.id !== project.id)].slice(0, MAX_ITEMS);
   storage.setItem(KEY, JSON.stringify(projects));
   return projects;
+}
+
+export function recordLocalDeployment(projectId: string, deployment: ProjectDeployment, storage: Pick<Storage, 'getItem' | 'setItem'> = localStorage): ProjectDetails | null {
+  const projects = loadLocalProjects(storage);
+  const target = projects.find(project => project.id === projectId);
+  if (!target) return null;
+  const updated: ProjectDetails = { ...target, status: 'deployed', deployments: [deployment, ...target.deployments.filter(item => item.id !== deployment.id)] };
+  storage.setItem(KEY, JSON.stringify(projects.map(project => project.id === projectId ? updated : project).slice(0, MAX_ITEMS)));
+  return updated;
 }
 
 export function filterLocalProjects(projects: ProjectDetails[], search: string, chain: string, status: string): ProjectDetails[] {

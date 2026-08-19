@@ -19,7 +19,7 @@ This branch is a production candidate, not a final mainnet approval. The truthfu
 - Solana Swap can use Jupiter. EVM Swap requires a server-side 0x API key. TRON Swap requires an approved provider adapter.
 - Flash Loan currently provides only a safe Sepolia compatibility shell because the referenced historical repository does not contain a completed application.
 - GasFree requires an approved Paymaster provider for sponsored transactions.
-- Launchpad validates plans and requests user-wallet signatures, but real chain deployment adapters are not yet approved.
+- Launchpad builds fixed-supply testnet deployments in the client for Sepolia, Solana Devnet and TRON Nile; real-wallet acceptance is still required before approval.
 - Mainnet execution flags remain off by default.
 
 ## Local development
@@ -34,6 +34,8 @@ npm test
 npm run build
 npm run dev
 ```
+
+Launchpad contract artifacts are reproducible with `npm run contract:compile` (upstream Solidity for Sepolia) and `npm run contract:compile:tron` (checksum-pinned official TRON Solidity compiler). Artifacts are committed; production web builds never compile contracts at runtime.
 
 - Web: `http://localhost:5173`
 - API: `http://localhost:3001`

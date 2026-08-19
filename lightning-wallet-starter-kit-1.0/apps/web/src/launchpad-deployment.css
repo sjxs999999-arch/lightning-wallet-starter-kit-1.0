@@ -1,0 +1,24 @@
+.launch-estimate,
+.launch-result {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid #2e715f;
+  border-radius: 8px;
+  background: #0b201e;
+  word-break: break-all;
+}
+
+.launch-estimate small { color: #8da99f; }
+.launch-estimate button {
+  padding: 10px;
+  border: 0;
+  border-radius: 7px;
+  background: #73f3ce;
+  color: #07151b;
+  font-weight: 800;
+  cursor: pointer;
+}
+.launch-result > svg { color: #73f3ce; }
+.launch-result > a { display: flex; align-items: center; gap: 6px; color: #73f3ce; }

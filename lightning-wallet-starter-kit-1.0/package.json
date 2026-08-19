@@ -14,16 +14,20 @@
     "start": "concurrently -n web,api \"npm run start -w @lightning/web\" \"npm run start -w @lightning/api\"",
     "typecheck": "npm run build -w @lightning/core && npm run typecheck -w @lightning/api && npm run typecheck -w @lightning/web",
     "test": "npm run test --workspaces --if-present",
+    "contract:compile": "node scripts/compile-launchpad-contract.mjs",
+    "contract:compile:tron": "node scripts/compile-tron-launchpad-contract.mjs",
     "db:init": "psql \"$DATABASE_URL\" -f database/init.sql",
     "clean": "npm run clean --workspaces --if-present"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@openzeppelin/contracts": "5.4.0",
     "concurrently": "^9.2.1",
     "eslint": "^10.8.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.4",
     "globals": "^17.11.0",
+    "solc": "0.8.30",
     "typescript-eslint": "^8.67.0"
   },
   "dependencies": {
