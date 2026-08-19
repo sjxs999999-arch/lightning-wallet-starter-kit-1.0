@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CircleDollarSign, History, RefreshCw, ShieldCheck } from 'lucide-react';
 import { ApiError, api } from '../api';
+import { sumDecimals } from '../amount';
 import { executeTask } from '../batch-transfer/executor';
 import type { TransferChain, TransferTask } from '../batch-transfer/types';
 import { exportCollectorResults, parseCollectorCsv } from './csv';
@@ -198,8 +199,7 @@ export function AssetCollector() {
 
   const eligible = tasks.filter(task => Number(task.collectAmount) > 0);
   const assetGroups = new Set(eligible.map(task => `${task.symbol}:${task.token ?? 'native'}`));
-  const total = eligible.reduce((sum, task) => sum + Number(task.collectAmount), 0);
-  const totalLabel = assetGroups.size === 1 && eligible[0] ? `${total.toFixed(8).replace(/0+$/, '').replace(/\.$/, '')} ${eligible[0].symbol}` : `${assetGroups.size} 种资产`;
+  const totalLabel = assetGroups.size === 1 && eligible[0] ? `${sumDecimals(eligible.map(task => task.collectAmount))} ${eligible[0].symbol}` : `${assetGroups.size} 种资产`;
 
   return <>
     <div className="page-head"><div><p className="eyebrow">CLIENT-SIDE ASSET COLLECTOR</p><h1>资产归集</h1><p>客户端扫描与钱包签名；服务器只保存公开计划和脱敏审计结果。</p></div></div>

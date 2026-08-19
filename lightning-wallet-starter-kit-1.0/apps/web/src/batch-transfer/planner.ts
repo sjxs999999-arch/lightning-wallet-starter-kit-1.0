@@ -1,4 +1,5 @@
 import { keccak256, toUtf8Bytes } from 'ethers';
+import { sumDecimals } from '../amount';
 import type { TransferChain, TransferInput, TransferMode, TransferPlan, TransferTask } from './types';
 import { validateAddress, validateAmount } from './validation';
 const fee={EVM:{native:.00021,token:.00065},SOL:{native:.000005,token:.00001},TRON:{native:1.1,token:15}} as const;
@@ -12,6 +13,6 @@ export function buildPlan(chain:TransferChain,mode:TransferMode,inputs:TransferI
     const assetKind=input.token?'token':'native';return{...input,id:keccak256(toUtf8Bytes(key)),row:index+2,chain,assetKind,status:'pending',attempts:0,estimatedFee:String(fee[chain][assetKind])};
   });
   const fromCount=new Set(tasks.map(x=>x.from)).size,toCount=new Set(tasks.map(x=>x.to)).size;if(mode==='one-to-many'&&fromCount!==1)throw new Error('一对多模式必须只有一个发送地址');if(mode==='many-to-one'&&toCount!==1)throw new Error('多对一模式必须只有一个接收地址');
-  const total=(key:'amount'|'estimatedFee')=>tasks.reduce((sum,item)=>sum+Number(item[key]),0).toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
+  const total=(key:'amount'|'estimatedFee')=>sumDecimals(tasks.map(item=>item[key]));
   return{chain,mode,dryRun,tasks,totalAmount:total('amount'),totalEstimatedFee:total('estimatedFee'),risks:[dryRun?'模拟模式不会广播交易':'真实执行将逐笔请求钱包确认与签名',...(tasks.length>=100?['大批量任务请确认余额和 RPC 限流']:[])]};
 }
