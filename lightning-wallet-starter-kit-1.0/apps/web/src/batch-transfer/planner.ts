@@ -1,13 +1,16 @@
 import { keccak256, toUtf8Bytes } from 'ethers';
 import { sumDecimals } from '../amount';
 import type { TransferChain, TransferInput, TransferMode, TransferPlan, TransferTask } from './types';
-import { validateAddress, validateAmount } from './validation';
+import { validateAddress, validateAmountScale } from './validation';
 const fee={EVM:{native:.00021,token:.00065},SOL:{native:.000005,token:.00001},TRON:{native:1.1,token:15}} as const;
+const nativeDecimals={EVM:18,SOL:9,TRON:6} as const;
 export function buildPlan(chain:TransferChain,mode:TransferMode,inputs:TransferInput[],dryRun=true):TransferPlan{
   if(!inputs.length||inputs.length>1000)throw new Error('任务数量必须为 1–1000');
   const seen=new Set<string>(); const tasks:TransferTask[]=inputs.map((input,index)=>{
     if(!validateAddress(chain,input.from)||!validateAddress(chain,input.to))throw new Error(`第 ${index+2} 行地址格式或校验和无效`);
-    if(!validateAmount(input.amount))throw new Error(`第 ${index+2} 行金额无效`);
+    const decimals=input.token?input.decimals:nativeDecimals[chain];
+    if(input.token&&decimals===undefined)throw new Error(`第 ${index+2} 行 Token 必须填写 decimals`);
+    if(!validateAmountScale(input.amount,decimals!))throw new Error(`第 ${index+2} 行金额无效或超过 ${decimals} 位小数`);
     if(input.token&&!validateAddress(chain,input.token))throw new Error(`第 ${index+2} 行 Token 地址无效`);
     const key=`${chain}|${input.from}|${input.to}|${input.token??'native'}|${input.amount}`.toLowerCase();if(seen.has(key))throw new Error(`第 ${index+2} 行是重复交易`);seen.add(key);
     const assetKind=input.token?'token':'native';return{...input,id:keccak256(toUtf8Bytes(key)),row:index+2,chain,assetKind,status:'pending',attempts:0,estimatedFee:String(fee[chain][assetKind])};

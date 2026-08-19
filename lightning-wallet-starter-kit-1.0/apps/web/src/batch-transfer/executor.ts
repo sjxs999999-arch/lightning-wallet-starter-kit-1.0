@@ -67,7 +67,9 @@ async function executeTron(task: TransferTask): Promise<ExecutionResult> {
     hash = typeof result === 'string' ? result : result.txid ?? result.txID ?? '';
     if (!hash) throw new Error('TRON 钱包未返回交易 ID');
   } else {
-    const result = await tronWeb.trx.sendTransaction(task.to, Number(parseUnits(task.amount, 6)));
+    const sun = parseUnits(task.amount, 6);
+    if (sun > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('TRX 数量超过钱包 Provider 的安全整数范围，未请求签名');
+    const result = await tronWeb.trx.sendTransaction(task.to, Number(sun));
     if (!result.result) throw new Error('TRON 钱包拒绝交易');
     hash = result.txid;
   }
