@@ -57,7 +57,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Production build: passing.
 - CI for candidate `184c5ea` (run `32289956843`): passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
 - CI for code candidate `c670e31` (run `32294819780`): passing, including secret scan, type check, 113 API tests, 199 Web tests, production build, dependency gate and both Docker images.
-- Local verification for compatibility fix `111d279`: passing, including credential scan, type check, 117 API tests, 199 Web tests and production build; Production CI is pending.
+- Compatibility fix `111d279` passed Production CI run `32295696283`, including credential scan, type check, 117 API tests, 199 Web tests, production build, production dependency gate and both Docker images.
 - Vercel Production deployment `GqCQM29fxZ6xVDVPzse3qe6U4yzB` for candidate `184c5ea`: ready; client and operator domains load with zero browser-console errors and enforce hostname route isolation.
 - GCE API release `184c5ea`: healthy with zero container restarts; PostgreSQL and Redis readiness pass, the `operator_mfa` schema and server-side encryption key are configured, and no second factor is activated before operator enrollment.
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
