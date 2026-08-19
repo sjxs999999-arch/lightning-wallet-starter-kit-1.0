@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, History, RefreshCw, ShieldCheck } from 'lucide-react';
 import { parseUnits } from 'ethers';
-import { api } from '../api';
+import { ApiError, api } from '../api';
 import { executeSwap } from './executor';
 import { validateImpact, validateSlippage } from './guard';
 import { swapPlanPayload, swapResultPayload } from './persistence';
 import type { SwapJob } from './persistence';
+import { loadLocalSwapHistory, saveLocalSwapJob } from './local-history';
 import { bestRoute } from './routing';
 import type { SwapCandidate, SwapChain, SwapRequest } from './types';
 
 export function Swap() {
   const [chain, setChain] = useState<SwapChain>('EVM');
+  const [evmChainId, setEvmChainId] = useState(1);
   const [taker, setTaker] = useState('');
   const [sellToken, setSellToken] = useState('');
   const [buyToken, setBuyToken] = useState('');
@@ -33,7 +35,7 @@ export function Swap() {
 
   const loadHistory = useCallback(async () => {
     try { setHistory((await api<{ data: SwapJob[] }>('/swap/history?limit=20')).data); setRecordError(''); }
-    catch { setRecordError('兑换历史暂时无法读取，当前报价未受影响'); }
+    catch (cause) { if (cause instanceof ApiError && cause.status === 401) { setHistory(loadLocalSwapHistory()); setRecordError(''); } else setRecordError('兑换历史暂时无法读取，当前报价未受影响'); }
   }, []);
 
   useEffect(() => {
@@ -43,13 +45,13 @@ export function Swap() {
 
   const request = useCallback((): SwapRequest => ({
     chain,
-    ...(chain === 'EVM' ? { chainId: 1 } : {}),
+    ...(chain === 'EVM' ? { chainId: evmChainId } : {}),
     sellToken,
     buyToken,
     sellAmount: parseUnits(amount, decimals).toString(),
     taker,
     slippageBps: validateSlippage(slippage),
-  }), [amount, buyToken, chain, decimals, sellToken, slippage, taker]);
+  }), [amount, buyToken, chain, decimals, evmChainId, sellToken, slippage, taker]);
 
   function invalidateQuotes() {
     setQuotes([]);
@@ -97,6 +99,15 @@ export function Swap() {
   }, [autoRefresh, quote, selected]);
 
   async function updateResult(id: string, status: 'simulated' | 'submitted' | 'failed', value?: string) {
+    if (id.startsWith('local-')) {
+      const current = loadLocalSwapHistory().find(item => item.id === id);
+      if (current) {
+        const result = swapResultPayload(status, value);
+        const next: SwapJob = { ...current, status: status === 'failed' ? 'failed' : 'completed', result: { ...current.result, ...result, dryRun: current.payload.dryRun, serverSigning: false, serverBroadcast: false, ...(status === 'submitted' ? { broadcastByWallet: true } : {}) }, updated_at: new Date().toISOString() };
+        setHistory(saveLocalSwapJob(next));
+      }
+      return;
+    }
     try {
       await api(`/swap/jobs/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(swapResultPayload(status, value)) });
       await loadHistory();
@@ -118,10 +129,12 @@ export function Swap() {
     let job: SwapJob;
     try {
       job = (await api<{ data: SwapJob }>('/swap/jobs', { method: 'POST', body: JSON.stringify(swapPlanPayload(input, selected, dryRun, crypto.randomUUID())) })).data;
-    } catch {
-      setExecuting(false);
-      setRecordError('兑换审计记录保存失败；为避免无记录执行，钱包签名已锁定');
-      return;
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) {
+        const now = new Date().toISOString(), payload = swapPlanPayload(input, selected, dryRun, crypto.randomUUID());
+        job = { id: `local-${crypto.randomUUID()}`, kind: 'swap', status: 'validated', payload: { chain: payload.chain, dryRun: payload.dryRun, taker: payload.taker, sellToken: payload.sellToken, buyToken: payload.buyToken, sellAmount: payload.sellAmount, slippageBps: payload.slippageBps, provider: payload.provider, amountIn: payload.amountIn, amountOut: payload.amountOut, minReceived: payload.minReceived, priceImpactPct: payload.priceImpactPct, route: payload.route }, result: { status: 'validated', dryRun, serverSigning: false, serverBroadcast: false }, created_at: now, updated_at: now };
+        setHistory(saveLocalSwapJob(job));
+      } else { setExecuting(false); setRecordError('兑换审计记录保存失败；为避免无记录执行，钱包签名已锁定'); return; }
     }
 
     try {
@@ -140,6 +153,7 @@ export function Swap() {
       <section className="panel form-panel">
         <h3>Swap 参数</h3>
         <label>网络<select value={chain} disabled={busy || executing} onChange={event => { setChain(event.target.value as SwapChain); invalidateQuotes(); }}><option>EVM</option><option value="SOL">Solana</option><option>TRON</option></select></label>
+        {chain==='EVM'&&<label>EVM 主网<select value={evmChainId} disabled={busy||executing} onChange={event=>{setEvmChainId(Number(event.target.value));invalidateQuotes()}}><option value={1}>Ethereum</option><option value={56}>BSC</option><option value={137}>Polygon</option><option value={8453}>Base</option><option value={42161}>Arbitrum</option></select></label>}
         <label>钱包地址<input value={taker} disabled={busy || executing} onChange={event => { setTaker(event.target.value.trim()); invalidateQuotes(); }} placeholder="公开签名地址"/></label>
         <label>卖出 Token<input value={sellToken} disabled={busy || executing} onChange={event => { setSellToken(event.target.value.trim()); invalidateQuotes(); }} placeholder="Token 地址或 Mint"/></label>
         <label>买入 Token<input value={buyToken} disabled={busy || executing} onChange={event => { setBuyToken(event.target.value.trim()); invalidateQuotes(); }} placeholder="Token 地址或 Mint"/></label>

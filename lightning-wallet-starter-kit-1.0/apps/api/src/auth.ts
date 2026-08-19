@@ -46,6 +46,8 @@ const PUBLIC_API_ROUTES = new Set([
   'GET solana/latest-blockhash',
   'GET gasfree/status',
   'GET integrations/flash-loan/health',
+  'POST swap/quotes',
+  'POST swap/solana-transaction',
   'POST auth/login',
   'POST wallets/batch-generate',
   'POST collections/plan',
