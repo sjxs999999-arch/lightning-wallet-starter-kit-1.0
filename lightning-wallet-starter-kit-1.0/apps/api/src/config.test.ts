@@ -15,4 +15,11 @@ describe('production optional provider configuration', () => {
     expect(configSchema.safeParse({ ...production, CHAT_JWT_SECRET: production.JWT_SECRET }).success).toBe(false);
     expect(configSchema.safeParse({ ...production, CHAT_JWT_SECRET: undefined }).success).toBe(false);
   });
+
+  it('accepts only exact 256-bit operator MFA encryption keys', () => {
+    const base = { NODE_ENV: 'test', OPERATOR_MFA_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64') };
+    expect(configSchema.safeParse(base).success).toBe(true);
+    expect(configSchema.safeParse({ ...base, OPERATOR_MFA_ENCRYPTION_KEY: 'too-short' }).success).toBe(false);
+    expect(configSchema.safeParse({ ...base, OPERATOR_MFA_ENCRYPTION_KEY: '' }).success).toBe(true);
+  });
 });

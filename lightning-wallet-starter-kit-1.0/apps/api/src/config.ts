@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { z } from 'zod';
+import { validMfaEncryptionKey } from './operator-mfa.js';
 const DEVELOPMENT_CHAT_SECRET='development-chat-secret-change-me-123456';
 export const configSchema = z.object({
   NODE_ENV: z.enum(['development','test','production']).default('development'), API_PORT: z.coerce.number().default(3001),
@@ -8,6 +9,7 @@ export const configSchema = z.object({
   ADMIN_EMAIL: z.string().email().default('admin@lightning.local'),
   ADMIN_PASSWORD_HASH: z.string().default(''),
   ADMIN_TOTP_SECRET: z.preprocess(value=>value===''?undefined:value,z.string().min(16).max(128).regex(/^[A-Z2-7=\s-]+$/i).optional()),
+  OPERATOR_MFA_ENCRYPTION_KEY: z.preprocess(value=>value===''?undefined:value,z.string().optional()),
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:4173,http://localhost:32104'),
   DATABASE_URL: z.string().default('postgresql://lightning:lightning_dev@localhost:5432/lightning_wallet'), REDIS_URL: z.string().default('redis://localhost:6379'),
   FLASH_LOAN_URL: z.string().url().default('http://localhost:5174'), FLASH_LOAN_API_URL: z.string().url().default('http://localhost:3002/api'),
@@ -21,6 +23,9 @@ export const configSchema = z.object({
   }
   if(value.NODE_ENV==='production'&&(value.CHAT_JWT_SECRET===DEVELOPMENT_CHAT_SECRET||value.CHAT_JWT_SECRET===value.JWT_SECRET)){
     ctx.addIssue({code:'custom',path:['CHAT_JWT_SECRET'],message:'A distinct production chat signing secret is required'});
+  }
+  if(!validMfaEncryptionKey(value.OPERATOR_MFA_ENCRYPTION_KEY)){
+    ctx.addIssue({code:'custom',path:['OPERATOR_MFA_ENCRYPTION_KEY'],message:'Operator MFA encryption key must be exactly 32 bytes encoded as base64 or hex'});
   }
 });
 export const config = configSchema.parse(process.env);

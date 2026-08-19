@@ -24,6 +24,9 @@ All notable stable Lightning Wallet releases are recorded here.
 - Added one-prompt EVM EIP-5792 and Solana `signAllTransactions` asset-collection execution with safe sequential fallback when the wallet lacks batch support.
 - Prevented duplicate EVM retries after a batch identifier has been returned, and stopped unbroadcast signed Solana transactions when the page is closed.
 - Replaced floating-point collection-amount checks with exact positive-decimal validation.
+- Added authenticated operator Authenticator enrollment with current-password reauthentication, ten-minute confirmation expiry and automatic revocation of other sessions.
+- Added AES-256-GCM protection for stored TOTP secrets and one-time recovery codes stored only as server-keyed hashes.
+- Added Authenticator recovery-code login and verified disable flow while preserving the legacy environment-managed TOTP mode.
 
 ### Production verification
 

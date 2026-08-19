@@ -42,7 +42,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Real transactions require the user wallet; the server does not sign or broadcast.
 - Error boundaries isolate route, Worker, RPC and provider failures to prevent blank pages.
 - Operator sessions are revocable HttpOnly cookies with default-deny API authorization, CSRF checks and rate limits.
-- Optional RFC 6238 TOTP support is implemented but must not be enabled before authenticator enrollment.
+- RFC 6238 TOTP enrollment, confirmation, one-time recovery codes and verified disable flow are implemented; activation still requires the operator to complete enrollment in the Security Center.
 - Structured logs redact credentials, tokens, cookies and wallet secret fields.
 - PostgreSQL backup, guarded restore, readiness checks and rollback release layout are included.
 - CI runs type checking, tests, production build and Docker image builds.
