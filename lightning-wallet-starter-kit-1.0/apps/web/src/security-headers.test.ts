@@ -46,5 +46,8 @@ describe('production browser security headers', () => {
     expect(nginx).toContain('location /flashforge/');
     expect(nginx).toContain(`'sha256-${hash}'`);
     expect(nginx).toContain("frame-ancestors 'self'");
+    expect(nginx).toContain('https://api.mainnet-beta.solana.com');
+    expect(nginx).toContain('https://solana.drpc.org');
+    expect(nginx).toContain('https://eth.llamarpc.com');
   });
 });
