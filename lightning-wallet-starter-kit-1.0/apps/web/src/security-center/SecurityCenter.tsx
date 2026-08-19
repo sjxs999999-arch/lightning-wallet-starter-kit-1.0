@@ -30,6 +30,7 @@ type SecurityOverview = {
     automaticSessionRecovery: boolean;
     workerOnlyExportValidation: boolean;
     zeroizedKeyBuffers: boolean;
+    totpEnabled: boolean;
   };
   events: AuditEvent[];
 };
@@ -85,7 +86,7 @@ export function SecurityCenter() {
     </div>
     <div className="security-layout">
       <section className="panel"><div className="panel-head"><div><p className="eyebrow">POLICIES</p><h3>强制安全策略</h3></div></div>
-        <div className="policy-list"><Policy name="浏览器密钥隔离" enabled={Boolean(data?.policies.clientKeyIsolation)}/><Policy name="导出密码仅 Worker 校验" enabled={Boolean(data?.policies.workerOnlyExportValidation)}/><Policy name="明文密钥缓冲清零" enabled={Boolean(data?.policies.zeroizedKeyBuffers)}/><Policy name="HttpOnly 安全会话" enabled={Boolean(data?.policies.httpOnlySession)}/><Policy name="会话失效自动恢复" enabled={Boolean(data?.policies.automaticSessionRecovery)}/><Policy name="防跨站写保护" enabled={Boolean(data?.policies.csrfProtection)}/><Policy name="API 默认拒绝未登录" enabled={Boolean(data?.policies.defaultDenyApi)}/><Policy name="内容安全策略" enabled={Boolean(data?.policies.contentSecurityPolicy)}/><Policy name="仅元数据错误诊断" enabled={Boolean(data?.policies.metadataOnlyDiagnostics)}/><Policy name="服务端签名" enabled={Boolean(data?.policies.serverSigning)} safeOff/><Policy name="自动主网广播" enabled={Boolean(data?.policies.mainnetBroadcast)} safeOff/><Policy name="登录限流" enabled detail={`${data?.policies.loginAttempts ?? 10} 次 / ${data?.policies.rateLimitMinutes ?? 15} 分钟`}/></div>
+        <div className="policy-list"><Policy name="Authenticator 二次验证" enabled={Boolean(data?.policies.totpEnabled)}/><Policy name="浏览器密钥隔离" enabled={Boolean(data?.policies.clientKeyIsolation)}/><Policy name="导出密码仅 Worker 校验" enabled={Boolean(data?.policies.workerOnlyExportValidation)}/><Policy name="明文密钥缓冲清零" enabled={Boolean(data?.policies.zeroizedKeyBuffers)}/><Policy name="HttpOnly 安全会话" enabled={Boolean(data?.policies.httpOnlySession)}/><Policy name="会话失效自动恢复" enabled={Boolean(data?.policies.automaticSessionRecovery)}/><Policy name="防跨站写保护" enabled={Boolean(data?.policies.csrfProtection)}/><Policy name="API 默认拒绝未登录" enabled={Boolean(data?.policies.defaultDenyApi)}/><Policy name="内容安全策略" enabled={Boolean(data?.policies.contentSecurityPolicy)}/><Policy name="仅元数据错误诊断" enabled={Boolean(data?.policies.metadataOnlyDiagnostics)}/><Policy name="服务端签名" enabled={Boolean(data?.policies.serverSigning)} safeOff/><Policy name="自动主网广播" enabled={Boolean(data?.policies.mainnetBroadcast)} safeOff/><Policy name="登录限流" enabled detail={`${data?.policies.loginAttempts ?? 10} 次 / ${data?.policies.rateLimitMinutes ?? 15} 分钟`}/></div>
         <button className="danger-outline" disabled={busy || (data?.activeSessions ?? 0) < 2} onClick={() => void revokeOthers()}>{busy ? '正在撤销…' : '撤销其他登录会话'}</button>
       </section>
       <section className="panel audit-panel"><div className="panel-head"><div><p className="eyebrow">AUDIT TRAIL</p><h3>最近审计事件</h3></div><History size={18}/></div>

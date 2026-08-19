@@ -31,4 +31,14 @@ describe('production browser security headers', () => {
     expect(csp).toContain(`'sha256-${createHash('sha256').update(script!).digest('base64')}'`);
     expect(csp).not.toMatch(/script-src[^;]*unsafe-inline/);
   });
+
+  it('allows the same exact bridge script in the Docker web server only under /flashforge', () => {
+    const nginx = readFileSync(new URL('../../../docker/nginx-web.conf', import.meta.url), 'utf8');
+    const html = readFileSync(new URL('../public/flashforge/index.html', import.meta.url), 'utf8');
+    const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+    const hash = createHash('sha256').update(script!).digest('base64');
+    expect(nginx).toContain('location /flashforge/');
+    expect(nginx).toContain(`'sha256-${hash}'`);
+    expect(nginx).toContain("frame-ancestors 'self'");
+  });
 });

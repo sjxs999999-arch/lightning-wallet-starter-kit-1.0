@@ -52,7 +52,7 @@ export async function recordSecurityEvent(db: SecurityStore, action: string, res
   await db.query('INSERT INTO audit_logs(action,resource_type,resource_id,detail) VALUES($1,$2,$3,$4)', [action, 'session', resourceId.slice(0, 64), detail]);
 }
 
-export async function operatorSecurityOverview(db: SecurityStore, claims: OperatorClaims) {
+export async function operatorSecurityOverview(db: SecurityStore, claims: OperatorClaims, totpEnabled = false) {
   const [sessions, failures, events] = await Promise.all([
     db.query('SELECT count(*)::int AS count FROM auth_sessions WHERE email=$1 AND revoked_at IS NULL AND expires_at>now()', [claims.sub]),
     db.query("SELECT count(*)::int AS count FROM audit_logs WHERE action='auth.login.failed' AND created_at>now()-interval '24 hours'"),
@@ -62,7 +62,7 @@ export async function operatorSecurityOverview(db: SecurityStore, claims: Operat
     currentSession: { email: claims.sub, createdAt: new Date(Number(claims.iat) * 1000).toISOString(), expiresAt: new Date(Number(claims.exp) * 1000).toISOString() },
     activeSessions: Number(sessions.rows[0]?.count ?? 0),
     failedLogins24h: Number(failures.rows[0]?.count ?? 0),
-    policies: { sessionHours: 8, loginAttempts: 10, rateLimitMinutes: 15, clientKeyIsolation: true, serverSigning: false, mainnetBroadcast: false, httpOnlySession: true, csrfProtection: true, defaultDenyApi: true, contentSecurityPolicy: true, metadataOnlyDiagnostics: true, automaticSessionRecovery: true, workerOnlyExportValidation: true, zeroizedKeyBuffers: true },
+    policies: { sessionHours: 8, loginAttempts: 10, rateLimitMinutes: 15, clientKeyIsolation: true, serverSigning: false, mainnetBroadcast: false, httpOnlySession: true, csrfProtection: true, defaultDenyApi: true, contentSecurityPolicy: true, metadataOnlyDiagnostics: true, automaticSessionRecovery: true, workerOnlyExportValidation: true, zeroizedKeyBuffers: true, totpEnabled },
     events: events.rows,
   };
 }

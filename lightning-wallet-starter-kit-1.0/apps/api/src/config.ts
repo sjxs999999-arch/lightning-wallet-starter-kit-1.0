@@ -7,6 +7,7 @@ export const configSchema = z.object({
   CHAT_JWT_SECRET: z.string().min(32).default(DEVELOPMENT_CHAT_SECRET),
   ADMIN_EMAIL: z.string().email().default('admin@lightning.local'),
   ADMIN_PASSWORD_HASH: z.string().default(''),
+  ADMIN_TOTP_SECRET: z.preprocess(value=>value===''?undefined:value,z.string().min(16).max(128).regex(/^[A-Z2-7=\s-]+$/i).optional()),
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:4173,http://localhost:32104'),
   DATABASE_URL: z.string().default('postgresql://lightning:lightning_dev@localhost:5432/lightning_wallet'), REDIS_URL: z.string().default('redis://localhost:6379'),
   FLASH_LOAN_URL: z.string().url().default('http://localhost:5174'), FLASH_LOAN_API_URL: z.string().url().default('http://localhost:3002/api'),

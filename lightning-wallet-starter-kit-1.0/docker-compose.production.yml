@@ -36,6 +36,10 @@ services:
         VITE_SOLANA_RPC_URL: "${VITE_SOLANA_RPC_URL:-https://api.mainnet-beta.solana.com}"
         VITE_SOLANA_NETWORK: "${VITE_SOLANA_NETWORK:-mainnet-beta}"
         VITE_TRON_RPC_URL: "${VITE_TRON_RPC_URL:-https://api.trongrid.io}"
+        VITE_ADMIN_URL: "${VITE_ADMIN_URL:-https://admin.lightingwallet.com/login}"
+        VITE_MAINNET_EXECUTION_ENABLED: "${VITE_MAINNET_EXECUTION_ENABLED:-false}"
+        VITE_MAINNET_MAX_BATCH_COUNT: "${VITE_MAINNET_MAX_BATCH_COUNT:-1000}"
+        VITE_ENABLE_MAINNET_SWAP: "${VITE_ENABLE_MAINNET_SWAP:-false}"
     restart: unless-stopped
     read_only: true
     tmpfs: ["/var/cache/nginx", "/var/run"]
