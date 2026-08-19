@@ -1,6 +1,6 @@
 import { Keypair, PublicKey, SystemProgram } from '@solana/web3.js';
-import { describe, expect, it } from 'vitest';
-import { buildSolanaBatchTransactions } from './solana-batch';
+import { describe, expect, it, vi } from 'vitest';
+import { broadcastSigned, buildSolanaBatchTransactions } from './solana-batch';
 import type { TransferTask } from './types';
 
 function task(index: number): TransferTask {
@@ -22,5 +22,13 @@ describe('Solana batch transaction construction', () => {
     const owner = Keypair.generate().publicKey;
     const tokenTask = { ...task(0), from: owner.toBase58(), token: Keypair.generate().publicKey.toBase58(), decimals: 6, assetKind: 'token' as const };
     expect(() => buildSolanaBatchTransactions([tokenTask], owner, Keypair.generate().publicKey.toBase58(), new Map<string, PublicKey>())).toThrow('Token Program 未加载');
+  });
+
+  it('does not broadcast signed transactions after the page execution is stopped', async () => {
+    const sendRawTransaction = vi.fn(async () => 'must-not-run');
+    const connection = { sendRawTransaction } as unknown as import('@solana/web3.js').Connection;
+    const signed = [{ serialize: () => new Uint8Array([1, 2, 3]) }];
+    await expect(broadcastSigned(connection, signed, { shouldStop: () => true })).rejects.toThrow('剩余已签名交易未广播');
+    expect(sendRawTransaction).not.toHaveBeenCalled();
   });
 });

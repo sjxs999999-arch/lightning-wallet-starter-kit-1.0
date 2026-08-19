@@ -10,7 +10,7 @@ const ASSOCIATED = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL')
 type SignedTransaction = { serialize(): Uint8Array };
 type BatchProvider = ReturnType<typeof getSolanaProvider> & { signAllTransactions?(transactions: Transaction[]): Promise<SignedTransaction[]> };
 export type SolanaBatchResult = { index: number; signature?: string; state: 'submitted' | 'confirmed' | 'failed'; error?: string };
-export type SolanaBatchOptions = { waitUntilResumed?: () => Promise<void>; onBroadcast?: (result: SolanaBatchResult) => void };
+export type SolanaBatchOptions = { waitUntilResumed?: () => Promise<void>; shouldStop?: () => boolean; onBroadcast?: (result: SolanaBatchResult) => void };
 
 const sleep = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
 const ata = (wallet: PublicKey, mint: PublicKey, tokenProgram: PublicKey) => PublicKey.findProgramAddressSync([wallet.toBuffer(), tokenProgram.toBuffer(), mint.toBuffer()], ASSOCIATED)[0];
@@ -54,13 +54,15 @@ async function sendWithBackoff(connection: Connection, transaction: SignedTransa
   throw new Error(lastError);
 }
 
-async function broadcastSigned(connection: Connection, signed: SignedTransaction[], options: SolanaBatchOptions): Promise<SolanaBatchResult[]> {
+export async function broadcastSigned(connection: Connection, signed: SignedTransaction[], options: SolanaBatchOptions): Promise<SolanaBatchResult[]> {
   const results = new Array<SolanaBatchResult>(signed.length);
   let cursor = 0;
   async function worker() {
     while (cursor < signed.length) {
+      if (options.shouldStop?.()) throw new Error('页面已关闭，剩余已签名交易未广播');
       const index = cursor++;
       await options.waitUntilResumed?.();
+      if (options.shouldStop?.()) throw new Error('页面已关闭，剩余已签名交易未广播');
       try { results[index] = { index, signature: await sendWithBackoff(connection, signed[index]!), state: 'submitted' }; }
       catch (cause) { results[index] = { index, state: 'failed', error: cause instanceof Error ? cause.message : '广播失败' }; }
       options.onBroadcast?.(results[index]!);

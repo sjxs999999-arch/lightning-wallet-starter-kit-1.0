@@ -1,5 +1,6 @@
 import { safeErrorCode } from '../batch-transfer/persistence';
 import type { TransferOutcome } from '../batch-transfer/persistence';
+import { isPositiveDecimal } from '../amount';
 import type { CollectorTask } from './types';
 
 export type CollectionJob = {
@@ -12,7 +13,7 @@ export type CollectionJob = {
   updated_at: string;
 };
 
-const collectable = (tasks: CollectorTask[]) => tasks.filter(task => Number(task.collectAmount) > 0);
+const collectable = (tasks: CollectorTask[]) => tasks.filter(task => isPositiveDecimal(task.collectAmount));
 
 export function collectionPlanPayload(tasks: CollectorTask[], dryRun: boolean, idempotencyKey: string) {
   const eligible = collectable(tasks);

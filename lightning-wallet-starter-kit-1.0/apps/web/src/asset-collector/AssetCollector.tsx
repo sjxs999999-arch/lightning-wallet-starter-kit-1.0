@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CircleDollarSign, History, RefreshCw, ShieldCheck } from 'lucide-react';
 import { ApiError, api } from '../api';
-import { sumDecimals } from '../amount';
-import { executeTask } from '../batch-transfer/executor';
+import { isPositiveDecimal, sumDecimals } from '../amount';
+import { executeTask, getActiveSender } from '../batch-transfer/executor';
+import { executeEvmBatch } from '../batch-transfer/evm-batch';
+import { executeSolanaBatch } from '../batch-transfer/solana-batch';
 import type { TransferChain, TransferTask } from '../batch-transfer/types';
 import { exportCollectorResults, parseCollectorCsv } from './csv';
 import { collectionPlanPayload, collectionResultPayload } from './persistence';
@@ -10,6 +12,8 @@ import type { CollectionJob } from './persistence';
 import { buildCollectionPlan } from './planner';
 import type { CollectorLog, CollectorTask, ScanInput, ScannedAsset } from './types';
 import { loadLocalCollectionHistory, saveLocalCollectionJob } from './local-history';
+import { collectorSenderCount, collectorTasksForActiveSender } from './sender-groups';
+import { collectorTransferTask } from './transfer-task';
 
 function AssetRow({ item }: { item: ScannedAsset | CollectorTask }) {
   const task = 'executionStatus' in item ? item : undefined;
@@ -37,6 +41,7 @@ export function AssetCollector() {
   const [activeJob, setActiveJob] = useState<CollectionJob | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const pausedRef = useRef(false);
+  const stopRef = useRef(false);
   const tasksRef = useRef<CollectorTask[]>([]);
   const jobIdRef = useRef<string | null>(null);
 
@@ -49,7 +54,7 @@ export function AssetCollector() {
 
   useEffect(() => {
     void loadHistory();
-    return () => workerRef.current?.terminate();
+    return () => { stopRef.current = true; workerRef.current?.terminate(); };
   }, [loadHistory]);
 
   function resetAudit() {
@@ -72,7 +77,7 @@ export function AssetCollector() {
       await loadHistory();
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) {
-        const eligible = nextTasks.filter(task => Number(task.collectAmount) > 0);
+        const eligible = nextTasks.filter(task => isPositiveDecimal(task.collectAmount));
         const now = new Date().toISOString();
         const localJob: CollectionJob = { id: `local-${crypto.randomUUID()}`, kind: 'asset-collection', status: 'validated', payload: { chain: eligible[0]!.chain, dryRun, destination: eligible[0]!.destination, count: eligible.length, nativeCount: eligible.filter(task => task.asset === 'native').length, tokenCount: eligible.filter(task => task.asset === 'token').length }, result: { dryRun, serverSigning: false, serverBroadcast: false, confirmed: 0, failed: 0, pending: eligible.length }, created_at: now, updated_at: now };
         jobIdRef.current = localJob.id;
@@ -89,7 +94,7 @@ export function AssetCollector() {
     const id = jobIdRef.current;
     if (!id) return;
     if (id.startsWith('local-') && activeJob) {
-      const eligible=tasksRef.current.filter(task=>Number(task.collectAmount)>0),confirmed=eligible.filter(task=>task.executionStatus==='confirmed').length,failed=eligible.filter(task=>task.executionStatus==='failed').length,skipped=eligible.filter(task=>task.executionStatus==='skipped').length,pending=eligible.length-confirmed-failed-skipped,status:CollectionJob['status']=pending>0?'paused':failed===0?'completed':confirmed>0?'partial':'failed';
+      const eligible=tasksRef.current.filter(task=>isPositiveDecimal(task.collectAmount)),confirmed=eligible.filter(task=>task.executionStatus==='confirmed').length,failed=eligible.filter(task=>task.executionStatus==='failed').length,skipped=eligible.filter(task=>task.executionStatus==='skipped').length,pending=eligible.length-confirmed-failed-skipped,status:CollectionJob['status']=pending>0?'paused':failed===0?'completed':confirmed>0?'partial':'failed';
       const next:CollectionJob={...activeJob,status,result:{...activeJob.result,broadcastByWallet:!activeJob.payload.dryRun&&confirmed>0,confirmed,failed,pending,skipped},updated_at:new Date().toISOString()};
       setActiveJob(next);setHistory(saveLocalCollectionJob(next));return;
     }
@@ -151,7 +156,7 @@ export function AssetCollector() {
   function prepare() {
     try {
       const plan = buildCollectionPlan(chain, assets, destination, reserve);
-      const eligible = plan.filter(task => Number(task.collectAmount) > 0);
+      const eligible = plan.filter(task => isPositiveDecimal(task.collectAmount));
       if (!eligible.length) throw new Error('扣除保留余额和手续费后，没有可归集任务');
       setTasks(plan);
       tasksRef.current = plan;
@@ -162,20 +167,114 @@ export function AssetCollector() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : '归集计划失败'); }
   }
 
-  async function execute(list = tasksRef.current.filter(task => (task.executionStatus === 'pending' || task.executionStatus === 'failed') && Number(task.collectAmount) > 0)) {
+  async function execute(list = tasksRef.current.filter(task => (task.executionStatus === 'pending' || task.executionStatus === 'failed') && isPositiveDecimal(task.collectAmount))) {
     if (!activeJob || !list.length) return;
-    if (!dryRun && !window.confirm(`即将逐笔请求钱包签名 ${list.length} 次，确认开始归集？`)) return;
+    let executionList = list;
+    if (!dryRun && collectorSenderCount(list) > 1) {
+      if (!window.confirm(`当前归集计划包含 ${collectorSenderCount(list)} 个发送账户。\n将连接当前钱包并只归集该活动账户的资产，完成后切换钱包继续。`)) return;
+      try {
+        const activeSender = await getActiveSender(chain);
+        executionList = collectorTasksForActiveSender(list, activeSender);
+        if (!executionList.length) throw new Error(`当前钱包账户 ${activeSender} 不在待归集地址中`);
+        log(`已选择当前钱包的 ${executionList.length} 项资产；其他钱包保持待处理`, 'success');
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : '无法识别当前钱包账户';
+        setError(message);
+        log(message, 'error');
+        return;
+      }
+    }
+    if (!dryRun && !window.confirm(`即将请求当前钱包签名 ${executionList.length} 次，确认开始归集？`)) return;
     setRunning(true);
     pausedRef.current = false;
+    stopRef.current = false;
     setPaused(false);
+
+    if (!dryRun && chain === 'EVM') {
+      try {
+        executionList.forEach(task => { task.executionStatus = 'running'; task.attempts++; });
+        setTasks([...tasksRef.current]);
+        const results = await executeEvmBatch(executionList.map((task, index) => collectorTransferTask(task, index + 2)));
+        if (results) {
+          results.forEach((result, index) => {
+            const task = executionList[index]!;
+            task.txHash = result.hash;
+            task.executionStatus = result.state;
+            log(result.state === 'confirmed' ? 'EVM 批量归集已确认' : 'EVM 批量归集已提交', 'success', task.id);
+          });
+          setProgress(tasksRef.current.filter(item => isPositiveDecimal(item.collectAmount) && (item.executionStatus === 'confirmed' || item.executionStatus === 'submitted' || item.executionStatus === 'failed')).length);
+          setTasks([...tasksRef.current]);
+          setRunning(false);
+          await persistResults();
+          const remaining = tasksRef.current.filter(task => (task.executionStatus === 'pending' || task.executionStatus === 'failed') && isPositiveDecimal(task.collectAmount));
+          if (remaining.length) log(`仍有 ${collectorSenderCount(remaining)} 个钱包待归集或重试；保持或切换到对应钱包后继续`, 'info');
+          return;
+        }
+        executionList.forEach(task => { task.executionStatus = 'pending'; task.attempts--; });
+        log('当前 EVM 钱包不支持 EIP-5792 批量归集，已安全回退逐笔确认');
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : 'EVM 批量归集失败';
+        executionList.forEach(task => { if (task.executionStatus === 'running') { task.executionStatus = 'failed'; task.error = message; } });
+        log(`${message}；当前钱包分组已停止`, 'error');
+        setTasks([...tasksRef.current]);
+        setRunning(false);
+        await persistResults();
+        return;
+      }
+    }
+
+    if (!dryRun && chain === 'SOL') {
+      try {
+        executionList.forEach(task => { task.executionStatus = 'running'; task.attempts++; });
+        setTasks([...tasksRef.current]);
+        const results = await executeSolanaBatch(executionList.map((task, index) => collectorTransferTask(task, index + 2)), {
+          waitUntilResumed: async () => { while (pausedRef.current && !stopRef.current) await new Promise(resolve => setTimeout(resolve, 100)); },
+          shouldStop: () => stopRef.current,
+          onBroadcast: result => {
+            const task = executionList[result.index]!;
+            if (result.signature) { task.txHash = result.signature; task.executionStatus = 'submitted'; }
+            else { task.executionStatus = 'failed'; task.error = result.error ?? '广播失败'; }
+            setProgress(tasksRef.current.filter(item => isPositiveDecimal(item.collectAmount) && (item.executionStatus === 'confirmed' || item.executionStatus === 'submitted' || item.executionStatus === 'failed')).length);
+            setTasks([...tasksRef.current]);
+          },
+        });
+        results.forEach((result, index) => {
+          const task = executionList[index]!;
+          if (result.signature) { task.txHash = result.signature; task.executionStatus = result.state; log(result.state === 'confirmed' ? 'Solana 批量归集已确认' : 'Solana 批量归集已提交', 'success', task.id); }
+          else { task.executionStatus = 'failed'; task.error = result.error ?? '广播失败'; log(task.error, 'error', task.id); }
+        });
+        setProgress(tasksRef.current.filter(item => isPositiveDecimal(item.collectAmount) && (item.executionStatus === 'confirmed' || item.executionStatus === 'submitted' || item.executionStatus === 'failed')).length);
+        setTasks([...tasksRef.current]);
+        setRunning(false);
+        await persistResults();
+        const remaining = tasksRef.current.filter(task => (task.executionStatus === 'pending' || task.executionStatus === 'failed') && isPositiveDecimal(task.collectAmount));
+        if (remaining.length) log(`仍有 ${collectorSenderCount(remaining)} 个钱包待归集或重试；保持或切换到对应钱包后继续`, 'info');
+        return;
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : 'Solana 批量归集失败';
+        if (/signAllTransactions/.test(message)) {
+          executionList.forEach(task => { task.executionStatus = 'pending'; task.attempts--; });
+          log('当前 Solana 钱包不支持批量签名，已安全回退逐笔确认');
+        } else {
+          executionList.forEach(task => { if (task.executionStatus === 'running') { task.executionStatus = 'failed'; task.error = message; } });
+          log(`${message}；当前钱包分组已停止`, 'error');
+          setTasks([...tasksRef.current]);
+          setRunning(false);
+          await persistResults();
+          return;
+        }
+      }
+    }
+
     try {
-      for (const task of list) {
-        while (pausedRef.current) await new Promise(resolve => setTimeout(resolve, 100));
+      for (const [index, task] of executionList.entries()) {
+        while (pausedRef.current && !stopRef.current) await new Promise(resolve => setTimeout(resolve, 100));
+        if (stopRef.current) break;
         task.executionStatus = 'running';
         task.attempts++;
         setTasks([...tasksRef.current]);
         try {
-          const transfer: TransferTask = { id: task.id, row: task.attempts + 1, chain: task.chain, assetKind: task.asset, from: task.address, to: task.destination, amount: task.collectAmount, status: 'running', attempts: task.attempts, estimatedFee: task.estimatedFee, ...(task.token ? { token: task.token } : {}), ...(task.decimals !== undefined ? { decimals: task.decimals } : {}) };
+          const transfer: TransferTask = collectorTransferTask(task, index + 2);
           if (dryRun) { task.txHash = `DRY-COLLECT-${task.id.slice(2, 14)}`; task.executionStatus = 'confirmed'; }
           else { const result = await executeTask(transfer, { batchConfirmed: true }); task.txHash = result.hash; task.executionStatus = result.state; }
           log(dryRun ? '模拟归集通过' : task.executionStatus === 'confirmed' ? '归集交易已确认' : '归集交易已提交，等待链上确认', 'success', task.id);
@@ -184,20 +283,24 @@ export function AssetCollector() {
           task.error = cause instanceof Error ? cause.message : '归集失败';
           log(task.error, 'error', task.id);
         }
-        setProgress(tasksRef.current.filter(item => Number(item.collectAmount) > 0 && (item.executionStatus === 'confirmed' || item.executionStatus === 'submitted' || item.executionStatus === 'failed')).length);
+        setProgress(tasksRef.current.filter(item => isPositiveDecimal(item.collectAmount) && (item.executionStatus === 'confirmed' || item.executionStatus === 'submitted' || item.executionStatus === 'failed')).length);
         setTasks([...tasksRef.current]);
         await new Promise(resolve => setTimeout(resolve, 0));
       }
     } finally {
       setRunning(false);
       await persistResults();
+      const remaining = tasksRef.current.filter(task => (task.executionStatus === 'pending' || task.executionStatus === 'failed') && isPositiveDecimal(task.collectAmount));
+      if (!dryRun && remaining.length) log(`仍有 ${collectorSenderCount(remaining)} 个钱包待归集或重试；保持或切换到对应钱包后继续`, 'info');
     }
   }
 
   function toggle() { pausedRef.current = !pausedRef.current; setPaused(pausedRef.current); log(pausedRef.current ? '归集已暂停' : '归集已恢复'); }
-  function retry() { const failed = tasksRef.current.filter(task => task.executionStatus === 'failed' && Number(task.collectAmount) > 0); failed.forEach(task => { task.executionStatus = 'pending'; delete task.error; }); void execute(failed); }
+  function retry() { const failed = tasksRef.current.filter(task => task.executionStatus === 'failed' && isPositiveDecimal(task.collectAmount)); failed.forEach(task => { task.executionStatus = 'pending'; delete task.error; }); void execute(failed); }
 
-  const eligible = tasks.filter(task => Number(task.collectAmount) > 0);
+  const eligible = tasks.filter(task => isPositiveDecimal(task.collectAmount));
+  const unfinished = eligible.filter(task => task.executionStatus === 'pending' || task.executionStatus === 'failed');
+  const unfinishedWallets = collectorSenderCount(unfinished);
   const assetGroups = new Set(eligible.map(task => `${task.symbol}:${task.token ?? 'native'}`));
   const totalLabel = assetGroups.size === 1 && eligible[0] ? `${sumDecimals(eligible.map(task => task.collectAmount))} ${eligible[0].symbol}` : `${assetGroups.size} 种资产`;
 
@@ -211,13 +314,13 @@ export function AssetCollector() {
         <label>归集目标地址<input value={destination} disabled={scanning || running || saving} onChange={event => { setDestination(event.target.value.trim()); resetAudit(); }} placeholder="公开接收地址"/></label>
         <label>每个钱包最低余额保留<input value={reserve} disabled={scanning || running || saving} inputMode="decimal" onChange={event => { setReserve(event.target.value); resetAudit(); }}/></label>
         <label className="dry-run"><input type="checkbox" checked={dryRun} disabled={scanning || running || saving} onChange={event => { setDryRun(event.target.checked); resetAudit(); }}/> Dry Run（默认开启）</label>
-        <div className="notice"><ShieldCheck size={18}/>{chain==='SOL'?'Solana 会自动发现原生币、SPL Token 与 Token-2022；':'EVM/TRON 自动扫描原生币；Token 可在 CSV 的 token、decimals 列明确加入。'} 私钥不进入 API、数据库或日志。</div>
+        <div className="notice"><ShieldCheck size={18}/>{unfinishedWallets > 1 ? `检测到 ${unfinishedWallets} 个待归集钱包：每次只归集当前已连接账户，切换钱包后继续。` : chain==='SOL'?'Solana 会自动发现原生币、SPL Token 与 Token-2022；':'EVM/TRON 自动扫描原生币；Token 可在 CSV 的 token、decimals 列明确加入。'} 私钥不进入 API、数据库或日志。</div>
         {error && <div className="batch-error">{error}</div>}{recordError && <div className="batch-error">{recordError}</div>}
         <div className="collector-actions"><button onClick={scan} disabled={!inputs.length || scanning || running || saving}>{scanning ? `扫描中 · ${scanProgress}/${inputs.length}` : `扫描钱包${inputs.length ? ` · ${scanProgress}/${inputs.length}` : ''}`}</button><button onClick={prepare} disabled={!assets.length || scanning || running || saving}>{saving ? '正在保存…' : '生成并保存归集计划'}</button></div>
       </section>
       <section className="panel">
         <div className="panel-head"><h3>资产与计划</h3><span>{assets.length} 个钱包</span></div>
-        {assets.length ? <><div className="transfer-summary"><b>可归集任务 {eligible.length}</b><b>预计归集 {totalLabel}</b><small>失败扫描 {assets.filter(item => item.status === 'failed').length} · RPC 错误不会中断页面</small><small>任务记录：{activeJob ? `${activeJob.id.slice(0, 8)} · ${activeJob.status}` : saving ? '保存中' : '未保存'}</small></div>{tasks.length > 0 && <><div className="export-actions"><button onClick={() => void execute()} disabled={running || saving || !activeJob}>{dryRun ? '运行模拟并记录' : '开始逐笔归集'}</button>{running && <button onClick={toggle}>{paused ? '恢复' : '暂停'}</button>}<button onClick={retry} disabled={running || saving || !activeJob || !tasks.some(item => item.executionStatus === 'failed' && Number(item.collectAmount) > 0)}>失败重试</button><button onClick={() => void persistResults()} disabled={running || saving || !activeJob}>同步审计结果</button><button onClick={() => exportCollectorResults(tasks)}>导出 CSV</button></div><div className="transfer-progress"><span style={{ width: `${eligible.length ? progress / eligible.length * 100 : 0}%` }}/></div></>}<div className="wallet-list">{(tasks.length ? tasks : assets).slice(0, 100).map(item => <AssetRow key={item.id} item={item}/>)}</div></> : <div className="mini-empty"><CircleDollarSign/><p>导入钱包 CSV 后扫描链上资产</p></div>}
+        {assets.length ? <><div className="transfer-summary"><b>可归集任务 {eligible.length}</b><b>预计归集 {totalLabel}</b><small>待处理钱包 {unfinishedWallets}</small><small>失败扫描 {assets.filter(item => item.status === 'failed').length} · RPC 错误不会中断页面</small><small>任务记录：{activeJob ? `${activeJob.id.slice(0, 8)} · ${activeJob.status}` : saving ? '保存中' : '未保存'}</small></div>{tasks.length > 0 && <><div className="export-actions"><button onClick={() => void execute()} disabled={running || saving || !activeJob}>{dryRun ? '运行模拟并记录' : unfinishedWallets > 1 ? '批量归集当前钱包资产' : chain === 'EVM' || chain === 'SOL' ? '开始批量归集' : '开始逐笔归集'}</button>{running && <button onClick={toggle}>{paused ? '恢复' : '暂停'}</button>}<button onClick={retry} disabled={running || saving || !activeJob || !tasks.some(item => item.executionStatus === 'failed' && isPositiveDecimal(item.collectAmount))}>失败重试</button><button onClick={() => void persistResults()} disabled={running || saving || !activeJob}>同步审计结果</button><button onClick={() => exportCollectorResults(tasks)}>导出 CSV</button></div><div className="transfer-progress"><span style={{ width: `${eligible.length ? progress / eligible.length * 100 : 0}%` }}/></div></>}<div className="wallet-list">{(tasks.length ? tasks : assets).slice(0, 100).map(item => <AssetRow key={item.id} item={item}/>)}</div></> : <div className="mini-empty"><CircleDollarSign/><p>导入钱包 CSV 后扫描链上资产</p></div>}
       </section>
     </div>
     <section className="panel transfer-history"><div className="panel-head"><div><p className="eyebrow">AUDIT TRAIL</p><h3><History size={16}/>最近归集历史</h3></div><button onClick={() => void loadHistory()} title="刷新归集历史"><RefreshCw size={15}/></button></div><div className="transfer-history-table"><div><b>创建时间</b><b>网络 / 模式</b><b>数量</b><b>结果</b><b>状态</b></div>{history.map(job => <div key={job.id}><span>{new Date(job.created_at).toLocaleString()}</span><span>{job.payload.chain} · {job.payload.dryRun ? 'Dry Run' : '钱包签名'}</span><span>{job.payload.count}</span><span>{job.result.confirmed ?? 0} 成功 / {job.result.failed ?? 0} 失败</span><em className={job.status}>{job.status}</em></div>)}</div>{!history.length && <p className="transfer-history-empty">尚无已保存的资产归集任务。</p>}</section>

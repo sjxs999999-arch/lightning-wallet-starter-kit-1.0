@@ -48,7 +48,7 @@ export async function executeEvmBatch(tasks: TransferTask[], provider: Provider 
     await sleep(1000);
     let status: { status?: number | string; receipts?: { transactionHash?: string; status?: string }[] };
     try { status = await provider.request({ method: 'wallet_getCallsStatus', params: [batchId] }) as typeof status; }
-    catch (cause) { if (unsupported(cause)) return fallback; throw cause; }
+    catch { return fallback; }
     const code = Number(status.status);
     if (code >= 400) throw new Error(`钱包批量调用失败：${batchId}`);
     if (code >= 200 && code < 300) return tasks.map((_, index) => ({ index, hash: status.receipts?.[index]?.transactionHash ?? batchId, state: 'confirmed' }));

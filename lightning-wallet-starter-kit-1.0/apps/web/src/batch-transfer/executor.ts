@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 import { Interface, parseEther, parseUnits } from 'ethers';
 import { api } from '../api';
 import { assertExecutionPolicy } from './execution-policy';
-import type { TransferTask } from './types';
+import type { TransferChain, TransferTask } from './types';
 
 type EvmProvider = { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
 type TronSendResult = string | { txid?: string; txID?: string };
@@ -20,6 +20,34 @@ declare global { interface Window { ethereum?: EvmProvider; okxwallet?: OkxWalle
 
 const sleep = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
 export function getSolanaProvider() { return window.okxwallet?.solana ?? window.solana; }
+
+export async function getActiveSender(chain: TransferChain): Promise<string> {
+  if (chain === 'EVM') {
+    const provider = window.okxwallet ?? window.ethereum;
+    if (!provider) throw new Error('未检测到 OKX、MetaMask、Rabby 或其他 EVM 钱包');
+    const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
+    if (!accounts[0]) throw new Error('EVM 钱包未返回活动账户');
+    return accounts[0];
+  }
+  if (chain === 'SOL') {
+    const provider = getSolanaProvider();
+    if (!provider) throw new Error('未检测到 OKX、Phantom、Backpack 或 Solflare 钱包');
+    const connected = provider.connect ? await provider.connect() : undefined;
+    const address = connected?.publicKey?.toString() ?? provider.publicKey?.toString();
+    if (!address) throw new Error('Solana 钱包未返回活动账户');
+    return address;
+  }
+  const tronLink = window.okxwallet?.tronLink;
+  if (tronLink) {
+    const connection = await tronLink.request({ method: 'tron_requestAccounts' }) as { code?: number };
+    if (connection?.code === 4001) throw new Error('用户拒绝连接 OKX Wallet');
+    if (connection?.code && connection.code !== 200) throw new Error('OKX Wallet TRON 连接失败');
+  }
+  const tronWeb = tronLink?.tronWeb ?? window.tronWeb;
+  const address = tronWeb?.defaultAddress?.base58;
+  if (!address) throw new Error('TRON 钱包未返回活动账户');
+  return address;
+}
 
 async function waitForEvmReceipt(provider: EvmProvider, hash: string): Promise<'submitted' | 'confirmed'> {
   for (let attempt = 0; attempt < 20; attempt++) {

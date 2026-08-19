@@ -1,5 +1,5 @@
 import { beforeEach,describe,expect,it,vi } from 'vitest';
-import { executeTask,getSolanaProvider } from './executor';
+import { executeTask,getActiveSender,getSolanaProvider } from './executor';
 import type { TransferTask } from './types';
 const task:TransferTask={id:'0x1',row:2,chain:'EVM',assetKind:'native',from:'0x0000000000000000000000000000000000000001',to:'0x0000000000000000000000000000000000000002',amount:'0.01',status:'pending',attempts:0,estimatedFee:'0.00021'};
 describe('client-only transaction executor',()=>{
@@ -11,4 +11,11 @@ describe('client-only transaction executor',()=>{
   it('connects OKX TRON provider and signs a testnet TRC-20 transfer locally',async()=>{const request=vi.fn(async()=>({code:200})),send=vi.fn(async()=>({txID:'tron-usdt-tx'})),tronWeb={defaultAddress:{base58:'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA'},fullNode:{host:'https://nile.trongrid.io'},trx:{sendTransaction:vi.fn()},contract:()=>({at:async()=>({transfer:()=>({send})})})};window.okxwallet={request:vi.fn(),tronLink:{request,tronWeb}};await expect(executeTask({...task,chain:'TRON',assetKind:'token',from:'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA',to:'TQxgyuuj43UrFhYtgkBGNTZtLY4iuvm7CL',amount:'1',token:'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',decimals:6})).resolves.toEqual({hash:'tron-usdt-tx',state:'submitted'});expect(request).toHaveBeenCalledWith({method:'tron_requestAccounts'});expect(send).toHaveBeenCalledOnce()});
   it('rejects unsafe TRX integer conversion before signing',async()=>{const sendTransaction=vi.fn(),tronWeb={defaultAddress:{base58:'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA'},fullNode:{host:'https://nile.trongrid.io'},trx:{sendTransaction},contract:()=>({at:vi.fn()})};window.okxwallet={request:vi.fn(),tronLink:{request:vi.fn(async()=>({code:200})),tronWeb}};await expect(executeTask({...task,chain:'TRON',from:'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA',to:'TQxgyuuj43UrFhYtgkBGNTZtLY4iuvm7CL',amount:'9007199255'})).rejects.toThrow('安全整数范围');expect(sendTransaction).not.toHaveBeenCalled()});
   it('prefers the official OKX Solana provider',()=>{const okxSolana={publicKey:{toString:()=> 'okx-sol'},signAndSendTransaction:vi.fn()};window.solana={publicKey:{toString:()=> 'other-sol'},signAndSendTransaction:vi.fn()};window.okxwallet={request:vi.fn(),solana:okxSolana};expect(getSolanaProvider()).toBe(okxSolana)});
+  it('selects the active sender from each wallet family without secret material',async()=>{
+    const evmRequest=vi.fn(async()=>[task.from]);window.okxwallet={request:evmRequest};expect(await getActiveSender('EVM')).toBe(task.from);
+    const solana={connect:vi.fn(async()=>({publicKey:{toString:()=> 'active-solana'}})),signAndSendTransaction:vi.fn()};window.okxwallet={request:vi.fn(),solana};expect(await getActiveSender('SOL')).toBe('active-solana');
+    const tronRequest=vi.fn(async()=>({code:200})),tronWeb={defaultAddress:{base58:'active-tron'},trx:{sendTransaction:vi.fn()},contract:()=>({at:vi.fn()})};window.okxwallet={request:vi.fn(),tronLink:{request:tronRequest,tronWeb}};expect(await getActiveSender('TRON')).toBe('active-tron');
+    expect(tronRequest).toHaveBeenCalledWith({method:'tron_requestAccounts'});
+    expect(JSON.stringify([evmRequest.mock.calls,solana.connect.mock.calls,tronRequest.mock.calls])).not.toMatch(/private|mnemonic|secret/i);
+  });
 });

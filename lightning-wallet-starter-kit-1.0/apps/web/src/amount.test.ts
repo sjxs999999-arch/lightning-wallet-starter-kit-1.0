@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAtomic, sumDecimals } from './amount';
+import { formatAtomic, isPositiveDecimal, sumDecimals } from './amount';
 
 describe('exact asset amounts', () => {
   it('formats zero-decimal tokens without introducing a decimal point', () => {
@@ -12,5 +12,11 @@ describe('exact asset amounts', () => {
 
   it('keeps 30-place token precision', () => {
     expect(sumDecimals(['0.000000000000000000000000000001', '1'])).toBe('1.000000000000000000000000000001');
+  });
+
+  it('checks positive decimal values without floating-point conversion', () => {
+    expect(isPositiveDecimal('0.000000000000000000000000000001')).toBe(true);
+    expect(isPositiveDecimal('0.000000000000000000000000000000')).toBe(false);
+    expect(isPositiveDecimal('not-a-number')).toBe(false);
   });
 });

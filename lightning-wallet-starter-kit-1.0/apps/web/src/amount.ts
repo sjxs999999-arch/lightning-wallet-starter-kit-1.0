@@ -22,3 +22,8 @@ export function sumDecimals(values: string[]): string {
   const total = parsed.reduce((sum, value) => sum + BigInt(`${value.whole}${value.fraction.padEnd(scale, '0')}`), 0n);
   return formatAtomic(total, scale);
 }
+
+export function isPositiveDecimal(value: string): boolean {
+  if (!decimalPattern.test(value)) return false;
+  return BigInt(value.replace('.', '')) > 0n;
+}

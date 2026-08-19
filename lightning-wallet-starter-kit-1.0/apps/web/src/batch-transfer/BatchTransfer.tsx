@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { History, RefreshCw, Send, ShieldCheck } from 'lucide-react';
 import { ApiError, api } from '../api';
 import { downloadTransferTemplate, exportResults, parseTransferCsv, transferCsvExample } from './csv';
-import { executeTask } from './executor';
+import { executeTask, getActiveSender } from './executor';
 import { executeEvmBatch } from './evm-batch';
 import { transferPlanPayload, transferResultPayload } from './persistence';
 import type { TransferJob } from './persistence';
 import type { TransferChain, TransferInput, TransferLog, TransferMode, TransferPlan, TransferTask } from './types';
 import { executeSolanaBatch } from './solana-batch';
 import { loadLocalTransferHistory, saveLocalTransferJob } from './local-history';
+import { pendingSenderCount, senderCount, tasksForActiveSender } from './sender-groups';
 
 export function BatchTransfer() {
   const [chain, setChain] = useState<TransferChain>('EVM');
@@ -133,30 +134,47 @@ export function BatchTransfer() {
 
   async function execute(tasks = tasksRef.current.filter(task => task.status === 'pending' || task.status === 'failed')) {
     if (!plan || !activeJob || !tasks.length) return;
-    if (!dryRun && !window.confirm(`即将请求钱包批量签名 ${tasks.length} 笔。确认开始？`)) return;
+    let executionTasks = tasks;
+    if (!dryRun && senderCount(tasks) > 1) {
+      if (!window.confirm(`当前任务包含 ${senderCount(tasks)} 个发送账户。\n将连接当前钱包并只执行与活动账户匹配的任务，完成后切换钱包继续。`)) return;
+      try {
+        const activeSender = await getActiveSender(plan.chain);
+        executionTasks = tasksForActiveSender(tasks, activeSender);
+        if (!executionTasks.length) throw new Error(`当前钱包账户 ${activeSender} 不在待执行发送地址中`);
+        log(`已选择当前钱包对应的 ${executionTasks.length} 笔任务；其他发送账户保持待处理`, 'success');
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : '无法识别当前钱包账户';
+        setError(message);
+        log(message, 'error');
+        return;
+      }
+    }
+    if (!dryRun && !window.confirm(`即将请求当前钱包签名 ${executionTasks.length} 笔。确认开始？`)) return;
     setRunning(true);
     setPaused(false);
     pausedRef.current = false;
     stopRef.current = false;
 
-    if (!dryRun && tasks.every(task => task.chain === 'EVM')) {
+    if (!dryRun && executionTasks.every(task => task.chain === 'EVM')) {
       try {
-        tasks.forEach(task => { task.status = 'running'; task.attempts++; });
+        executionTasks.forEach(task => { task.status = 'running'; task.attempts++; });
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
-        const results = await executeEvmBatch(tasks);
+        const results = await executeEvmBatch(executionTasks);
         if (results) {
-          results.forEach((result, index) => { const task = tasks[index]!; task.txHash = result.hash; task.status = result.state; log(result.state === 'confirmed' ? 'EVM 批量调用已确认' : 'EVM 批量调用已提交', 'success', task.id); });
+          results.forEach((result, index) => { const task = executionTasks[index]!; task.txHash = result.hash; task.status = result.state; log(result.state === 'confirmed' ? 'EVM 批量调用已确认' : 'EVM 批量调用已提交', 'success', task.id); });
           setProgress(tasksRef.current.filter(task => task.status === 'confirmed' || task.status === 'submitted' || task.status === 'failed').length);
           setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
           setRunning(false);
           await persistResults();
+          const remaining = pendingSenderCount(tasksRef.current);
+          if (remaining) log(`当前账户任务完成；请切换钱包继续剩余 ${remaining} 个发送账户`, 'info');
           return;
         }
-        tasks.forEach(task => { task.status = 'pending'; task.attempts--; });
+        executionTasks.forEach(task => { task.status = 'pending'; task.attempts--; });
         log('当前钱包不支持 EIP-5792 批量调用，已安全回退为逐笔钱包确认');
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : 'EVM 批量调用失败';
-        tasks.forEach(task => { if (task.status === 'running') { task.status = 'failed'; task.error = message; } });
+        executionTasks.forEach(task => { if (task.status === 'running') { task.status = 'failed'; task.error = message; } });
         log(`${message}；整批已停止`, 'error');
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
         setRunning(false);
@@ -165,14 +183,15 @@ export function BatchTransfer() {
       }
     }
 
-    if (!dryRun && tasks.every(task => task.chain === 'SOL')) {
+    if (!dryRun && executionTasks.every(task => task.chain === 'SOL')) {
       try {
-        tasks.forEach(task => { task.status = 'running'; task.attempts++; });
+        executionTasks.forEach(task => { task.status = 'running'; task.attempts++; });
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
-        const results = await executeSolanaBatch(tasks, {
+        const results = await executeSolanaBatch(executionTasks, {
           waitUntilResumed: async () => { while (pausedRef.current && !stopRef.current) await new Promise(resolve => setTimeout(resolve, 100)); },
+          shouldStop: () => stopRef.current,
           onBroadcast: result => {
-            const task = tasks[result.index]!;
+            const task = executionTasks[result.index]!;
             if (result.signature) { task.txHash = result.signature; task.status = 'submitted'; }
             else { task.status = 'failed'; task.error = result.error ?? '广播失败'; }
             setProgress(tasksRef.current.filter(item => item.status === 'confirmed' || item.status === 'submitted' || item.status === 'failed').length);
@@ -180,25 +199,27 @@ export function BatchTransfer() {
           },
         });
         results.forEach((result, index) => {
-          const task = tasks[index]!;
+          const task = executionTasks[index]!;
           if (result.signature) { task.txHash = result.signature; task.status = result.state; log(result.state === 'confirmed' ? '交易已确认' : '交易已提交，等待链上确认', 'success', task.id); }
           else { task.status = 'failed'; task.error = result.error ?? '广播失败'; log(task.error, 'error', task.id); }
         });
         setProgress(tasksRef.current.filter(task => task.status === 'confirmed' || task.status === 'submitted' || task.status === 'failed').length);
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : '批量执行失败';
-        tasks.forEach(task => { if (task.status === 'running') { task.status = 'failed'; task.error = message; } });
+        executionTasks.forEach(task => { if (task.status === 'running') { task.status = 'failed'; task.error = message; } });
         log(`${message}；整批已停止`, 'error');
       } finally {
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
         setRunning(false);
         await persistResults();
+        const remaining = pendingSenderCount(tasksRef.current);
+        if (remaining) log(`仍有 ${remaining} 个发送账户待执行或重试；保持或切换到对应钱包后继续`, 'info');
       }
       return;
     }
 
     try {
-      for (const task of tasks) {
+      for (const task of executionTasks) {
         while (pausedRef.current && !stopRef.current) await new Promise(resolve => setTimeout(resolve, 100));
         if (stopRef.current) break;
         task.status = 'running';
@@ -221,6 +242,8 @@ export function BatchTransfer() {
     } finally {
       setRunning(false);
       await persistResults();
+      const remaining = pendingSenderCount(tasksRef.current);
+      if (!dryRun && remaining) log(`仍有 ${remaining} 个发送账户待执行或重试；保持或切换到对应钱包后继续`, 'info');
     }
   }
 
@@ -228,6 +251,7 @@ export function BatchTransfer() {
   function retry() { const failed = tasksRef.current.filter(task => task.status === 'failed'); failed.forEach(task => { task.status = 'pending'; delete task.error; }); void execute(failed); }
 
   const solBatch = chain === 'SOL' && Boolean(plan?.tasks.length);
+  const unfinishedSenders = plan ? pendingSenderCount(plan.tasks) : 0;
   return <>
     <div className="page-head"><div><p className="eyebrow">CLIENT-SIDE BATCH ENGINE</p><h1>批量转账</h1><p>浏览器负责校验与钱包签名；服务器仅保存公开任务元数据和脱敏结果。</p></div></div>
     <div className="grid">
@@ -239,13 +263,13 @@ export function BatchTransfer() {
         {showExample && <pre className="csv-example">{transferCsvExample(chain)}</pre>}
         <label>CSV 导入<input type="file" accept=".csv,text/csv" disabled={running} onChange={event => void importCsv(event.target.files?.[0])}/></label>
         <label className="dry-run"><input type="checkbox" checked={dryRun} disabled={running} onChange={event => setDryRun(event.target.checked)}/> Dry Run（默认开启，不广播）</label>
-        <div className="notice"><ShieldCheck size={18}/>{solBatch ? 'Solana 原生币和 Token 都使用钱包批量签名：整批一次授权；私钥始终留在钱包。' : chain === 'EVM' ? '支持 EIP-5792 的钱包可整批授权；不支持时安全回退为逐笔确认。' : 'CSV 只允许公开地址、金额和 Token 地址；服务端会拒绝任何密钥字段。'}</div>
+        <div className="notice"><ShieldCheck size={18}/>{unfinishedSenders > 1 ? `检测到 ${unfinishedSenders} 个发送账户：每次只执行当前已连接钱包对应的任务，切换钱包后继续。` : solBatch ? 'Solana 原生币和 Token 都使用钱包批量签名：同一发送账户一次授权；私钥始终留在钱包。' : chain === 'EVM' ? '支持 EIP-5792 的钱包可整批授权；不支持时安全回退为逐笔确认。' : 'CSV 只允许公开地址、金额和 Token 地址；服务端会拒绝任何密钥字段。'}</div>
         {error && <div className="batch-error">{error}</div>}{recordError && <div className="batch-error">{recordError}</div>}
         <button onClick={prepare} disabled={running || saving || !inputs.length}>{saving ? '正在保存审计记录…' : `校验、估算并保存${inputs.length ? ` · ${inputs.length} 笔` : ''}`}</button>
       </section>
       <section className="panel">
         <div className="panel-head"><h3>执行预览</h3><span>{plan?.tasks.length ?? 0} 笔</span></div>
-        {plan ? <><div className="transfer-summary"><b>总金额 {plan.totalAmount}</b><b>预计手续费 {plan.totalEstimatedFee}</b><small>Worker 规划 {planningMs} ms</small><small>任务记录：{activeJob ? `${activeJob.id.slice(0, 8)} · ${activeJob.status}` : saving ? '保存中' : '未保存'}</small>{plan.risks.map(risk => <small key={risk}>⚠ {risk}</small>)}</div><div className="export-actions"><button onClick={() => void execute()} disabled={running || saving || !activeJob}>{dryRun ? '运行模拟并记录' : solBatch ? '开始批量签名（一次授权）' : '开始逐笔签名'}</button>{running && <button onClick={togglePause}>{paused ? '恢复' : '暂停'}</button>}<button onClick={retry} disabled={running || saving || !plan.tasks.some(task => task.status === 'failed')}>失败重试</button><button onClick={() => exportResults(plan.tasks)}>导出结果</button></div><div className="transfer-progress"><span style={{ width: `${plan.tasks.length ? progress / plan.tasks.length * 100 : 0}%` }}/></div><div className="wallet-list">{plan.tasks.slice(0, 100).map(task => <div key={task.id}><b>{task.row - 1}. {task.status} · {task.amount} {task.token ? 'Token' : '原生币'}</b><code>{task.from} → {task.to}</code>{task.error && <small>{task.error}</small>}</div>)}</div></> : <div className="mini-empty"><Send/><p>导入 CSV 后进行地址校验和 Dry Run</p></div>}
+        {plan ? <><div className="transfer-summary"><b>总金额 {plan.totalAmount}</b><b>预计手续费 {plan.totalEstimatedFee}</b><small>Worker 规划 {planningMs} ms</small><small>待处理发送账户：{unfinishedSenders}</small><small>任务记录：{activeJob ? `${activeJob.id.slice(0, 8)} · ${activeJob.status}` : saving ? '保存中' : '未保存'}</small>{plan.risks.map(risk => <small key={risk}>⚠ {risk}</small>)}</div><div className="export-actions"><button onClick={() => void execute()} disabled={running || saving || !activeJob}>{dryRun ? '运行模拟并记录' : unfinishedSenders > 1 ? '执行当前钱包对应任务' : solBatch ? '开始批量签名（一次授权）' : '开始逐笔签名'}</button>{running && <button onClick={togglePause}>{paused ? '恢复' : '暂停'}</button>}<button onClick={retry} disabled={running || saving || !plan.tasks.some(task => task.status === 'failed')}>失败重试</button><button onClick={() => exportResults(plan.tasks)}>导出结果</button></div><div className="transfer-progress"><span style={{ width: `${plan.tasks.length ? progress / plan.tasks.length * 100 : 0}%` }}/></div><div className="wallet-list">{plan.tasks.slice(0, 100).map(task => <div key={task.id}><b>{task.row - 1}. {task.status} · {task.amount} {task.token ? 'Token' : '原生币'}</b><code>{task.from} → {task.to}</code>{task.error && <small>{task.error}</small>}</div>)}</div></> : <div className="mini-empty"><Send/><p>导入 CSV 后进行地址校验和 Dry Run</p></div>}
       </section>
     </div>
     <section className="panel transfer-history"><div className="panel-head"><div><p className="eyebrow">AUDIT TRAIL</p><h3><History size={16}/>最近任务历史</h3></div><button onClick={() => void loadHistory()} title="刷新任务历史"><RefreshCw size={15}/></button></div><div className="transfer-history-table"><div><b>创建时间</b><b>网络 / 模式</b><b>数量</b><b>结果</b><b>状态</b></div>{history.map(job => <div key={job.id}><span>{new Date(job.created_at).toLocaleString()}</span><span>{job.payload.chain} · {job.payload.mode}</span><span>{job.payload.count}</span><span>{job.result.confirmed ?? 0} 成功 / {job.result.failed ?? 0} 失败</span><em className={job.status}>{job.status}</em></div>)}</div>{!history.length && <p className="transfer-history-empty">尚无已保存的批量转账任务。</p>}</section>
