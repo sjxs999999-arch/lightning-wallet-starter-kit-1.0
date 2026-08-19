@@ -1,146 +1,68 @@
-# Lightning Wallet Project Status
+# Lightning Wallet production status
 
-## Current stable release
+Updated: 2026-08-19
 
-- Version: `stable-v2.0-lightning-wallet`
-- Branch: `stable/v1.0-deploy`
-- Automation Center implementation: `59a2395`
-- Status: Approved
-- Build: PASS
-- Docker: PASS
-- Preview: `http://localhost:4173/automation`
+## Candidate baseline
 
-## Completed milestones
+- Development branch: `codex/final-production`
+- Latest candidate commit: see `git log -1 --oneline`
+- Last approved historical tag: `stable-v2.0-lightning-wallet`
+- Client domain: `https://lightingwallet.com`
+- Operator domain: `https://admin.lightingwallet.com`
+- API domain: `https://api.lightingwallet.com`
+- Final production approval: **not issued**
 
-- `stable-v1.0-local`: local frontend, API, PostgreSQL and Redis baseline
-- `stable-v1.1-wallets`: EVM, Solana and TRON batch wallet generation
-- `stable-v1.2-batch-transfer`: client-side multichain batch transfers
-- `stable-v1.3-asset-collector`: client-side multichain asset scanning and collection
-- `stable-v1.4-swap`: secure EVM, Solana and TRON Swap aggregation
-- `stable-v1.5-flash-loan`: existing FlashForge application integration
-- `stable-v1.6-gasfree`: secure Sepolia GasFree orchestration
-- `stable-v1.7-launchpad`: secure multichain Token Launchpad
-- `stable-v1.8-project-center`: read-only multichain Project Center
-- `stable-v1.9-market-center`: read-only multichain Market Center
-- `stable-v2.0-lightning-wallet`: stable integrated Lightning Wallet v2.0 release with Automation Center
+The historical v2.0 tag is retained for rollback. It is not evidence that every transaction module is production-approved.
 
-## Stable modules
+## Capability matrix
 
-- Dashboard and unified routing
-- Multichain batch wallets
-- Multichain batch transfers
-- EVM, Solana and TRON Asset Collector
-- EVM, Solana and TRON Swap adapters with route aggregation
-- Slippage, price-impact, exact-allowance and Dry Run safeguards
-- Local Swap history and 30-second quote refresh
-- FlashForge navigation, authenticated integration session and embedded application
-- Shared Sepolia, dark-theme and mandatory Dry Run integration context
-- Metadata-only Flash Loan history bridge and isolated error handling
-- Gas Sponsor and configurable HTTP Paymaster abstractions
-- Live Sepolia gas estimation, VIP policy and automatic top-up planning
-- Worker-based GasFree planning, 30-second monitoring and metadata-only history
-- Five-step multichain Token creation and metadata wizard
-- Local logo, banner and whitepaper validation with Token preview
-- Worker-based liquidity initialization planning and deployment checklist
-- EVM, Solana and TRON user-wallet signature adapters
-- PostgreSQL-backed multichain project list and details
-- Public logo, banner, website, social and whitepaper metadata views
-- Read-only contract, deployment and version histories
-- Parameterized project search with chain and status filters
-- EVM, Solana and TRON market search and overview
-- Live price, market cap, FDV, liquidity and 24-hour volume
-- OHLCV price history and recent public transaction activity
-- Browser-local watchlists and price alerts
-- Optional read-only holder-data provider with explicit unavailable state
-- PostgreSQL-backed monitoring task scheduler and job history
-- Price, watchlist, portfolio, Gas and service-health alerts
-- Telegram, Email and signed HTTPS Webhook notification adapters
-- Notification Dry Run, health monitor and failed-job retry queue
-- CSV import and export
-- Dry Run, Worker progress, pause, resume and failed-task retry
-- Docker Compose, PostgreSQL and Redis
+| Module | Implementation | Current production gate |
+|---|---|---|
+| Client/operator domain split | Complete | Latest candidate still needs production promotion |
+| Wallet providers | MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare, TronLink | Testnet acceptance complete in code; final manual extension acceptance remains |
+| Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
+| Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry and wallet signing | Mainnet feature flag is off; final chain-specific acceptance required |
+| Asset Collector | EVM/Solana/TRON scanning/planning, reserve rules, Dry Run and wallet signing | Mainnet feature flag is off; final chain-specific acceptance required |
+| Swap | Provider availability endpoint, quote Worker, route/impact guards, exact approval and wallet signing | Solana/Jupiter available; EVM needs `ZEROX_API_KEY`; TRON needs `TRON_SWAP_PROVIDER_URL`; mainnet flag off |
+| Flash Loan | Isolated Sepolia session bridge and built-in no-broadcast compatibility shell | Referenced historical repository contains no completed Flash Loan app; real integration is blocked on an actual provider application/API |
+| GasFree | Sepolia estimates, VIP policy, Paymaster abstraction, top-up planning and user-wallet signing | Sponsored transactions blocked until an approved Paymaster URL is configured |
+| Launchpad | Validated multichain token plans, local media validation, liquidity planning and wallet signature request | Real EVM/Solana/TRON deployment adapters are not approved |
+| Project Center | Public read and local validated project plans; authenticated operator metadata management | Ready for metadata use |
+| Market Center | Read-only price, liquidity, FDV, volume, history, trades, watchlists and alerts | Holder data needs an optional provider |
+| Automation Center | Scheduler, monitoring, Dry Run notifications, retries and job history | Real delivery remains off until provider credentials and explicit enablement |
+| Unified history | Browser-local public metadata plus authenticated operator database history | Ready; sensitive material is rejected/redacted |
 
-## Security boundary
+## Verified engineering controls
 
-- Private keys and mnemonics remain client-side.
-- Sensitive material is not sent to the API, database or logs.
-- Real transactions require explicit wallet confirmation and signature.
-- Dry Run is enabled by default.
-- RPC failures are isolated per task and do not cause a blank page.
+- Client routes and operator routes are separate.
+- Client signing modules are not exposed in the operator route surface.
+- Private keys and mnemonics remain in the browser/extension; API schemas do not accept them.
+- Encrypted wallet export uses AES-256-GCM with PBKDF2-SHA-256.
+- Real transactions require the user wallet; the server does not sign or broadcast.
+- Error boundaries isolate route, Worker, RPC and provider failures to prevent blank pages.
+- Operator sessions are revocable HttpOnly cookies with default-deny API authorization, CSRF checks and rate limits.
+- Optional RFC 6238 TOTP support is implemented but must not be enabled before authenticator enrollment.
+- Structured logs redact credentials, tokens, cookies and wallet secret fields.
+- PostgreSQL backup, guarded restore, readiness checks and rollback release layout are included.
+- CI runs type checking, tests, production build and Docker image builds.
 
-## Development state
+## Current verification baseline
 
-Development is stopped after Phase 11 and the Lightning Wallet v2.0 stable release. AI, Analytics and other future modules remain out of scope until the next approved phase.
+- API tests: 104 passing.
+- Web tests: 168 passing.
+- Type check: passing.
+- Production build: passing.
+- Latest completed CI before this status update: passing; every subsequent commit must pass again before promotion.
+- Production dependency audit: 0 critical, 0 high, 3 moderate transitive Solana/Jayson/UUID advisories. No unsafe downgrade is applied.
 
-## Phase 11 verification note
+## Required before final approval
 
-- Automation Center implementation commit: `59a2395`.
-- API and web tests: 70/70 PASS.
-- Type check, production build and Docker build: PASS.
-- Scheduler rule creation, enable/disable and immediate Dry Run: PASS.
-- PostgreSQL job history, retry queue and 30-second health monitoring: PASS.
-- Telegram, Email and Webhook configuration validation and destination masking: PASS.
-- Unauthenticated access rejected with HTTP 401; real notification delivery disabled by default.
-- Preview navigation, tab switching and route reload: PASS; no blank page.
-- Temporary verification rules, jobs and notification channels were removed after testing.
+1. CI and Vercel Preview must pass for the exact candidate commit.
+2. Deploy the same API commit to the protected GCE release directory and verify health/readiness/metrics.
+3. Promote the exact web candidate to both production domains and verify route isolation plus security headers.
+4. Enroll the operator authenticator before enabling `ADMIN_TOTP_SECRET`.
+5. Configure and verify any external provider being claimed: 0x, TRON Swap, Paymaster, notification delivery and a real Flash Loan app.
+6. Perform authorized testnet then limited-mainnet wallet acceptance for EVM, Solana and TRON, recording public transaction hashes only.
+7. Run the final browser → API → database → provider regression and rollback drill.
 
-## Phase 10 verification note
-
-- Market Center implementation commit: `88d0827`.
-- API and web tests: 65/65 PASS.
-- Type check, production build and Docker build: PASS.
-- Live EVM WETH market lookup, nine-pool search and normalized metrics: PASS.
-- 100-hour OHLCV price history and 100 recent public trades: PASS.
-- Watchlist, local price-alert evaluation and provider-failure isolation: PASS.
-- Preview rendering and route reload: PASS; no blank page.
-- Holder data is explicitly unavailable until a trusted read-only provider is configured; no simulated data is shown.
-
-## Phase 9 verification note
-
-- Project Center implementation commit: `2b34013`.
-- API and web tests: 62/62 PASS.
-- Type check, production build and Docker build: PASS.
-- PostgreSQL project, version and deployment queries: PASS.
-- EVM, Solana and TRON list, details and combined filters: PASS.
-- Metadata sensitive-field filtering and unauthenticated-request rejection: PASS.
-- Preview reload: PASS; browser console errors: 0.
-- Temporary verification records were removed after testing.
-
-## Phase 8 verification note
-
-- Launchpad implementation commit: `8c23402`.
-- API and web tests: 56/56 PASS.
-- Type check, production build and Docker build: PASS.
-- EVM Sepolia, Solana Devnet and TRON Nile Dry Run plans: PASS.
-- All plans return `broadcast=false` and `serverSigning=false`.
-- 1,000 Worker liquidity plans: approximately 0.542 ms.
-- Preview workflow and reload: PASS; browser console errors: 0.
-- No real Token deployment was signed or broadcast during verification.
-
-## Phase 7 verification note
-
-- GasFree implementation commit: `eaf7c92`.
-- API and web tests: 48/48 PASS.
-- Type check, production build and Docker build: PASS.
-- Live Sepolia RPC gas estimation: PASS.
-- Unauthenticated requests and mainnet Sponsor requests are rejected.
-- 1,000 Worker planning operations: approximately 0.597 ms.
-- Preview reload, local history persistence and error isolation: PASS; browser console errors: 0.
-- No external Paymaster is configured in the stable environment, so the module remains `dry-run-only` until an approved provider URL is supplied.
-
-## Phase 6 verification note
-
-- Flash Loan integration commit: `64f622d`.
-- API and web tests: 40/40 PASS.
-- Type check, production build and Docker build: PASS.
-- Authenticated Sepolia Dry Run session: PASS; unauthenticated and mainnet sessions rejected.
-- Preview reload and error isolation: PASS; browser console errors: 0.
-- The existing FlashForge teaching simulator loads successfully without changes to its loan logic.
-- The current external FlashForge version does not acknowledge the optional shared message protocol, so the UI reports `legacy` and does not claim transaction-history synchronization.
-
-## Phase 5 verification note
-
-- Swap tests: 9/9 PASS.
-- Production and Docker builds: PASS.
-- 100 live read-only Jupiter quotes: 100/100, 52.94 ms average.
-- No EVM, Solana or TRON transaction was signed or broadcast during verification because authorized funded test wallets were unavailable.
+Until those gates pass, the product must be described as a production candidate and not as fully mainnet-approved.

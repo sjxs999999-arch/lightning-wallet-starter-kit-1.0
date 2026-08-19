@@ -2,6 +2,22 @@
 
 All notable stable Lightning Wallet releases are recorded here.
 
+## Unreleased production candidate
+
+### Changed
+
+- Separated the public non-custodial client (`lightingwallet.com`) from the authenticated operator console (`admin.lightingwallet.com`).
+- Added durable browser-local public operation history and authenticated metadata-only operator history.
+- Added revocable HttpOnly operator sessions, optional TOTP, default-deny API authorization and stricter production CSP.
+- Added truthful Swap provider availability so unconfigured EVM/TRON adapters are disabled instead of reported as generic RPC failures.
+- Hardened batch transfer, asset collection, Swap, GasFree and Launchpad persistence against corrupted or sensitive browser data.
+
+### Release gate
+
+- This section is not a stable release and has no final mainnet approval.
+- EVM Swap, TRON Swap, sponsored GasFree, real Flash Loan logic and real Launchpad deployments remain provider/adapter gated.
+- Mainnet transaction flags remain disabled until chain-specific acceptance is complete.
+
 ## stable-v2.0-lightning-wallet
 
 ### Added
