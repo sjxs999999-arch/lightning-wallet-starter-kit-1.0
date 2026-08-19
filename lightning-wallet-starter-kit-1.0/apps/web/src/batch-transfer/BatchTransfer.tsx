@@ -3,6 +3,7 @@ import { History, RefreshCw, Send, ShieldCheck } from 'lucide-react';
 import { ApiError, api } from '../api';
 import { downloadTransferTemplate, exportResults, parseTransferCsv, transferCsvExample } from './csv';
 import { executeTask } from './executor';
+import { executeEvmBatch } from './evm-batch';
 import { transferPlanPayload, transferResultPayload } from './persistence';
 import type { TransferJob } from './persistence';
 import type { TransferChain, TransferInput, TransferLog, TransferMode, TransferPlan, TransferTask } from './types';
@@ -129,6 +130,32 @@ export function BatchTransfer() {
     pausedRef.current = false;
     stopRef.current = false;
 
+    if (!dryRun && tasks.every(task => task.chain === 'EVM')) {
+      try {
+        tasks.forEach(task => { task.status = 'running'; task.attempts++; });
+        setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
+        const results = await executeEvmBatch(tasks);
+        if (results) {
+          results.forEach((result, index) => { const task = tasks[index]!; task.txHash = result.hash; task.status = result.state; log(result.state === 'confirmed' ? 'EVM 批量调用已确认' : 'EVM 批量调用已提交', 'success', task.id); });
+          setProgress(tasksRef.current.filter(task => task.status === 'confirmed' || task.status === 'submitted' || task.status === 'failed').length);
+          setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
+          setRunning(false);
+          await persistResults();
+          return;
+        }
+        tasks.forEach(task => { task.status = 'pending'; task.attempts--; });
+        log('当前钱包不支持 EIP-5792 批量调用，已安全回退为逐笔钱包确认');
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : 'EVM 批量调用失败';
+        tasks.forEach(task => { if (task.status === 'running') { task.status = 'failed'; task.error = message; } });
+        log(`${message}；整批已停止`, 'error');
+        setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
+        setRunning(false);
+        await persistResults();
+        return;
+      }
+    }
+
     if (!dryRun && tasks.every(task => task.chain === 'SOL' && Boolean(task.token))) {
       try {
         tasks.forEach(task => { task.status = 'running'; task.attempts++; });
@@ -136,10 +163,10 @@ export function BatchTransfer() {
         const results = await executeSolanaTokenBatch(tasks);
         results.forEach((result, index) => {
           const task = tasks[index]!;
-          if (result.signature) { task.txHash = result.signature; task.status = 'confirmed'; log('交易已由钱包广播', 'success', task.id); }
+          if (result.signature) { task.txHash = result.signature; task.status = result.state; log(result.state === 'confirmed' ? '交易已确认' : '交易已提交，等待链上确认', 'success', task.id); }
           else { task.status = 'failed'; task.error = result.error ?? '广播失败'; log(task.error, 'error', task.id); }
         });
-        setProgress(tasksRef.current.filter(task => task.status === 'confirmed' || task.status === 'failed').length);
+        setProgress(tasksRef.current.filter(task => task.status === 'confirmed' || task.status === 'submitted' || task.status === 'failed').length);
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : '批量执行失败';
         tasks.forEach(task => { if (task.status === 'running') { task.status = 'failed'; task.error = message; } });
@@ -160,16 +187,16 @@ export function BatchTransfer() {
         task.attempts++;
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
         try {
-          task.txHash = dryRun ? `DRY-RUN-${task.id.slice(2, 14)}` : await executeTask(task);
-          task.status = 'confirmed';
-          log(dryRun ? '模拟验证通过' : '交易已由钱包广播', 'success', task.id);
+          if (dryRun) { task.txHash = `DRY-RUN-${task.id.slice(2, 14)}`; task.status = 'confirmed'; }
+          else { const result = await executeTask(task, { batchConfirmed: true }); task.txHash = result.hash; task.status = result.state; }
+          log(dryRun ? '模拟验证通过' : task.status === 'confirmed' ? '交易已确认' : '交易已提交，等待链上确认', 'success', task.id);
         } catch (cause) {
           task.status = 'failed';
           task.error = cause instanceof Error ? cause.message : '执行失败';
           log(task.error, 'error', task.id);
           if (!dryRun) break;
         }
-        setProgress(tasksRef.current.filter(item => item.status === 'confirmed' || item.status === 'failed').length);
+        setProgress(tasksRef.current.filter(item => item.status === 'confirmed' || item.status === 'submitted' || item.status === 'failed').length);
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
         await new Promise(resolve => setTimeout(resolve, 0));
       }
@@ -194,7 +221,7 @@ export function BatchTransfer() {
         {showExample && <pre className="csv-example">{transferCsvExample(chain)}</pre>}
         <label>CSV 导入<input type="file" accept=".csv,text/csv" disabled={running} onChange={event => void importCsv(event.target.files?.[0])}/></label>
         <label className="dry-run"><input type="checkbox" checked={dryRun} disabled={running} onChange={event => setDryRun(event.target.checked)}/> Dry Run（默认开启，不广播）</label>
-        <div className="notice"><ShieldCheck size={18}/>{solBatch ? 'Solana Token 使用 OKX 批量签名：整批一次授权；私钥始终留在钱包。' : 'CSV 只允许公开地址、金额和 Token 地址；服务端会拒绝任何密钥字段。'}</div>
+        <div className="notice"><ShieldCheck size={18}/>{solBatch ? 'Solana Token 使用钱包批量签名：整批一次授权；私钥始终留在钱包。' : chain === 'EVM' ? '支持 EIP-5792 的钱包可整批授权；不支持时安全回退为逐笔确认。' : 'CSV 只允许公开地址、金额和 Token 地址；服务端会拒绝任何密钥字段。'}</div>
         {error && <div className="batch-error">{error}</div>}{recordError && <div className="batch-error">{recordError}</div>}
         <button onClick={prepare} disabled={running || saving || !inputs.length}>{saving ? '正在保存审计记录…' : `校验、估算并保存${inputs.length ? ` · ${inputs.length} 笔` : ''}`}</button>
       </section>

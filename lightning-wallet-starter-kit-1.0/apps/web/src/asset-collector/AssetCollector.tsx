@@ -166,15 +166,15 @@ export function AssetCollector() {
         setTasks([...tasksRef.current]);
         try {
           const transfer: TransferTask = { id: task.id, row: task.attempts + 1, chain: task.chain, assetKind: task.asset, from: task.address, to: task.destination, amount: task.collectAmount, status: 'running', attempts: task.attempts, estimatedFee: task.estimatedFee, ...(task.token ? { token: task.token } : {}), ...(task.decimals !== undefined ? { decimals: task.decimals } : {}) };
-          task.txHash = dryRun ? `DRY-COLLECT-${task.id.slice(2, 14)}` : await executeTask(transfer);
-          task.executionStatus = 'confirmed';
-          log(dryRun ? '模拟归集通过' : '归集交易已由钱包广播', 'success', task.id);
+          if (dryRun) { task.txHash = `DRY-COLLECT-${task.id.slice(2, 14)}`; task.executionStatus = 'confirmed'; }
+          else { const result = await executeTask(transfer, { batchConfirmed: true }); task.txHash = result.hash; task.executionStatus = result.state; }
+          log(dryRun ? '模拟归集通过' : task.executionStatus === 'confirmed' ? '归集交易已确认' : '归集交易已提交，等待链上确认', 'success', task.id);
         } catch (cause) {
           task.executionStatus = 'failed';
           task.error = cause instanceof Error ? cause.message : '归集失败';
           log(task.error, 'error', task.id);
         }
-        setProgress(tasksRef.current.filter(item => Number(item.collectAmount) > 0 && (item.executionStatus === 'confirmed' || item.executionStatus === 'failed')).length);
+        setProgress(tasksRef.current.filter(item => Number(item.collectAmount) > 0 && (item.executionStatus === 'confirmed' || item.executionStatus === 'submitted' || item.executionStatus === 'failed')).length);
         setTasks([...tasksRef.current]);
         await new Promise(resolve => setTimeout(resolve, 0));
       }
