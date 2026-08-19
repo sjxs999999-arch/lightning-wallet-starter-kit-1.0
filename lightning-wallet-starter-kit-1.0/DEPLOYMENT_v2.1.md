@@ -65,6 +65,6 @@ The restore script requires typing `RESTORE`. Re-run readiness, login, database 
 
 ## Monitoring
 
-- Scrape `/metrics` with Prometheus through an authenticated or private network path.
+- Scrape `/metrics` with `Authorization: Bearer <METRICS_TOKEN>` through a private monitoring path. Production rejects requests without the dedicated token.
 - Alert on `/health/ready` failures, elevated `lightning_http_errors_total`, container restarts and backup age.
 - Forward JSON container logs to the approved log platform. Authorization headers, cookies and sensitive request fields are redacted.
