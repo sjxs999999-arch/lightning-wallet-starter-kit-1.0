@@ -202,7 +202,7 @@ export function AssetCollector() {
         <label>归集目标地址<input value={destination} disabled={scanning || running || saving} onChange={event => { setDestination(event.target.value.trim()); resetAudit(); }} placeholder="公开接收地址"/></label>
         <label>每个钱包最低余额保留<input value={reserve} disabled={scanning || running || saving} inputMode="decimal" onChange={event => { setReserve(event.target.value); resetAudit(); }}/></label>
         <label className="dry-run"><input type="checkbox" checked={dryRun} disabled={scanning || running || saving} onChange={event => { setDryRun(event.target.checked); resetAudit(); }}/> Dry Run（默认开启）</label>
-        <div className="notice"><ShieldCheck size={18}/>仅处理公开地址；私钥不进入 API、数据库、日志或分析系统，真实归集逐笔确认。</div>
+        <div className="notice"><ShieldCheck size={18}/>{chain==='SOL'?'Solana 会自动发现原生币、SPL Token 与 Token-2022；':'EVM/TRON 自动扫描原生币；Token 可在 CSV 的 token、decimals 列明确加入。'} 私钥不进入 API、数据库或日志。</div>
         {error && <div className="batch-error">{error}</div>}{recordError && <div className="batch-error">{recordError}</div>}
         <div className="collector-actions"><button onClick={scan} disabled={!inputs.length || scanning || running || saving}>{scanning ? `扫描中 · ${scanProgress}/${inputs.length}` : `扫描钱包${inputs.length ? ` · ${scanProgress}/${inputs.length}` : ''}`}</button><button onClick={prepare} disabled={!assets.length || scanning || running || saving}>{saving ? '正在保存…' : '生成并保存归集计划'}</button></div>
       </section>
