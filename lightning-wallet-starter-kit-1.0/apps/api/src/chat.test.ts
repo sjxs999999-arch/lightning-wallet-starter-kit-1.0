@@ -222,7 +222,7 @@ describe('ciphertext envelope relay', () => {
 describe('chat deployment safety boundaries', () => {
   it('keeps operator authorization role-gated and redacts all envelope secrets', () => {
     const server = readFileSync(new URL('./server.ts', import.meta.url), 'utf8');
-    expect(server).toContain("role!=='operator'");
+    expect(server).toContain('operatorSessionIsActive(projectDb,claims)');
     for (const field of ['body.signature', 'body.ciphertext', 'body.salt', 'body.iv']) expect(server).toContain(field);
     const routes = readFileSync(new URL('./chat-routes.ts', import.meta.url), 'utf8');
     expect(routes).not.toMatch(/\.log\.(?:info|warn|error)/);
