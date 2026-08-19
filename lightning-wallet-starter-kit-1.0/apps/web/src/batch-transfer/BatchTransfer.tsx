@@ -169,7 +169,16 @@ export function BatchTransfer() {
       try {
         tasks.forEach(task => { task.status = 'running'; task.attempts++; });
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
-        const results = await executeSolanaBatch(tasks);
+        const results = await executeSolanaBatch(tasks, {
+          waitUntilResumed: async () => { while (pausedRef.current && !stopRef.current) await new Promise(resolve => setTimeout(resolve, 100)); },
+          onBroadcast: result => {
+            const task = tasks[result.index]!;
+            if (result.signature) { task.txHash = result.signature; task.status = 'submitted'; }
+            else { task.status = 'failed'; task.error = result.error ?? '广播失败'; }
+            setProgress(tasksRef.current.filter(item => item.status === 'confirmed' || item.status === 'submitted' || item.status === 'failed').length);
+            setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
+          },
+        });
         results.forEach((result, index) => {
           const task = tasks[index]!;
           if (result.signature) { task.txHash = result.signature; task.status = result.state; log(result.state === 'confirmed' ? '交易已确认' : '交易已提交，等待链上确认', 'success', task.id); }
