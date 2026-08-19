@@ -8,6 +8,7 @@ import { collectionPlanPayload, collectionResultPayload } from './persistence';
 import type { CollectionJob } from './persistence';
 import { buildCollectionPlan } from './planner';
 import type { CollectorLog, CollectorTask, ScanInput, ScannedAsset } from './types';
+import { loadLocalCollectionHistory, saveLocalCollectionJob } from './local-history';
 
 function AssetRow({ item }: { item: ScannedAsset | CollectorTask }) {
   const task = 'executionStatus' in item ? item : undefined;
@@ -40,8 +41,9 @@ export function AssetCollector() {
 
   const log = (message: string, level: CollectorLog['level'] = 'info', taskId?: string) => setLogs(items => [...items, { at: new Date().toISOString(), message, level, ...(taskId ? { taskId } : {}) }]);
   const loadHistory = useCallback(async () => {
-    try { setHistory((await api<{ data: CollectionJob[] }>('/collections/history?limit=20')).data); setRecordError(''); }
-    catch (cause) { if (!(cause instanceof ApiError && cause.status === 401)) setRecordError('归集历史暂时无法读取，本地扫描数据未受影响'); }
+    const local=loadLocalCollectionHistory();
+    try { const remote=(await api<{ data: CollectionJob[] }>('/collections/history?limit=20')).data;setHistory([...remote,...local].sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)).slice(0,50));setRecordError(''); }
+    catch (cause) { setHistory(local);if (!(cause instanceof ApiError && cause.status === 401)) setRecordError('服务器归集历史暂时无法读取，本地审计历史仍可使用'); }
   }, []);
 
   useEffect(() => {
@@ -72,7 +74,9 @@ export function AssetCollector() {
         const eligible = nextTasks.filter(task => Number(task.collectAmount) > 0);
         const now = new Date().toISOString();
         const localJob: CollectionJob = { id: `local-${crypto.randomUUID()}`, kind: 'asset-collection', status: 'validated', payload: { chain: eligible[0]!.chain, dryRun, destination: eligible[0]!.destination, count: eligible.length, nativeCount: eligible.filter(task => task.asset === 'native').length, tokenCount: eligible.filter(task => task.asset === 'token').length }, result: { dryRun, serverSigning: false, serverBroadcast: false, confirmed: 0, failed: 0, pending: eligible.length }, created_at: now, updated_at: now };
+        jobIdRef.current = localJob.id;
         setActiveJob(localJob);
+        setHistory(saveLocalCollectionJob(localJob));
         log('客户端本地归集审计已启用；未上传私钥或助记词', 'success');
       } else setRecordError('归集记录保存失败；为避免失去审计记录，执行按钮已锁定，请重新生成计划');
     } finally {
@@ -83,6 +87,11 @@ export function AssetCollector() {
   async function persistResults() {
     const id = jobIdRef.current;
     if (!id) return;
+    if (id.startsWith('local-') && activeJob) {
+      const eligible=tasksRef.current.filter(task=>Number(task.collectAmount)>0),confirmed=eligible.filter(task=>task.executionStatus==='confirmed').length,failed=eligible.filter(task=>task.executionStatus==='failed').length,skipped=eligible.filter(task=>task.executionStatus==='skipped').length,pending=eligible.length-confirmed-failed-skipped,status:CollectionJob['status']=pending>0?'paused':failed===0?'completed':confirmed>0?'partial':'failed';
+      const next:CollectionJob={...activeJob,status,result:{...activeJob.result,broadcastByWallet:!activeJob.payload.dryRun&&confirmed>0,confirmed,failed,pending,skipped},updated_at:new Date().toISOString()};
+      setActiveJob(next);setHistory(saveLocalCollectionJob(next));return;
+    }
     setSaving(true);
     setRecordError('');
     try {

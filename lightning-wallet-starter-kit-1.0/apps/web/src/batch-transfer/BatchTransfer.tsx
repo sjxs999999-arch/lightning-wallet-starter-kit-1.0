@@ -8,6 +8,7 @@ import { transferPlanPayload, transferResultPayload } from './persistence';
 import type { TransferJob } from './persistence';
 import type { TransferChain, TransferInput, TransferLog, TransferMode, TransferPlan, TransferTask } from './types';
 import { executeSolanaTokenBatch } from './solana-batch';
+import { loadLocalTransferHistory, saveLocalTransferJob } from './local-history';
 
 export function BatchTransfer() {
   const [chain, setChain] = useState<TransferChain>('EVM');
@@ -34,8 +35,9 @@ export function BatchTransfer() {
 
   const log = (message: string, level: TransferLog['level'] = 'info', taskId?: string) => setLogs(items => [...items, { at: new Date().toISOString(), message, level, ...(taskId ? { taskId } : {}) }]);
   const loadHistory = useCallback(async () => {
-    try { setHistory((await api<{ data: TransferJob[] }>('/transfers/history?limit=20')).data); }
-    catch (cause) { if (!(cause instanceof ApiError && cause.status === 401)) setRecordError('任务历史暂时无法读取，本地规划数据未受影响'); }
+    const local = loadLocalTransferHistory();
+    try { const remote=(await api<{ data: TransferJob[] }>('/transfers/history?limit=20')).data;setHistory([...remote,...local].sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)).slice(0,50)); }
+    catch (cause) { setHistory(local);if (!(cause instanceof ApiError && cause.status === 401)) setRecordError('服务器任务历史暂时无法读取，本地审计历史仍可使用'); }
   }, []);
 
   useEffect(() => {
@@ -58,7 +60,9 @@ export function BatchTransfer() {
       if (cause instanceof ApiError && cause.status === 401) {
         const now = new Date().toISOString();
         const localJob: TransferJob = { id: `local-${crypto.randomUUID()}`, kind: 'batch-transfer', status: 'validated', payload: { chain: nextPlan.chain, mode: nextPlan.mode, dryRun: nextPlan.dryRun, count: nextPlan.tasks.length, totalAmount: nextPlan.totalAmount, totalEstimatedFee: nextPlan.totalEstimatedFee }, result: { dryRun: nextPlan.dryRun, serverSigning: false, serverBroadcast: false, confirmed: 0, failed: 0, pending: nextPlan.tasks.length }, created_at: now, updated_at: now };
+        jobIdRef.current = localJob.id;
         setActiveJob(localJob);
+        setHistory(saveLocalTransferJob(localJob));
         log('客户端本地审计已启用；未上传私钥或助记词', 'success');
       } else setRecordError('任务记录保存失败；为避免失去审计记录，执行按钮已锁定，请重试规划');
     } finally {
@@ -69,6 +73,11 @@ export function BatchTransfer() {
   async function persistResults() {
     const id = jobIdRef.current;
     if (!id) return;
+    if (id.startsWith('local-') && activeJob) {
+      const confirmed=tasksRef.current.filter(task=>task.status==='confirmed').length,failed=tasksRef.current.filter(task=>task.status==='failed').length,skipped=tasksRef.current.filter(task=>task.status==='skipped').length,pending=tasksRef.current.length-confirmed-failed-skipped,status:TransferJob['status']=pending>0?'paused':failed===0?'completed':confirmed>0?'partial':'failed';
+      const next:TransferJob={...activeJob,status,result:{...activeJob.result,broadcastByWallet:!activeJob.payload.dryRun&&confirmed>0,confirmed,failed,pending,skipped},updated_at:new Date().toISOString()};
+      setActiveJob(next);setHistory(saveLocalTransferJob(next));return;
+    }
     setSaving(true);
     setRecordError('');
     try {

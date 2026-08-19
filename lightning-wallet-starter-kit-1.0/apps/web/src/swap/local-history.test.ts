@@ -12,4 +12,8 @@ describe('local swap history', () => {
     expect(loadLocalSwapHistory(storage)).toEqual([job]);
     expect([...values.values()].join('')).not.toMatch(/privateKey|mnemonic|seedPhrase/);
   });
+
+  it('ignores incomplete local records that could crash the history view', () => {
+    expect(loadLocalSwapHistory({ getItem: () => JSON.stringify([{ id: 'local-incomplete', kind: 'swap' }]) })).toEqual([]);
+  });
 });
