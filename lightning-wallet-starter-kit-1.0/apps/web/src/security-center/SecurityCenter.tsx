@@ -99,3 +99,29 @@ function Policy({ name, enabled, safeOff, detail }: { name: string; enabled: boo
   const secure = safeOff ? !enabled : enabled;
   return <div><span>{name}</span><b className={secure ? 'policy-secure' : 'policy-warning'}>{detail ?? (enabled ? '已启用' : safeOff ? '已关闭' : '未启用')}</b></div>;
 }
+
+export function ClientSecurityCenter() {
+  const [checks] = useState(() => {
+    let storage = false;
+    try { const key = 'lightning-security-check'; sessionStorage.setItem(key, '1'); sessionStorage.removeItem(key); storage = true; } catch { /* blocked browser storage */ }
+    return { secureContext: window.isSecureContext, webCrypto: Boolean(window.crypto?.subtle), worker: typeof Worker !== 'undefined', storage };
+  });
+  const ready = Object.values(checks).every(Boolean);
+  return <>
+    <div className="page-head"><div><p className="eyebrow">NON-CUSTODIAL CLIENT SECURITY</p><h1>安全中心</h1><p>检查当前浏览器是否满足本地生成、加密、签名与隔离执行要求。</p></div></div>
+    <div className="security-stats">
+      <section className="panel security-stat"><ShieldCheck/><span>客户端状态</span><strong>{ready ? '安全能力就绪' : '需要处理'}</strong><small>实时浏览器检查</small></section>
+      <section className="panel security-stat"><KeyRound/><span>私钥上传</span><strong>0</strong><small>API 不接收私钥或助记词</small></section>
+      <section className="panel security-stat"><Users/><span>服务端签名</span><strong>关闭</strong><small>真实交易必须由钱包确认</small></section>
+      <section className="panel security-stat"><Clock3/><span>后台会话</span><strong>独立域名</strong><small>客户端无需管理员密码</small></section>
+    </div>
+    <div className="security-layout">
+      <section className="panel"><div className="panel-head"><div><p className="eyebrow">BROWSER CHECKS</p><h3>本机安全能力</h3></div></div><div className="policy-list"><Policy name="HTTPS 安全上下文" enabled={checks.secureContext}/><Policy name="Web Crypto 加密" enabled={checks.webCrypto}/><Policy name="Web Worker 隔离执行" enabled={checks.worker}/><Policy name="会话存储可用" enabled={checks.storage}/><Policy name="服务端私钥存储" enabled={false} safeOff/><Policy name="服务端自动签名" enabled={false} safeOff/></div></section>
+      <section className="panel audit-panel"><div className="panel-head"><div><p className="eyebrow">SECURITY BOUNDARIES</p><h3>不可绕过的边界</h3></div><ShieldCheck size={18}/></div><div className="audit-list"><SecurityBoundary title="密钥只在本地" detail="生成、解密与控制权验证只在浏览器内存和 Worker 中进行。"/><SecurityBoundary title="交易由用户签名" detail="API 只处理公开参数、报价或审计元数据，不持有签名能力。"/><SecurityBoundary title="错误不会白屏" detail="路由错误边界隔离模块故障，RPC 失败只显示当前操作错误。"/><SecurityBoundary title="后台完全分离" detail="运营登录、会话和写操作只在独立后台域名使用。"/></div></section>
+    </div>
+  </>;
+}
+
+function SecurityBoundary({ title, detail }: { title: string; detail: string }) {
+  return <div><span className="audit-ok"><ShieldCheck size={15}/></span><div><b>{title}</b><small>{detail}</small></div></div>;
+}
