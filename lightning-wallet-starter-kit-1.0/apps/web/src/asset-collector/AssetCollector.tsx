@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CircleDollarSign, History, RefreshCw, ShieldCheck } from 'lucide-react';
-import { api } from '../api';
+import { ApiError, api } from '../api';
 import { executeTask } from '../batch-transfer/executor';
 import type { TransferChain, TransferTask } from '../batch-transfer/types';
 import { exportCollectorResults, parseCollectorCsv } from './csv';
@@ -41,7 +41,7 @@ export function AssetCollector() {
   const log = (message: string, level: CollectorLog['level'] = 'info', taskId?: string) => setLogs(items => [...items, { at: new Date().toISOString(), message, level, ...(taskId ? { taskId } : {}) }]);
   const loadHistory = useCallback(async () => {
     try { setHistory((await api<{ data: CollectionJob[] }>('/collections/history?limit=20')).data); setRecordError(''); }
-    catch { setRecordError('归集历史暂时无法读取，本地扫描数据未受影响'); }
+    catch (cause) { if (!(cause instanceof ApiError && cause.status === 401)) setRecordError('归集历史暂时无法读取，本地扫描数据未受影响'); }
   }, []);
 
   useEffect(() => {
@@ -67,8 +67,14 @@ export function AssetCollector() {
       setActiveJob(response.data);
       log(`归集记录已保存：${response.data.id.slice(0, 8)} · 私钥上传 0`, 'success');
       await loadHistory();
-    } catch {
-      setRecordError('归集记录保存失败；为避免失去审计记录，执行按钮已锁定，请重新生成计划');
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) {
+        const eligible = nextTasks.filter(task => Number(task.collectAmount) > 0);
+        const now = new Date().toISOString();
+        const localJob: CollectionJob = { id: `local-${crypto.randomUUID()}`, kind: 'asset-collection', status: 'validated', payload: { chain: eligible[0]!.chain, dryRun, destination: eligible[0]!.destination, count: eligible.length, nativeCount: eligible.filter(task => task.asset === 'native').length, tokenCount: eligible.filter(task => task.asset === 'token').length }, result: { dryRun, serverSigning: false, serverBroadcast: false, confirmed: 0, failed: 0, pending: eligible.length }, created_at: now, updated_at: now };
+        setActiveJob(localJob);
+        log('客户端本地归集审计已启用；未上传私钥或助记词', 'success');
+      } else setRecordError('归集记录保存失败；为避免失去审计记录，执行按钮已锁定，请重新生成计划');
     } finally {
       setSaving(false);
     }

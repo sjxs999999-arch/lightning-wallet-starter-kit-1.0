@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { History, RefreshCw, Send, ShieldCheck } from 'lucide-react';
-import { api } from '../api';
+import { ApiError, api } from '../api';
 import { downloadTransferTemplate, exportResults, parseTransferCsv, transferCsvExample } from './csv';
 import { executeTask } from './executor';
 import { transferPlanPayload, transferResultPayload } from './persistence';
@@ -34,7 +34,7 @@ export function BatchTransfer() {
   const log = (message: string, level: TransferLog['level'] = 'info', taskId?: string) => setLogs(items => [...items, { at: new Date().toISOString(), message, level, ...(taskId ? { taskId } : {}) }]);
   const loadHistory = useCallback(async () => {
     try { setHistory((await api<{ data: TransferJob[] }>('/transfers/history?limit=20')).data); }
-    catch { setRecordError('任务历史暂时无法读取，本地规划数据未受影响'); }
+    catch (cause) { if (!(cause instanceof ApiError && cause.status === 401)) setRecordError('任务历史暂时无法读取，本地规划数据未受影响'); }
   }, []);
 
   useEffect(() => {
@@ -53,8 +53,13 @@ export function BatchTransfer() {
       setActiveJob(response.data);
       log(`任务记录已保存：${response.data.id.slice(0, 8)} · 私钥上传 0`, 'success');
       await loadHistory();
-    } catch {
-      setRecordError('任务记录保存失败；为避免失去审计记录，执行按钮已锁定，请重试规划');
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) {
+        const now = new Date().toISOString();
+        const localJob: TransferJob = { id: `local-${crypto.randomUUID()}`, kind: 'batch-transfer', status: 'validated', payload: { chain: nextPlan.chain, mode: nextPlan.mode, dryRun: nextPlan.dryRun, count: nextPlan.tasks.length, totalAmount: nextPlan.totalAmount, totalEstimatedFee: nextPlan.totalEstimatedFee }, result: { dryRun: nextPlan.dryRun, serverSigning: false, serverBroadcast: false, confirmed: 0, failed: 0, pending: nextPlan.tasks.length }, created_at: now, updated_at: now };
+        setActiveJob(localJob);
+        log('客户端本地审计已启用；未上传私钥或助记词', 'success');
+      } else setRecordError('任务记录保存失败；为避免失去审计记录，执行按钮已锁定，请重试规划');
     } finally {
       setSaving(false);
     }
