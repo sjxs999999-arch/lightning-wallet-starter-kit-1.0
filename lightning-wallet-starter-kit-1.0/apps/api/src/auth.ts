@@ -46,12 +46,21 @@ const PUBLIC_API_ROUTES = new Set([
   'GET solana/latest-blockhash',
   'GET gasfree/status',
   'GET integrations/flash-loan/health',
+  'GET projects',
+  'GET market/search',
+  'GET market/token',
+  'GET market/history',
+  'GET market/trades',
+  'GET system/capabilities',
   'POST swap/quotes',
   'POST swap/solana-transaction',
   'POST integrations/flash-loan/session',
   'POST gasfree/estimate',
   'POST gasfree/sponsor',
   'POST launchpad/validate',
+  'POST bridge/quotes',
+  'POST risk/token',
+  'POST lp/positions',
   'POST auth/login',
   'POST wallets/batch-generate',
   'POST collections/plan',
@@ -62,7 +71,9 @@ export function apiRouteRequiresAuth(method: string | undefined, requestUrl: str
   if (!path.startsWith('/api/v1/')) return false;
   const route = path.slice('/api/v1/'.length).replace(/^\/+|\/+$/g, '');
   if ((method ?? 'GET').toUpperCase() === 'OPTIONS') return false;
-  return !PUBLIC_API_ROUTES.has(`${(method ?? 'GET').toUpperCase()} ${route}`);
+  const normalizedMethod = (method ?? 'GET').toUpperCase();
+  if (normalizedMethod === 'GET' && /^projects\/[^/]+$/.test(route)) return false;
+  return !PUBLIC_API_ROUTES.has(`${normalizedMethod} ${route}`);
 }
 
 export function verifyOperatorCredentials(

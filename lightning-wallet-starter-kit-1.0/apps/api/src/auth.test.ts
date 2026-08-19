@@ -51,6 +51,14 @@ describe('operator credentials', () => {
     expect(apiRouteRequiresAuth('POST', '/api/v1/gasfree/estimate')).toBe(false);
     expect(apiRouteRequiresAuth('POST', '/api/v1/gasfree/sponsor')).toBe(false);
     expect(apiRouteRequiresAuth('POST', '/api/v1/launchpad/validate')).toBe(false);
+    expect(apiRouteRequiresAuth('GET', '/api/v1/projects')).toBe(false);
+    expect(apiRouteRequiresAuth('GET', '/api/v1/projects/project-id')).toBe(false);
+    expect(apiRouteRequiresAuth('POST', '/api/v1/projects')).toBe(true);
+    expect(apiRouteRequiresAuth('GET', '/api/v1/market/search?q=solana')).toBe(false);
+    expect(apiRouteRequiresAuth('GET', '/api/v1/system/capabilities')).toBe(false);
+    expect(apiRouteRequiresAuth('POST', '/api/v1/bridge/quotes')).toBe(false);
+    expect(apiRouteRequiresAuth('POST', '/api/v1/risk/token')).toBe(false);
+    expect(apiRouteRequiresAuth('POST', '/api/v1/lp/positions')).toBe(false);
     expect(apiRouteRequiresAuth('POST', '/api/v1/solana/send-signed-batch')).toBe(true);
     expect(apiRouteRequiresAuth('GET', '/api/v1/integrations/flash-loan')).toBe(true);
     expect(apiRouteRequiresAuth('POST', '/api/v1/future-sensitive-route')).toBe(true);
