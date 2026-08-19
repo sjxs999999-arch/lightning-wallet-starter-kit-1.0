@@ -7,7 +7,7 @@ import rateLimit from '@fastify/rate-limit';
 import { z } from 'zod';
 import { chains } from '@lightning/core';
 import { config } from './config.js';
-import { fetchSwapCandidates } from './swap.js';
+import { fetchSwapCandidates, swapProviderAvailability } from './swap.js';
 import { flashLoanSessionClaims, listFlashLoanHistory, publicFlashLoanSessionClaims, recordFlashLoanHistory } from './flash-loan.js';
 import { gasEstimateSchema, listGasJobs, resolveSponsorDecision, rpcGasEstimate, sponsorRequestSchema } from './gasfree.js';
 import { createDeploymentPlan, persistDeploymentPlan } from './launchpad.js';
@@ -66,6 +66,7 @@ app.post('/api/v1/collections/batch',async(req,reply)=>{await req.jwtVerify();tr
 app.patch('/api/v1/collections/batch/:id',async(req,reply)=>{await req.jwtVerify();try{const id=z.object({id:z.string()}).parse(req.params).id,result=await updateCollectionJob(projectDb,id,req.body);return result?{data:result}:reply.status(404).send({error:'COLLECTION_JOB_NOT_FOUND',message:'Collection job was not found or the result count did not match'})}catch(error){return error instanceof z.ZodError?reply.status(400).send({error:'INVALID_COLLECTION_RESULT',message:'Only safe outcome codes and public transaction references are accepted'}):reply.status(503).send({error:'COLLECTION_STORAGE_UNAVAILABLE',message:'Collection result was not saved'})}});
 app.get('/api/v1/collections/history',async(req,reply)=>{await req.jwtVerify();try{return{data:await listCollectionJobs(projectDb,collectionHistoryQuerySchema.parse(req.query))}}catch{return reply.status(503).send({error:'COLLECTION_HISTORY_UNAVAILABLE',message:'Collection history is temporarily unavailable'})}});
 app.post('/api/v1/collections/plan',async(_req,reply)=>reply.status(410).send({error:'COLLECTION_PLAN_REPLACED',message:'Use the validated collections/batch endpoint'}));
+app.get('/api/v1/swap/status',async()=>({data:{providers:swapProviderAvailability(),serverSigning:false,privateKeyAccepted:false}}));
 app.post('/api/v1/swap/quotes',async(req,reply)=>{try{return{data:await fetchSwapCandidates(swapQuoteInputSchema.parse(req.body))}}catch(error){return error instanceof z.ZodError?reply.status(400).send({error:'INVALID_SWAP_QUOTE_REQUEST',message:'Only validated public quote parameters are accepted'}):reply.status(503).send({error:'SWAP_QUOTES_UNAVAILABLE',message:'Aggregated quotes are temporarily unavailable'})}});
 app.post('/api/v1/swap/solana-transaction',async(req,reply)=>{try{return{data:await prepareSolanaSwap(req.body,rpcEndpoints(config.SOLANA_RPC_URL,config.SOLANA_RPC_FALLBACK_URLS))}}catch(error){return error instanceof z.ZodError?reply.status(400).send({error:'INVALID_SOLANA_SWAP_REQUEST',message:'Only validated public Solana swap inputs are accepted'}):reply.status(503).send({error:'SOLANA_SWAP_SIMULATION_FAILED',message:'Transaction construction or simulation failed; no wallet signature was requested'})}});
 app.post('/api/v1/swap/jobs',async(req,reply)=>{await req.jwtVerify();try{return{data:await createSwapJob(projectDb,req.body)}}catch(error){return error instanceof z.ZodError?reply.status(400).send({error:'INVALID_SWAP_PLAN',message:'Only public, validated quote metadata is accepted'}):reply.status(503).send({error:'SWAP_STORAGE_UNAVAILABLE',message:'Swap audit record was not saved; no wallet request was made'})}});

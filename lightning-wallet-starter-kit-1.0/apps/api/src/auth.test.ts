@@ -46,6 +46,7 @@ describe('operator credentials', () => {
     expect(apiRouteRequiresAuth('GET', '/api/v1/chains')).toBe(false);
     expect(apiRouteRequiresAuth('GET', '/api/v1/solana/latest-blockhash')).toBe(false);
     expect(apiRouteRequiresAuth('POST', '/api/v1/swap/quotes')).toBe(false);
+    expect(apiRouteRequiresAuth('GET', '/api/v1/swap/status')).toBe(false);
     expect(apiRouteRequiresAuth('POST', '/api/v1/swap/solana-transaction')).toBe(false);
     expect(apiRouteRequiresAuth('POST', '/api/v1/integrations/flash-loan/session')).toBe(false);
     expect(apiRouteRequiresAuth('POST', '/api/v1/gasfree/estimate')).toBe(false);

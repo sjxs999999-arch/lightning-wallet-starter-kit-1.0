@@ -8,7 +8,7 @@ import { swapPlanPayload, swapResultPayload } from './persistence';
 import type { SwapJob } from './persistence';
 import { loadLocalSwapHistory, saveLocalSwapJob } from './local-history';
 import { bestRoute } from './routing';
-import type { SwapCandidate, SwapChain, SwapRequest } from './types';
+import type { SwapCandidate, SwapChain, SwapProviderAvailability, SwapRequest } from './types';
 
 export function Swap() {
   const [chain, setChain] = useState<SwapChain>('EVM');
@@ -30,6 +30,7 @@ export function Swap() {
   const [executing, setExecuting] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [lastUpdated, setLastUpdated] = useState('');
+  const [providers, setProviders] = useState<SwapProviderAvailability[]>([]);
   const workerRef = useRef<Worker | null>(null);
   const quotedRequestRef = useRef<SwapRequest | null>(null);
 
@@ -40,8 +41,13 @@ export function Swap() {
 
   useEffect(() => {
     void loadHistory();
+    void api<{ data: { providers: SwapProviderAvailability[] } }>('/swap/status')
+      .then(response => setProviders(response.data.providers))
+      .catch(() => setError('兑换服务状态暂时无法读取；为安全起见已锁定报价'));
     return () => workerRef.current?.terminate();
   }, [loadHistory]);
+
+  const currentProvider = providers.find(item => item.chain === chain);
 
   const request = useCallback((): SwapRequest => ({
     chain,
@@ -153,6 +159,7 @@ export function Swap() {
       <section className="panel form-panel">
         <h3>Swap 参数</h3>
         <label>网络<select value={chain} disabled={busy || executing} onChange={event => { setChain(event.target.value as SwapChain); invalidateQuotes(); }}><option>EVM</option><option value="SOL">Solana</option><option>TRON</option></select></label>
+        {currentProvider && <div className={currentProvider.available ? 'notice' : 'batch-error'}>{currentProvider.available ? `报价服务已连接：${currentProvider.provider}` : currentProvider.reason}</div>}
         {chain==='EVM'&&<label>EVM 主网<select value={evmChainId} disabled={busy||executing} onChange={event=>{setEvmChainId(Number(event.target.value));invalidateQuotes()}}><option value={1}>Ethereum</option><option value={56}>BSC</option><option value={137}>Polygon</option><option value={8453}>Base</option><option value={42161}>Arbitrum</option></select></label>}
         <label>钱包地址<input value={taker} disabled={busy || executing} onChange={event => { setTaker(event.target.value.trim()); invalidateQuotes(); }} placeholder="公开签名地址"/></label>
         <label>卖出 Token<input value={sellToken} disabled={busy || executing} onChange={event => { setSellToken(event.target.value.trim()); invalidateQuotes(); }} placeholder="Token 地址或 Mint"/></label>
@@ -163,7 +170,7 @@ export function Swap() {
         <label className="dry-run"><input type="checkbox" checked={autoRefresh} disabled={executing} onChange={event => setAutoRefresh(event.target.checked)}/> 每 30 秒自动刷新报价 · 最后更新 {lastUpdated || '尚未报价'}</label>
         <div className="notice"><ShieldCheck size={18}/>不接收私钥或原始交易数据；Approve 使用精确卖出量，真实 Swap 必须由钱包确认。</div>
         {error && <div className="batch-error">{error}</div>}{recordError && <div className="batch-error">{recordError}</div>}
-        <button onClick={quote} disabled={busy || executing || !taker || !sellToken || !buyToken || !amount}>{busy ? '聚合报价中…' : '获取最优报价'}</button>
+        <button onClick={quote} disabled={busy || executing || !currentProvider?.available || !taker || !sellToken || !buyToken || !amount}>{busy ? '聚合报价中…' : '获取最优报价'}</button>
       </section>
       <section className="panel">
         <div className="panel-head"><h3>聚合报价</h3><span>{quotes.length} 条 · {elapsed} ms</span></div>
