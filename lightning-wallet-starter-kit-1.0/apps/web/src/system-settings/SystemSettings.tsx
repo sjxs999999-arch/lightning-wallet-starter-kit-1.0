@@ -28,7 +28,7 @@ export function SystemSettings() {
     {error && <div className="batch-error">{error}</div>}
     <div className="settings-summary">
       <section className="panel"><Server/><div><span>版本</span><strong>{data?.version ?? '读取中'}</strong></div></section>
-      <section className="panel"><Database/><div><span>Neon 数据库</span><strong>{data?.database ?? '检查中'}</strong></div></section>
+      <section className="panel"><Database/><div><span>PostgreSQL</span><strong>{data?.database ?? '检查中'}</strong></div></section>
       <section className="panel"><Network/><div><span>支持网络</span><strong>{data?.chains.length ?? 0}</strong></div></section>
       <section className="panel"><ShieldCheck/><div><span>环境</span><strong>{data?.environment ?? '检查中'}</strong></div></section>
     </div>

@@ -70,7 +70,7 @@ export function FlashLoanIntegration() {
       catch { ready = false; }
     }
     setService(ready ? 'ready' : 'offline');
-    if (!ready) { setError('现有闪电贷应用当前不可用，主钱包其他功能不受影响。'); return; }
+    if (!ready) { setError('闪电贷兼容入口当前不可用，主钱包其他功能不受影响。'); return; }
     try {
       const session = await api<{data:{token:string}}>('/integrations/flash-loan/session', {method:'POST', body:JSON.stringify({network:'sepolia', dryRun:true})});
       setSessionToken(session.data.token);
@@ -102,9 +102,9 @@ export function FlashLoanIntegration() {
 
   const externalUrl = buildExternalUrl(appUrl, context);
   return <>
-    <div className="page-head"><div><p className="eyebrow">EXISTING APP · SEPOLIA</p><h1>闪电贷款</h1><p>只集成现有 FlashForge 应用；不修改或重写其闪电贷逻辑。</p></div></div>
+    <div className="page-head"><div><p className="eyebrow">COMPATIBILITY GATE · SEPOLIA</p><h1>闪电贷款</h1><p>当前历史仓库未包含可运行的闪电贷业务程序，因此这里只提供无签名、无广播的兼容与审计入口。</p></div></div>
     <section className="panel integration flash-integration">
-      <div className="integration-icon"><Zap/></div><div><h2>FlashForge 测试网</h2><p>统一深色主题、登录会话、钱包与网络设置。Dry Run 强制开启。</p><code>{appUrl}</code></div>
+      <div className="integration-icon"><Zap/></div><div><h2>FlashForge 兼容壳</h2><p>统一深色主题、受限会话与公开钱包上下文。真实协议逻辑和借贷广播尚未接入。</p><code>{appUrl}</code></div>
       <span className={`integration-status ${service}`}>{service==='checking'?'检查中':service==='ready'?'服务在线':'服务离线'}</span>
       <a href={externalUrl} target="_blank" rel="noreferrer">独立打开 <ChevronRight size={18}/></a>
     </section>
@@ -114,7 +114,7 @@ export function FlashLoanIntegration() {
     </div>
     {error&&<div className="batch-error flash-error">{error}</div>}
     {notice&&<div className="automation-notice flash-error">{notice}</div>}
-    {service==='ready'&&sessionToken?<section className="flash-frame panel"><iframe ref={frame} onLoad={sendContext} title="FlashForge 闪电贷" src={externalUrl} allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms allow-popups"/><p>{bridge==='legacy'?'外部应用在线，但尚未响应共享集成协议；不会将其误报为已完成交易集成。':'隔离 iframe 无法读取运营后台会话；Dry Run 记录由父页面严格校验后保存。'}</p></section>:<section className="panel empty"><div className="empty-icon"><Zap/></div><h2>{service==='ready'?'受限集成会话不可用':'闪电贷服务暂时不可用'}</h2><p>{service==='ready'?'请稍后重试。外部应用不会在未授权状态下加载。':'请恢复现有 FlashForge 服务后重试；错误已隔离，不会导致整页白屏。'}</p></section>}
+    {service==='ready'&&sessionToken?<section className="flash-frame panel"><iframe ref={frame} onLoad={sendContext} title="FlashForge 兼容入口" src={externalUrl} allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms allow-popups"/><p>{bridge==='legacy'?'外部入口在线，但尚未响应共享集成协议；不会将其误报为已完成交易集成。':'这是隔离的兼容验证壳，不包含真实闪电贷执行；Dry Run 记录由父页面严格校验后保存。'}</p></section>:<section className="panel empty"><div className="empty-icon"><Zap/></div><h2>{service==='ready'?'受限集成会话不可用':'闪电贷兼容入口暂时不可用'}</h2><p>{service==='ready'?'请稍后重试。入口不会在未授权状态下加载。':'错误已隔离，不会影响其他钱包模块，也不会导致整页白屏。'}</p></section>}
     <section className="panel flash-history"><div className="panel-head"><div><p className="eyebrow">AUDIT · METADATA ONLY</p><h3>闪电贷 Dry Run 记录</h3></div><button onClick={() => void loadHistory()}>刷新历史</button><span>{history.length} 条</span></div>{history.length?history.map(item=><div className="flash-history-row" key={item.id}><span>{formatDate(item.created_at)}</span><b>{item.result.status}</b><code>{item.result.transactionHash||'未广播'}</code></div>):<p className="muted">尚无本地或服务器审计记录。</p>}</section>
   </>;
 }

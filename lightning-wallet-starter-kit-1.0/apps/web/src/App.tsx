@@ -17,7 +17,7 @@ function Shell() {
     <aside className={open ? 'open' : ''}>
       <div className="brand"><span className="logo-mark">ϟ</span><div><b>闪电钱包</b><small>LIGHTNING WALLET</small></div></div>
       <nav>{menu.map(([name, path, Icon]) => <NavLink key={path} to={path} end={path === '/dashboard'} onClick={() => setOpen(false)}><Icon size={18}/><span>{name}</span></NavLink>)}</nav>
-      <div className="sidebar-foot"><div className="system-dot"/>系统运行正常 <small>v2.16.0</small></div>
+      <div className="sidebar-foot"><div className="system-dot"/>系统运行正常 <small>v2.17.0</small></div>
     </aside>
     <main className="content">
       <header><button className="menu" onClick={() => setOpen(!open)}><Menu/></button><div className="crumb">运营中心 <ChevronRight size={14}/> 正式环境</div><button className="operator" onClick={() => void logout()} title="安全退出"><span>LW</span><div><b>运营管理员</b><small>安全会话</small></div><LogOut size={17}/></button></header>
