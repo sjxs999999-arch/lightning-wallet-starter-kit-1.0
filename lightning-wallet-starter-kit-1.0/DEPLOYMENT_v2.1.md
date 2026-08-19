@@ -27,6 +27,14 @@ Verify `https://api.lightingwallet.com/health`, `/health/ready` and `/metrics`. 
 
 Deploy the public web build to `lightingwallet.com` and the same immutable build to `admin.lightingwallet.com`; hostname-based routing exposes the client or operator surface. Never point the public client domain at the operator login page.
 
+After both deployments are on the exact approved commit, run the repeatable HTTP acceptance gate:
+
+```bash
+./scripts/verify-production.sh
+```
+
+It checks both domain surfaces, clickjacking policy, the isolated FlashForge path, API/PostgreSQL/Redis readiness, truthful capability/provider status and the two-origin CORS allowlist. Wallet signatures and chain confirmations remain a separate manual acceptance step.
+
 ## Testnet acceptance
 
 - EVM wallets must be set to Sepolia (`0xaa36a7`).
