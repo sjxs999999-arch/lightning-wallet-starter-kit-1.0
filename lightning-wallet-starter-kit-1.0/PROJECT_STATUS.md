@@ -5,8 +5,8 @@ Updated: 2026-08-20
 ## Candidate baseline
 
 - Development branch: `codex/final-production`
-- Latest deployed candidate commit: `b48638d`
-- Candidate application version: `2.18.0`
+- Latest deployed candidate commit: `184c5ea`
+- Candidate application version: `2.19.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -19,7 +19,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 | Module | Implementation | Current production gate |
 |---|---|---|
-| Client/operator domain split | Complete | Candidate `b48638d` is deployed; host routing and console checks pass |
+| Client/operator domain split | Complete | Candidate `184c5ea` is deployed; host routing and console checks pass |
 | Wallet providers | MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare, TronLink | Testnet acceptance complete in code; final manual extension acceptance remains |
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
 | Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry, active-wallet sender grouping and wallet signing | Mainnet feature flag is off; final chain-specific acceptance required |
@@ -49,13 +49,13 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 ## Current verification baseline
 
-- API tests: 106 passing across 25 files.
+- API tests: 113 passing across 26 files.
 - Web tests: 192 passing across 55 files.
 - Type check: passing.
 - Production build: passing.
-- CI for candidate `b48638d`: passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
-- Vercel Production deployment `FUpRdsaynYXHyTDvMMb7yQUsbfiU` for candidate `b48638d`: ready; client and operator domains load with zero browser-console errors and enforce hostname route isolation.
-- GCE API release `b48638d`: healthy with zero container restarts; PostgreSQL and Redis readiness pass, metrics require a dedicated bearer token, Swap provider status is public and CORS is restricted to the two production domains.
+- CI for candidate `184c5ea` (run `32289956843`): passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
+- Vercel Production deployment `GqCQM29fxZ6xVDVPzse3qe6U4yzB` for candidate `184c5ea`: ready; client and operator domains load with zero browser-console errors and enforce hostname route isolation.
+- GCE API release `184c5ea`: healthy with zero container restarts; PostgreSQL and Redis readiness pass, the `operator_mfa` schema and server-side encryption key are configured, and no second factor is activated before operator enrollment.
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
 - Production dependency audit: 0 critical, 0 high, 3 moderate transitive Solana/Jayson/UUID advisories. No unsafe downgrade is applied.
 
