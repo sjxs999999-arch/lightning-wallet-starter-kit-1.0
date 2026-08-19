@@ -21,6 +21,8 @@
 ./scripts/deploy.sh
 ```
 
+The deploy command fails before Docker build when the target filesystem has less than 8 GiB available. If it stops on this preflight, inspect `docker system df` and remove only unused build cache or dangling images after confirming that running containers and volumes are not targeted. Override the threshold only with an explicit reviewed value such as `MIN_DEPLOY_DISK_KB=10485760`.
+
 The deploy script uses the fixed `lightning-wallet` Compose project and stops before rebuilding if the configured TLS certificate is missing or does not cover `DOMAIN`.
 
 Verify `https://api.lightingwallet.com/health`, `/health/ready` and `/metrics`. The readiness endpoint must report PostgreSQL and Redis as `ok` before traffic is accepted.

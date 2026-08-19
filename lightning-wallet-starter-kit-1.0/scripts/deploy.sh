@@ -3,6 +3,7 @@ set -eu
 PRODUCTION_ENV_FILE=${PRODUCTION_ENV_FILE:-.env.production}
 COMPOSE_FILE=${COMPOSE_FILE:-docker-compose.production.yml}
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-lightning-wallet}
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 test -f "$PRODUCTION_ENV_FILE" || { echo "Missing $PRODUCTION_ENV_FILE. Copy .env.production.example and configure secrets first." >&2; exit 1; }
 
@@ -20,6 +21,8 @@ if command -v openssl >/dev/null 2>&1; then
     exit 1
   }
 fi
+
+"$SCRIPT_DIR/check-deploy-disk.sh" "$(dirname "$COMPOSE_FILE")"
 
 docker compose --env-file "$PRODUCTION_ENV_FILE" -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" config --quiet
 docker compose --env-file "$PRODUCTION_ENV_FILE" -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" build
