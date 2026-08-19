@@ -34,6 +34,7 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Production verification
 
+- Code candidate `c670e31` passed Production CI run `32294819780`: secret scan, type check, 113 API tests, 199 Web tests, production build, high/critical dependency gate and both Docker image builds. It is not yet deployed.
 - Candidate commit `184c5ea` passed 113 API tests, 192 Web tests, type checking, production build, CI, secret scanning, dependency gating and both Docker image builds.
 - Version `2.19.0` from the exact candidate is deployed to GCE API release `184c5ea` and Vercel Production deployment `GqCQM29fxZ6xVDVPzse3qe6U4yzB`.
 - Production HTTP acceptance, API/PostgreSQL/Redis readiness, metrics authorization, host routing, CORS and zero-console-error checks pass.
