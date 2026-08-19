@@ -11,6 +11,11 @@ All notable stable Lightning Wallet releases are recorded here.
 - Added revocable HttpOnly operator sessions, optional TOTP, default-deny API authorization and stricter production CSP.
 - Added truthful Swap provider availability so unconfigured EVM/TRON adapters are disabled instead of reported as generic RPC failures.
 - Hardened batch transfer, asset collection, Swap, GasFree and Launchpad persistence against corrupted or sensitive browser data.
+- Added a public non-custodial client home with live capability gates and direct separation from the operator console.
+- Added one-prompt Solana batch signing, bounded concurrent broadcasting, retry/backoff and confirmation polling.
+- Added same-network fallback RPC handling for asset scanning and reused EVM gas-price reads across a Worker scan session.
+- Added an executable production HTTP acceptance gate covering both domains, API readiness, security headers, provider status and CORS.
+- Protected production metrics with a dedicated bearer token and isolated the embedded compatibility frame from other client routes.
 
 ### Release gate
 

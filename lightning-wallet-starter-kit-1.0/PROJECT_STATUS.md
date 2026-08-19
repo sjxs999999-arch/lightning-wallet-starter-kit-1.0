@@ -48,11 +48,12 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 ## Current verification baseline
 
-- API tests: 104 passing.
-- Web tests: 168 passing.
+- API tests: 106 passing across 25 files.
+- Web tests: 172 passing across 51 files.
 - Type check: passing.
 - Production build: passing.
-- Latest completed CI before this status update: passing; every subsequent commit must pass again before promotion.
+- CI for candidate `fee352a`: passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
+- Vercel Preview for candidate `fee352a`: ready; 15 client routes verified with zero blank pages and zero browser-console errors.
 - Production dependency audit: 0 critical, 0 high, 3 moderate transitive Solana/Jayson/UUID advisories. No unsafe downgrade is applied.
 
 ## Required before final approval
