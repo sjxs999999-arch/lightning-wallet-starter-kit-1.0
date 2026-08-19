@@ -7,6 +7,7 @@ import { validateImpact, validateSlippage } from './guard';
 import { swapPlanPayload, swapResultPayload } from './persistence';
 import type { SwapJob } from './persistence';
 import { loadLocalSwapHistory, saveLocalSwapJob } from './local-history';
+import { fallbackSwapProviderAvailability } from './provider-status';
 import { bestRoute } from './routing';
 import type { SwapCandidate, SwapChain, SwapProviderAvailability, SwapRequest } from './types';
 
@@ -43,7 +44,7 @@ export function Swap() {
     void loadHistory();
     void api<{ data: { providers: SwapProviderAvailability[] } }>('/swap/status')
       .then(response => setProviders(response.data.providers))
-      .catch(() => setError('兑换服务状态暂时无法读取；为安全起见已锁定报价'));
+      .catch(() => { setProviders(fallbackSwapProviderAvailability()); setRecordError('服务状态接口暂时不可用；仅保留公共 Jupiter 报价，EVM/TRON 已锁定'); });
     return () => workerRef.current?.terminate();
   }, [loadHistory]);
 
