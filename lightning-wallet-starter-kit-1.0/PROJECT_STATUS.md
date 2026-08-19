@@ -1,11 +1,11 @@
 # Lightning Wallet production status
 
-Updated: 2026-08-19
+Updated: 2026-08-20
 
 ## Candidate baseline
 
 - Development branch: `codex/final-production`
-- Latest candidate commit: see `git log -1 --oneline`
+- Latest deployed candidate commit: `877524f`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -18,7 +18,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 | Module | Implementation | Current production gate |
 |---|---|---|
-| Client/operator domain split | Complete | Latest candidate still needs production promotion |
+| Client/operator domain split | Complete | Candidate `877524f` is deployed; host routing and console checks pass |
 | Wallet providers | MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare, TronLink | Testnet acceptance complete in code; final manual extension acceptance remains |
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
 | Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry and wallet signing | Mainnet feature flag is off; final chain-specific acceptance required |
@@ -49,21 +49,20 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 ## Current verification baseline
 
 - API tests: 106 passing across 25 files.
-- Web tests: 172 passing across 51 files.
+- Web tests: 181 passing across 52 files.
 - Type check: passing.
 - Production build: passing.
-- CI for candidate `fee352a`: passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
-- Vercel Preview for candidate `fee352a`: ready; 15 client routes verified with zero blank pages and zero browser-console errors.
+- CI for candidate `877524f`: passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
+- Vercel Production for candidate `877524f`: ready; client and operator domains load with zero browser-console errors and enforce hostname route isolation.
+- GCE API release `877524f`: healthy; PostgreSQL and Redis readiness pass, metrics require a dedicated bearer token, Swap provider status is public and CORS is restricted to the two production domains.
+- Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
 - Production dependency audit: 0 critical, 0 high, 3 moderate transitive Solana/Jayson/UUID advisories. No unsafe downgrade is applied.
 
 ## Required before final approval
 
-1. CI and Vercel Preview must pass for the exact candidate commit.
-2. Deploy the same API commit to the protected GCE release directory and verify health/readiness/metrics.
-3. Promote the exact web candidate to both production domains and verify route isolation plus security headers.
-4. Enroll the operator authenticator before enabling `ADMIN_TOTP_SECRET`.
-5. Configure and verify any external provider being claimed: 0x, TRON Swap, Paymaster, notification delivery and a real Flash Loan app.
-6. Perform authorized testnet then limited-mainnet wallet acceptance for EVM, Solana and TRON, recording public transaction hashes only.
-7. Run the final browser → API → database → provider regression and rollback drill.
+1. Enroll the operator authenticator before enabling `ADMIN_TOTP_SECRET`.
+2. Configure and verify any external provider being claimed: 0x, TRON Swap, Paymaster, notification delivery and a real Flash Loan app.
+3. Perform authorized testnet then limited-mainnet wallet acceptance for EVM, Solana and TRON, recording public transaction hashes only.
+4. Run the final wallet/provider regression and a timed rollback drill.
 
 Until those gates pass, the product must be described as a production candidate and not as fully mainnet-approved.

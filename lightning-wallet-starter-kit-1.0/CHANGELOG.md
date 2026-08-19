@@ -16,6 +16,16 @@ All notable stable Lightning Wallet releases are recorded here.
 - Added same-network fallback RPC handling for asset scanning and reused EVM gas-price reads across a Worker scan session.
 - Added an executable production HTTP acceptance gate covering both domains, API readiness, security headers, provider status and CORS.
 - Protected production metrics with a dedicated bearer token and isolated the embedded compatibility frame from other client routes.
+- Preserved exact fixed-point transfer and collection totals without JavaScript floating-point conversion.
+- Added live token-decimal verification for EVM, Solana and TRON and fail-closed planning when CSV decimals disagree with chain metadata.
+- Added pause-aware Solana batch broadcasting and retained the single wallet batch-signature prompt.
+- Added production TLS hostname preflight so a release cannot restart Nginx with a missing or mismatched certificate.
+
+### Production verification
+
+- Candidate commit `877524f` passed 106 API tests, 181 Web tests, type checking, production build, CI and Docker image builds.
+- The exact candidate is deployed to the GCE API release and Vercel production domains.
+- Production HTTP acceptance, API/PostgreSQL/Redis readiness, metrics authorization, host routing, CORS and zero-console-error checks pass.
 
 ### Release gate
 
