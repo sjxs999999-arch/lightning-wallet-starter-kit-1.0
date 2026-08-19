@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ExternalLink, FileText, FolderKanban, Search, ShieldCheck } from 'lucide-react';
 import { api } from '../api';
 import { projectQuery } from './filter';
+import { filterLocalProjects, loadLocalProjects } from './local-projects';
 import type { ProjectChain, ProjectDetails, ProjectStatus, ProjectSummary } from './types';
 
 export function ProjectCenter() {
@@ -18,6 +19,8 @@ export function ProjectCenter() {
 
   const open = useCallback(async (id: string) => {
     setError('');
+    const local = loadLocalProjects().find(project => project.id === id);
+    if (local) { setSelected(local); return; }
     try {
       const result = await api<{ data: ProjectDetails }>(`/projects/${encodeURIComponent(id)}`);
       setSelected(result.data);
@@ -29,12 +32,15 @@ export function ProjectCenter() {
   const load = useCallback(async () => {
     setBusy(true);
     setError('');
+    const local = filterLocalProjects(loadLocalProjects(), search, chain, status);
     try {
       const result = await api<{ data: ProjectSummary[] }>(`/projects${projectQuery(search, chain, status)}`);
-      setProjects(result.data);
-      setSelected(current => current && !requestedProjectId && !result.data.some(item => item.id === current.id) ? null : current);
+      const combined = [...local, ...result.data.filter(item => !local.some(project => project.id === item.id))];
+      setProjects(combined);
+      setSelected(current => current && !requestedProjectId && !combined.some(item => item.id === current.id) ? null : current);
     } catch {
-      setError('项目资料暂时无法读取，请检查 API 与数据库状态');
+      setProjects(local);
+      setError(local.length ? '服务器项目资料暂时不可用；仍可查看当前浏览器中的项目。' : '项目资料暂时无法读取，请检查 API 状态');
     } finally {
       setBusy(false);
     }
@@ -63,7 +69,7 @@ export function ProjectCenter() {
       <section className="panel project-list">
         <div className="panel-head"><h3>项目列表</h3><span>{projects.length} 个</span></div>
         {projects.map(item => <button type="button" className={selected?.id === item.id ? 'selected' : ''} key={item.id} onClick={() => void open(item.id)}><ProjectLogo project={item}/><div><b>{item.name}</b><small>{item.metadata.symbol || '—'} · v{item.version}</small></div><span className={`project-chain ${item.chain.toLowerCase()}`}>{item.chain}</span><em>{item.status}</em></button>)}
-        {!busy && !projects.length && <div className="project-empty"><FolderKanban/><p>数据库中暂无符合条件的项目。</p></div>}
+        {!busy && !projects.length && <div className="project-empty"><FolderKanban/><p>本地与服务器均暂无符合条件的项目。</p></div>}
       </section>
       <section className="panel project-detail">{selected ? <ProjectDetail project={selected}/> : <div className="project-empty"><FolderKanban/><h3>选择一个项目</h3><p>查看 Metadata、合约、版本和部署记录。</p></div>}</section>
     </div>

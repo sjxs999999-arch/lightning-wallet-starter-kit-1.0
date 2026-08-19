@@ -2,9 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Fuel, RefreshCw, ShieldCheck } from 'lucide-react';
 import { formatEther, ZeroHash } from 'ethers';
 import { ApiError, api } from '../api';
+import { loadLocalGasHistory, saveLocalGasJob } from './local-history';
 import type { GasAuditJob, GasEstimate, GasPlan, VipTier } from './types';
 
 const empty = '0x0000000000000000000000000000000000000000';
+type EthereumProvider = { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
+
+function provider(): EthereumProvider | undefined {
+  const root = window as typeof window & { ethereum?: EthereumProvider; okxwallet?: EthereumProvider };
+  return root.okxwallet ?? root.ethereum;
+}
 
 export function GasFree() {
   const [from, setFrom] = useState('');
@@ -23,8 +30,14 @@ export function GasFree() {
   const workerRef = useRef<Worker | null>(null);
 
   const loadHistory = useCallback(async () => {
-    try { const response = await api<{ data: GasAuditJob[] }>('/gasfree/history?limit=20'); setHistory(response.data); }
-    catch (cause) { if (!(cause instanceof ApiError&&cause.status===401)) throw cause; }
+    const local = loadLocalGasHistory();
+    try {
+      const response = await api<{ data: GasAuditJob[] }>('/gasfree/history?limit=20');
+      setHistory([...response.data, ...local].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 50));
+    } catch (cause) {
+      if (!(cause instanceof ApiError&&cause.status===401)) throw cause;
+      setHistory(local);
+    }
   }, []);
 
   useEffect(() => {
@@ -55,7 +68,10 @@ export function GasFree() {
         }
         setPlan(event.data.plan);
         if (record) {
-          setNotice('Gas 估算完成；客户端仅处理公开交易参数。');
+          const now = new Date().toISOString();
+          const job: GasAuditJob = { id: `local-${crypto.randomUUID()}`, kind: 'gas-estimate', status: 'completed', payload: { network: 'Sepolia', from, to, estimatedCostWei: response.data.estimatedCostWei, dryRun: true }, result: { estimatedCostWei: response.data.estimatedCostWei, dryRun: true, serverSigning: false, serverBroadcast: false }, created_at: now, updated_at: now };
+          setHistory(saveLocalGasJob(job));
+          setNotice('Gas 估算完成并保存到当前浏览器；客户端仅处理公开交易参数。');
         }
       };
       worker.onerror = () => {
@@ -87,6 +103,9 @@ export function GasFree() {
         method: 'POST',
         body: JSON.stringify({ chainId: 11155111, sender: from, userOperationHash: ZeroHash, estimatedCostWei: estimate.estimatedCostWei, vipTier: tier, dryRun: true }),
       });
+      const now = new Date().toISOString();
+      const job: GasAuditJob = { id: `local-${crypto.randomUUID()}`, kind: 'gas-sponsor', status: response.data.eligible ? 'completed' : 'failed', payload: { network: 'Sepolia', sender: from, vipTier: tier, estimatedCostWei: estimate.estimatedCostWei, dryRun: true }, result: { eligible: response.data.eligible, reason: response.data.reason, dryRun: true, serverSigning: false, serverBroadcast: false }, created_at: now, updated_at: now };
+      setHistory(saveLocalGasJob(job));
       setNotice(`${response.data.eligible ? '赞助策略验证通过' : `赞助策略未通过：${response.data.reason}`}；本次为无签名、无广播 Dry Run。`);
     } catch {
       setError('Paymaster 策略验证失败；没有提交 UserOperation、没有签名或广播');
@@ -95,9 +114,31 @@ export function GasFree() {
     }
   }
 
+  async function topUp() {
+    if (!plan || BigInt(plan.topUpWei) <= 0n) return;
+    if (!window.confirm(`确认由当前浏览器钱包向 ${from} 补充 ${formatEther(plan.topUpWei)} Sepolia ETH？钱包将显示最终交易明细。`)) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const wallet = provider();
+      if (!wallet) throw new Error('未检测到 EVM 钱包');
+      const accounts = await wallet.request({ method: 'eth_requestAccounts' });
+      const account = Array.isArray(accounts) && typeof accounts[0] === 'string' ? accounts[0] : '';
+      if (!account) throw new Error('钱包未授权');
+      const chainId = String(await wallet.request({ method: 'eth_chainId' }));
+      if (chainId.toLowerCase() !== '0xaa36a7') throw new Error('请先将钱包切换到 Sepolia（Chain ID 11155111）');
+      const txHash = String(await wallet.request({ method: 'eth_sendTransaction', params: [{ from: account, to: from, value: `0x${BigInt(plan.topUpWei).toString(16)}` }] }));
+      if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) throw new Error('钱包未返回有效交易哈希');
+      const now = new Date().toISOString();
+      const job: GasAuditJob = { id: `local-${crypto.randomUUID()}`, kind: 'gas-topup', status: 'submitted', payload: { network: 'Sepolia', from: account, to: from, topUpWei: plan.topUpWei, dryRun: false }, result: { txHash, serverSigning: false, serverBroadcast: false, broadcastByWallet: true }, created_at: now, updated_at: now };
+      setHistory(saveLocalGasJob(job));
+      setNotice(`补 Gas 交易已由钱包广播：${txHash}`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '补 Gas 未执行；没有服务器签名'); }
+    finally { setBusy(false); }
+  }
+
   return <>
     <div className="page-head"><div><p className="eyebrow">SPONSORED TRANSACTION CONTROL</p><h1>GasFree</h1><p>Sepolia Gas 估算、VIP 赞助策略与自动补 Gas 规划。</p></div></div>
-    <div className="gasfree-status"><span>Paymaster：{status}</span><span>网络：Sepolia</span><span>主网：关闭</span><span>监控：{monitor ? '运行中' : '已停止'}</span><span>历史：服务器审计</span></div>
+    <div className="gasfree-status"><span>Paymaster：{status}</span><span>网络：Sepolia</span><span>主网：关闭</span><span>监控：{monitor ? '运行中' : '已停止'}</span><span>历史：浏览器公开元数据</span></div>
     {notice && <div className="automation-notice">{notice}</div>}
     <div className="grid">
       <section className="panel form-panel">
@@ -122,6 +163,7 @@ export function GasFree() {
           <div className="gas-metric"><span>建议补充</span><b>{formatEther(plan.topUpWei)} ETH</b></div>
           <div className="gas-action"><Fuel/><div><b>{plan.action === 'sponsor' ? 'VIP Paymaster 可赞助' : plan.action === 'top-up' ? '需要补充 Gas' : 'Gas 余额充足'}</b><p>{plan.risk.join(' · ') || '未发现策略风险'}</p></div></div>
           <button disabled={busy} onClick={() => void sponsor()}>验证并记录 Sponsor 策略</button>
+          {BigInt(plan.topUpWei) > 0n && <button className="gas-topup" disabled={busy} onClick={() => void topUp()}>由钱包补充 Sepolia Gas</button>}
         </> : <div className="mini-empty"><Fuel/><p>输入公开地址后执行真实 RPC Gas 估算。</p></div>}
       </section>
     </div>
@@ -140,6 +182,7 @@ export function GasFree() {
 
 function historyLabel(item: GasAuditJob) {
   if (item.kind === 'gas-estimate') return '估算完成 · Dry Run';
+  if (item.kind === 'gas-topup') return item.status === 'submitted' ? '钱包已广播补 Gas' : '补 Gas 未完成';
   return item.result.eligible ? 'Sponsor 合格 · Dry Run' : `Sponsor 未通过 · ${item.result.reason ?? 'POLICY_REJECTED'}`;
 }
 

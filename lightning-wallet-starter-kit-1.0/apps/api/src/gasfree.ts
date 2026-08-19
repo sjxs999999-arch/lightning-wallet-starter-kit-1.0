@@ -42,6 +42,13 @@ export class HttpPaymasterAdapter implements PaymasterAdapter {
   }
 }
 
+export async function resolveSponsorDecision(request:SponsorRequest,providerUrl?:string):Promise<SponsorDecision>{
+  const policy=evaluateVipPolicy(request);
+  if(!policy.eligible||!providerUrl)return policy;
+  const decision=await new HttpPaymasterAdapter(providerUrl).sponsor(request);
+  return{eligible:decision.eligible,reason:decision.reason,limitWei:policy.limitWei,provider:decision.provider};
+}
+
 export async function rpcGasEstimate(rpcUrl:string|string[],input:z.infer<typeof gasEstimateSchema>){
   const endpoints=Array.isArray(rpcUrl)?rpcUrl:[rpcUrl];
   const rpc=async(method:string,params:unknown[])=>{

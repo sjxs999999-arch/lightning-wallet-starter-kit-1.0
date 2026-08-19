@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, RefreshCw, ShieldCheck, WalletCards, Zap } from 'lucide-react';
 import { ApiError, api } from '../api';
 import { buildExternalUrl, containsSensitiveFields, integrationOrigin, sanitizeHistory } from './bridge';
+import { flashLoanLocalJob, loadLocalFlashLoanHistory, saveLocalFlashLoanJob } from './local-history';
 import type { FlashLoanAuditJob, FlashLoanContext, FlashLoanSettings } from './types';
 
 type ServiceStatus = 'checking' | 'ready' | 'offline';
@@ -30,8 +31,15 @@ export function FlashLoanIntegration() {
   }, [context, sessionToken]);
 
   const loadHistory = useCallback(async () => {
-    try { const response = await api<{data:FlashLoanAuditJob[]}>('/integrations/flash-loan/history?limit=20'); setHistory(response.data); }
-    catch (cause) { if (!(cause instanceof ApiError && cause.status===401)) throw cause; }
+    const local = loadLocalFlashLoanHistory();
+    try {
+      const response = await api<{data:FlashLoanAuditJob[]}>('/integrations/flash-loan/history?limit=20');
+      const localIds = new Set(local.map(item => item.payload.clientRecordId));
+      setHistory([...response.data.filter(item => !localIds.has(item.payload.clientRecordId)), ...local].sort((a, b) => b.created_at.localeCompare(a.created_at)));
+    } catch (cause) {
+      if (!(cause instanceof ApiError && cause.status===401)) throw cause;
+      setHistory(local);
+    }
   }, []);
 
   const recordHistory = useCallback(async (input: unknown) => {
@@ -42,20 +50,32 @@ export function FlashLoanIntegration() {
       const response = await api<{data:{id:string}}>('/integrations/flash-loan/history', {method:'POST', body:JSON.stringify({...item,walletAddress:item.walletAddress??walletAddress})});
       setNotice(`FlashForge Dry Run 已写入服务器审计历史 · ${shortId(response.data.id)}`);
       await loadHistory();
-    } catch (cause) { if (cause instanceof ApiError&&cause.status===401)setNotice('FlashForge Dry Run 已完成；客户端未上传交易密钥或敏感数据。');else setError('Dry Run 已完成，但审计记录未保存；没有签名或广播交易。'); }
+    } catch (cause) {
+      if (cause instanceof ApiError&&cause.status===401) {
+        const job = flashLoanLocalJob({...item,walletAddress:item.walletAddress??walletAddress});
+        setHistory(saveLocalFlashLoanJob(job));
+        setNotice('FlashForge Dry Run 已保存到当前浏览器；未上传交易密钥或敏感数据。');
+      } else setError('Dry Run 已完成，但审计记录未保存；没有签名或广播交易。');
+    }
   }, [loadHistory, walletAddress]);
 
   const check = useCallback(async () => {
     setService('checking'); setError('');
-    try {
-      const health = await api<{data:{status:string}}>('/integrations/flash-loan/health');
-      setService(health.data.status === 'ready' ? 'ready' : 'offline');
-    } catch { setService('offline'); setError('闪电贷应用当前不可用，主钱包其他功能不受影响。'); return; }
+    let ready = false;
+    if (targetOrigin === window.location.origin) {
+      try { ready = (await fetch(appUrl, { signal: AbortSignal.timeout(3000), cache: 'no-store' })).ok; }
+      catch { ready = false; }
+    } else {
+      try { const health = await api<{data:{status:string}}>('/integrations/flash-loan/health'); ready = health.data.status === 'ready'; }
+      catch { ready = false; }
+    }
+    setService(ready ? 'ready' : 'offline');
+    if (!ready) { setError('现有闪电贷应用当前不可用，主钱包其他功能不受影响。'); return; }
     try {
       const session = await api<{data:{token:string}}>('/integrations/flash-loan/session', {method:'POST', body:JSON.stringify({network:'sepolia', dryRun:true})});
       setSessionToken(session.data.token);
-    } catch { setSessionToken(''); setError('统一登录已过期，请重新登录后再使用闪电贷集成。'); }
-  }, []);
+    } catch { setSessionToken(''); setError('无法创建 5 分钟闪电贷受限会话；未共享钱包签名权限。'); }
+  }, [appUrl, targetOrigin]);
 
   useEffect(() => { void check(); void loadHistory().catch(() => setError('闪电贷审计历史暂时不可用。')); }, [check, loadHistory]);
   useEffect(() => { if (service !== 'ready') return; const timer=window.setTimeout(()=>setBridge(value=>value==='waiting'?'legacy':value),3000); return()=>clearTimeout(timer); }, [service]);
@@ -94,8 +114,8 @@ export function FlashLoanIntegration() {
     </div>
     {error&&<div className="batch-error flash-error">{error}</div>}
     {notice&&<div className="automation-notice flash-error">{notice}</div>}
-    {service==='ready'&&sessionToken?<section className="flash-frame panel"><iframe ref={frame} onLoad={sendContext} title="FlashForge 闪电贷" src={externalUrl} allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms allow-popups"/><p>{bridge==='legacy'?'外部应用在线，但尚未响应共享集成协议；不会将其误报为已完成交易集成。':'隔离 iframe 无法读取主控制台会话；Dry Run 记录由父页面严格校验后写入审计历史。'}</p></section>:<section className="panel empty"><div className="empty-icon"><Zap/></div><h2>{service==='ready'?'需要有效的统一登录':'闪电贷服务暂时不可用'}</h2><p>{service==='ready'?'请重新登录后继续。外部应用不会在未授权状态下加载。':'请启动现有 FlashForge 应用后重试；错误已隔离，不会导致整页白屏。'}</p>{service==='ready'&&<a className="button-link" href="/login">重新登录</a>}</section>}
-    <section className="panel flash-history"><div className="panel-head"><div><p className="eyebrow">SERVER AUDIT · METADATA ONLY</p><h3>闪电贷 Dry Run 记录</h3></div><button onClick={() => void loadHistory()}>刷新历史</button><span>{history.length} 条</span></div>{history.length?history.map(item=><div className="flash-history-row" key={item.id}><span>{formatDate(item.created_at)}</span><b>{item.result.status}</b><code>{item.result.transactionHash||'未广播'}</code></div>):<p className="muted">尚无服务器审计记录。</p>}</section>
+    {service==='ready'&&sessionToken?<section className="flash-frame panel"><iframe ref={frame} onLoad={sendContext} title="FlashForge 闪电贷" src={externalUrl} allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms allow-popups"/><p>{bridge==='legacy'?'外部应用在线，但尚未响应共享集成协议；不会将其误报为已完成交易集成。':'隔离 iframe 无法读取运营后台会话；Dry Run 记录由父页面严格校验后保存。'}</p></section>:<section className="panel empty"><div className="empty-icon"><Zap/></div><h2>{service==='ready'?'受限集成会话不可用':'闪电贷服务暂时不可用'}</h2><p>{service==='ready'?'请稍后重试。外部应用不会在未授权状态下加载。':'请恢复现有 FlashForge 服务后重试；错误已隔离，不会导致整页白屏。'}</p></section>}
+    <section className="panel flash-history"><div className="panel-head"><div><p className="eyebrow">AUDIT · METADATA ONLY</p><h3>闪电贷 Dry Run 记录</h3></div><button onClick={() => void loadHistory()}>刷新历史</button><span>{history.length} 条</span></div>{history.length?history.map(item=><div className="flash-history-row" key={item.id}><span>{formatDate(item.created_at)}</span><b>{item.result.status}</b><code>{item.result.transactionHash||'未广播'}</code></div>):<p className="muted">尚无本地或服务器审计记录。</p>}</section>
   </>;
 }
 

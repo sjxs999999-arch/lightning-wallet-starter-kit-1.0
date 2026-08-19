@@ -5,6 +5,7 @@ import {
   listGasJobs,
   recordGasEstimate,
   recordGasSponsor,
+  resolveSponsorDecision,
   sponsorRequestSchema,
 } from './gasfree.js';
 
@@ -45,6 +46,16 @@ describe('GasFree policy and audit history', () => {
   it('rejects standard and over-limit requests', () => {
     expect(evaluateVipPolicy({ ...request, vipTier: 'standard' }).eligible).toBe(false);
     expect(evaluateVipPolicy({ ...request, estimatedCostWei: '6000000000000000' }).eligible).toBe(false);
+  });
+
+  it('calls a configured Paymaster only after the local VIP policy passes', async () => {
+    const fetchMock=vi.fn().mockResolvedValue({ok:true,json:async()=>({paymasterData:'0x1234',provider:'approved-provider'})});
+    vi.stubGlobal('fetch',fetchMock);
+    await expect(resolveSponsorDecision(request,'https://paymaster.example/sponsor')).resolves.toMatchObject({eligible:true,reason:'PROVIDER_APPROVED',provider:'approved-provider'});
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await expect(resolveSponsorDecision({...request,vipTier:'standard'},'https://paymaster.example/sponsor')).resolves.toMatchObject({eligible:false,reason:'STANDARD_TIER_NOT_SPONSORED'});
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
   });
 
   it('rejects mainnet and oversized calldata', () => {
