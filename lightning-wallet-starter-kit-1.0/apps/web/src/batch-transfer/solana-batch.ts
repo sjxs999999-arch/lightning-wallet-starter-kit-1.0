@@ -14,6 +14,26 @@ export type SolanaBatchResult = { index: number; signature?: string; state: 'sub
 const sleep = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
 const ata = (wallet: PublicKey, mint: PublicKey, tokenProgram: PublicKey) => PublicKey.findProgramAddressSync([wallet.toBuffer(), tokenProgram.toBuffer(), mint.toBuffer()], ASSOCIATED)[0];
 
+export function buildSolanaBatchTransactions(tasks: TransferTask[], owner: PublicKey, blockhash: string, mintPrograms: Map<string, PublicKey>): Transaction[] {
+  return tasks.map(task => {
+    const recipient = new PublicKey(task.to);
+    const transaction = new Transaction({ feePayer: owner, recentBlockhash: blockhash });
+    if (!task.token) return transaction.add(SystemProgram.transfer({ fromPubkey: owner, toPubkey: recipient, lamports: parseUnits(task.amount, 9) }));
+    const mint = new PublicKey(task.token);
+    const tokenProgram = mintPrograms.get(task.token);
+    if (!tokenProgram) throw new Error(`Token Program 未加载：${task.token}`);
+    const source = ata(owner, mint, tokenProgram);
+    const destination = ata(recipient, mint, tokenProgram);
+    const amount = parseUnits(task.amount, task.decimals!);
+    const bytes = new Uint8Array(8);
+    new DataView(bytes.buffer).setBigUint64(0, amount, true);
+    return transaction.add(
+      new TransactionInstruction({ programId: ASSOCIATED, keys: [{ pubkey: owner, isSigner: true, isWritable: true }, { pubkey: destination, isSigner: false, isWritable: true }, { pubkey: recipient, isSigner: false, isWritable: false }, { pubkey: mint, isSigner: false, isWritable: false }, { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, { pubkey: tokenProgram, isSigner: false, isWritable: false }], data: Buffer.from([1]) }),
+      new TransactionInstruction({ programId: tokenProgram, keys: [{ pubkey: source, isSigner: false, isWritable: true }, { pubkey: mint, isSigner: false, isWritable: false }, { pubkey: destination, isSigner: false, isWritable: true }, { pubkey: owner, isSigner: true, isWritable: false }], data: Buffer.from([12, ...bytes, task.decimals!]) }),
+    );
+  });
+}
+
 async function latestBlockhash(connection: Connection, network: string) {
   if (network !== 'mainnet-beta') return connection.getLatestBlockhash('confirmed');
   try { return (await api<{ data: { blockhash: string; lastValidBlockHeight: number } }>('/solana/latest-blockhash')).data; }
@@ -68,10 +88,10 @@ async function confirmSubmitted(connection: Connection, results: SolanaBatchResu
   }
 }
 
-export async function executeSolanaTokenBatch(tasks: TransferTask[]): Promise<SolanaBatchResult[]> {
+export async function executeSolanaBatch(tasks: TransferTask[]): Promise<SolanaBatchResult[]> {
   const network = import.meta.env.VITE_SOLANA_NETWORK || 'devnet';
   assertExecutionPolicy(tasks, network);
-  if (!tasks.every(task => task.chain === 'SOL' && task.token)) throw new Error('Solana 批量签名仅接受同一发送账户的 Token 任务');
+  if (!tasks.every(task => task.chain === 'SOL')) throw new Error('Solana 批量签名不能混合其他链任务');
   const provider = getSolanaProvider() as BatchProvider;
   if (!provider?.signAllTransactions) throw new Error('当前 Solana 钱包不支持 signAllTransactions，请更新扩展或改用逐笔签名');
   const connected = provider.connect ? await provider.connect() : undefined;
@@ -81,26 +101,13 @@ export async function executeSolanaTokenBatch(tasks: TransferTask[]): Promise<So
   const latest = await latestBlockhash(connection, network);
   const owner = new PublicKey(tasks[0]!.from);
   const mintPrograms = new Map<string, PublicKey>();
-  for (const mintAddress of new Set(tasks.map(task => task.token!))) {
+  for (const mintAddress of new Set(tasks.flatMap(task => task.token ? [task.token] : []))) {
     const mint = new PublicKey(mintAddress);
     const info = await connection.getAccountInfo(mint, 'confirmed');
     if (!info) throw new Error(`找不到 SPL Token Mint：${mintAddress}`);
     mintPrograms.set(mintAddress, info.owner);
   }
-  const transactions = tasks.map(task => {
-    const recipient = new PublicKey(task.to);
-    const mint = new PublicKey(task.token!);
-    const tokenProgram = mintPrograms.get(task.token!)!;
-    const source = ata(owner, mint, tokenProgram);
-    const destination = ata(recipient, mint, tokenProgram);
-    const amount = parseUnits(task.amount, task.decimals!);
-    const bytes = new Uint8Array(8);
-    new DataView(bytes.buffer).setBigUint64(0, amount, true);
-    return new Transaction({ feePayer: owner, recentBlockhash: latest.blockhash }).add(
-      new TransactionInstruction({ programId: ASSOCIATED, keys: [{ pubkey: owner, isSigner: true, isWritable: true }, { pubkey: destination, isSigner: false, isWritable: true }, { pubkey: recipient, isSigner: false, isWritable: false }, { pubkey: mint, isSigner: false, isWritable: false }, { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, { pubkey: tokenProgram, isSigner: false, isWritable: false }], data: Buffer.from([1]) }),
-      new TransactionInstruction({ programId: tokenProgram, keys: [{ pubkey: source, isSigner: false, isWritable: true }, { pubkey: mint, isSigner: false, isWritable: false }, { pubkey: destination, isSigner: false, isWritable: true }, { pubkey: owner, isSigner: true, isWritable: false }], data: Buffer.from([12, ...bytes, task.decimals!]) }),
-    );
-  });
+  const transactions = buildSolanaBatchTransactions(tasks, owner, latest.blockhash, mintPrograms);
   const signed = await provider.signAllTransactions(transactions);
   if (signed.length !== transactions.length) throw new Error('钱包返回的签名交易数量不完整，未广播');
   const results = await broadcastSigned(connection, signed);

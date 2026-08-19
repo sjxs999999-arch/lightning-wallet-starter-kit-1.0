@@ -7,7 +7,7 @@ import { executeEvmBatch } from './evm-batch';
 import { transferPlanPayload, transferResultPayload } from './persistence';
 import type { TransferJob } from './persistence';
 import type { TransferChain, TransferInput, TransferLog, TransferMode, TransferPlan, TransferTask } from './types';
-import { executeSolanaTokenBatch } from './solana-batch';
+import { executeSolanaBatch } from './solana-batch';
 import { loadLocalTransferHistory, saveLocalTransferJob } from './local-history';
 
 export function BatchTransfer() {
@@ -165,11 +165,11 @@ export function BatchTransfer() {
       }
     }
 
-    if (!dryRun && tasks.every(task => task.chain === 'SOL' && Boolean(task.token))) {
+    if (!dryRun && tasks.every(task => task.chain === 'SOL')) {
       try {
         tasks.forEach(task => { task.status = 'running'; task.attempts++; });
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
-        const results = await executeSolanaTokenBatch(tasks);
+        const results = await executeSolanaBatch(tasks);
         results.forEach((result, index) => {
           const task = tasks[index]!;
           if (result.signature) { task.txHash = result.signature; task.status = result.state; log(result.state === 'confirmed' ? '交易已确认' : '交易已提交，等待链上确认', 'success', task.id); }
@@ -218,7 +218,7 @@ export function BatchTransfer() {
   function togglePause() { pausedRef.current = !pausedRef.current; setPaused(pausedRef.current); log(pausedRef.current ? '任务已暂停' : '任务已恢复'); }
   function retry() { const failed = tasksRef.current.filter(task => task.status === 'failed'); failed.forEach(task => { task.status = 'pending'; delete task.error; }); void execute(failed); }
 
-  const solBatch = chain === 'SOL' && Boolean(plan?.tasks.length) && plan!.tasks.every(task => Boolean(task.token));
+  const solBatch = chain === 'SOL' && Boolean(plan?.tasks.length);
   return <>
     <div className="page-head"><div><p className="eyebrow">CLIENT-SIDE BATCH ENGINE</p><h1>批量转账</h1><p>浏览器负责校验与钱包签名；服务器仅保存公开任务元数据和脱敏结果。</p></div></div>
     <div className="grid">
@@ -230,7 +230,7 @@ export function BatchTransfer() {
         {showExample && <pre className="csv-example">{transferCsvExample(chain)}</pre>}
         <label>CSV 导入<input type="file" accept=".csv,text/csv" disabled={running} onChange={event => void importCsv(event.target.files?.[0])}/></label>
         <label className="dry-run"><input type="checkbox" checked={dryRun} disabled={running} onChange={event => setDryRun(event.target.checked)}/> Dry Run（默认开启，不广播）</label>
-        <div className="notice"><ShieldCheck size={18}/>{solBatch ? 'Solana Token 使用钱包批量签名：整批一次授权；私钥始终留在钱包。' : chain === 'EVM' ? '支持 EIP-5792 的钱包可整批授权；不支持时安全回退为逐笔确认。' : 'CSV 只允许公开地址、金额和 Token 地址；服务端会拒绝任何密钥字段。'}</div>
+        <div className="notice"><ShieldCheck size={18}/>{solBatch ? 'Solana 原生币和 Token 都使用钱包批量签名：整批一次授权；私钥始终留在钱包。' : chain === 'EVM' ? '支持 EIP-5792 的钱包可整批授权；不支持时安全回退为逐笔确认。' : 'CSV 只允许公开地址、金额和 Token 地址；服务端会拒绝任何密钥字段。'}</div>
         {error && <div className="batch-error">{error}</div>}{recordError && <div className="batch-error">{recordError}</div>}
         <button onClick={prepare} disabled={running || saving || !inputs.length}>{saving ? '正在保存审计记录…' : `校验、估算并保存${inputs.length ? ` · ${inputs.length} 笔` : ''}`}</button>
       </section>
