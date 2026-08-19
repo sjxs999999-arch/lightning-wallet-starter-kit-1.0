@@ -20,11 +20,15 @@ All notable stable Lightning Wallet releases are recorded here.
 - Added live token-decimal verification for EVM, Solana and TRON and fail-closed planning when CSV decimals disagree with chain metadata.
 - Added pause-aware Solana batch broadcasting and retained the single wallet batch-signature prompt.
 - Added production TLS hostname preflight so a release cannot restart Nginx with a missing or mismatched certificate.
+- Added active-wallet sender grouping for multi-sender EVM, Solana and TRON batch-transfer and asset-collection plans, leaving unmatched senders pending until the user switches wallets.
+- Added one-prompt EVM EIP-5792 and Solana `signAllTransactions` asset-collection execution with safe sequential fallback when the wallet lacks batch support.
+- Prevented duplicate EVM retries after a batch identifier has been returned, and stopped unbroadcast signed Solana transactions when the page is closed.
+- Replaced floating-point collection-amount checks with exact positive-decimal validation.
 
 ### Production verification
 
-- Candidate commit `877524f` passed 106 API tests, 181 Web tests, type checking, production build, CI and Docker image builds.
-- The exact candidate is deployed to the GCE API release and Vercel production domains.
+- Candidate commit `b48638d` passed 106 API tests, 192 Web tests, type checking, production build, CI, secret scanning, dependency gating and both Docker image builds.
+- Version `2.18.0` from the exact candidate is deployed to GCE API release `b48638d` and Vercel Production deployment `FUpRdsaynYXHyTDvMMb7yQUsbfiU`.
 - Production HTTP acceptance, API/PostgreSQL/Redis readiness, metrics authorization, host routing, CORS and zero-console-error checks pass.
 
 ### Release gate

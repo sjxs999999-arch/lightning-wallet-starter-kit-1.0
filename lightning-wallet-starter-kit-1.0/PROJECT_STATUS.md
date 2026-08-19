@@ -5,7 +5,8 @@ Updated: 2026-08-20
 ## Candidate baseline
 
 - Development branch: `codex/final-production`
-- Latest deployed candidate commit: `877524f`
+- Latest deployed candidate commit: `b48638d`
+- Candidate application version: `2.18.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -18,11 +19,11 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 | Module | Implementation | Current production gate |
 |---|---|---|
-| Client/operator domain split | Complete | Candidate `877524f` is deployed; host routing and console checks pass |
+| Client/operator domain split | Complete | Candidate `b48638d` is deployed; host routing and console checks pass |
 | Wallet providers | MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare, TronLink | Testnet acceptance complete in code; final manual extension acceptance remains |
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
-| Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry and wallet signing | Mainnet feature flag is off; final chain-specific acceptance required |
-| Asset Collector | EVM/Solana/TRON scanning/planning, reserve rules, Dry Run and wallet signing | Mainnet feature flag is off; final chain-specific acceptance required |
+| Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry, active-wallet sender grouping and wallet signing | Mainnet feature flag is off; final chain-specific acceptance required |
+| Asset Collector | EVM/Solana/TRON scanning/planning, reserve rules, Dry Run, active-wallet sender grouping and wallet signing | EVM EIP-5792 and Solana batch signing are implemented with safe sequential fallback; mainnet feature flag is off |
 | Swap | Provider availability endpoint, quote Worker, route/impact guards, exact approval and wallet signing | Solana/Jupiter available; EVM needs `ZEROX_API_KEY`; TRON needs `TRON_SWAP_PROVIDER_URL`; mainnet flag off |
 | Flash Loan | Isolated Sepolia session bridge and built-in no-broadcast compatibility shell | Referenced historical repository contains no completed Flash Loan app; real integration is blocked on an actual provider application/API |
 | GasFree | Sepolia estimates, VIP policy, Paymaster abstraction, top-up planning and user-wallet signing | Sponsored transactions blocked until an approved Paymaster URL is configured |
@@ -49,12 +50,12 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 ## Current verification baseline
 
 - API tests: 106 passing across 25 files.
-- Web tests: 181 passing across 52 files.
+- Web tests: 192 passing across 55 files.
 - Type check: passing.
 - Production build: passing.
-- CI for candidate `877524f`: passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
-- Vercel Production for candidate `877524f`: ready; client and operator domains load with zero browser-console errors and enforce hostname route isolation.
-- GCE API release `877524f`: healthy; PostgreSQL and Redis readiness pass, metrics require a dedicated bearer token, Swap provider status is public and CORS is restricted to the two production domains.
+- CI for candidate `b48638d`: passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
+- Vercel Production deployment `FUpRdsaynYXHyTDvMMb7yQUsbfiU` for candidate `b48638d`: ready; client and operator domains load with zero browser-console errors and enforce hostname route isolation.
+- GCE API release `b48638d`: healthy with zero container restarts; PostgreSQL and Redis readiness pass, metrics require a dedicated bearer token, Swap provider status is public and CORS is restricted to the two production domains.
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
 - Production dependency audit: 0 critical, 0 high, 3 moderate transitive Solana/Jayson/UUID advisories. No unsafe downgrade is applied.
 
