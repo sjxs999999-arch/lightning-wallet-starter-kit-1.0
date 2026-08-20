@@ -6,6 +6,10 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Extended the encrypted Wallet Center session into Batch Transfer and Asset Collector without changing the stored vault format or introducing a server signer.
+- Added one-confirmation sequential one-shot Worker signing for EVM Sepolia, Solana Devnet and TRON Nile/Shasta batch transfer and asset collection, while retaining pause, resume, retry, progress and public-only audit history.
+- Added synchronous vault-lock invalidation before signing and broadcast so an already signed transaction is never broadcast after the user locks or leaves the session.
+- Added separate local-testnet asset-scan RPC profiles with exact EVM Chain ID, Solana Genesis and official TRON hostname validation plus bounded concurrency for public RPC resilience.
 - Added direct browser-local native and Token transfer planning for EVM Sepolia, Solana Devnet and official TRON Nile/Shasta RPCs while keeping every mainnet feature flag disabled.
 - Added one-shot Web Worker signing that decrypts one selected key, re-derives and matches its address, signs locally, clears plaintext bytes and returns only an already signed public transaction for client-side broadcast.
 - Added explicit preview/confirmation, 90-second transaction expiry, public-only local history, wallet-switch locking during execution and fail-closed sender/network/signature verification.
@@ -77,6 +81,9 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Production verification
 
+- Shared-vault candidate `11c252f` passes 159 API tests, 288 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build, high/critical dependency gating and both local Docker image builds. Production CI run `32413522190` passed.
+- Vercel Preview deployment `dpl_Hv7YYB8LwCwfrVcbHVHBFkmTdtfQ`, Vercel Production deployment `dpl_CfmzuANq3dFYR9JsimGXYCkZdnDi` and GCE immutable release `11c252f` serve v2.32.0. GCE rollback points to `5963902`; backup `lightning-20260820T202520Z.dump` is retained.
+- Production browser checks verified the Batch Transfer and Asset Collector local-vault entry points, client-tab session reuse, refresh locking, operator/client isolation and no white screen. HTTP, CORS, security-header, API/PostgreSQL/Redis and read-only SUN.io/LI.FI acceptance pass without wallet access, signing or broadcast.
 - Local-signing candidate `5963902` passes 159 API tests, 278 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build and both local Docker image builds. Browser acceptance verified v2.31 route/reload, automatic vault locking and RPC-error isolation without requesting a signature or broadcast.
 - Production CI run `32409972622` passed for head `5d65e03`. Vercel Production deployment `dpl_8BZayhFfX29GoY5QELLjtBwEtbWt` and GCE immutable release `5963902` now serve v2.31.0; rollback points to `a5c2b60` and backup `lightning-20260820T195002Z.dump` is retained.
 - Post-rollout production HTTP, CORS, security headers, API/PostgreSQL/Redis, browser route/reload and read-only SUN.io/LI.FI verification pass. Mainnet execution remains disabled and no automated acceptance connected a wallet, signed or broadcast.

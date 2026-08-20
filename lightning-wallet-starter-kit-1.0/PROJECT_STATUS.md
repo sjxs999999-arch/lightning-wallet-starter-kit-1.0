@@ -5,11 +5,11 @@ Updated: 2026-08-21
 ## Candidate baseline
 
 - Development branch: `codex/final-production`
-- Latest deployed web candidate commit: `5963902`
-- Current GCE API release commit: `5963902`
-- Current code candidate version: `2.31.0`
-- Current code candidate commit: `5963902`
-- Latest deployed application version: `2.31.0`
+- Latest deployed web candidate commit: `11c252f`
+- Current GCE API release commit: `11c252f`
+- Current code candidate version: `2.32.0`
+- Current code candidate commit: `11c252f`
+- Latest deployed application version: `2.32.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -22,11 +22,11 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 | Module | Implementation | Current production gate |
 |---|---|---|
-| Client/operator domain split | Complete | Web candidate `a5c2b60` is deployed; host routing and no-white-screen browser checks pass |
-| Wallet Center | Local AES-256-GCM vault, EVM/Solana/TRON create/import, EVM Keystore, multi-account derivation, receive QR, address book, custom Token metadata, isolated testnet signing, plus MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink | v2.31 adds Worker-isolated Sepolia/Devnet/Nile-Shasta native/Token transfers; final authorized real-wallet acceptance and mainnet approval remain pending |
+| Client/operator domain split | Complete | Web candidate `11c252f` is deployed; host routing and no-white-screen browser checks pass |
+| Wallet Center | Local AES-256-GCM vault, EVM/Solana/TRON create/import, EVM Keystore, multi-account derivation, receive QR, address book, custom Token metadata, isolated testnet signing, plus MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink | v2.32 shares one inactivity-locked client-tab vault session with Batch Transfer and Asset Collector; final authorized real-wallet acceptance and mainnet approval remain pending |
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
-| Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry, matching authorized-provider sender grouping and wallet signing | Exact Solana genesis/TRON host gates and per-call EIP-5792 receipts are deployed; mainnet feature flag is off pending chain-specific acceptance |
-| Asset Collector | EVM/Solana/TRON scanning/planning, reserve rules, Dry Run, matching authorized-provider sender grouping and wallet signing | EVM EIP-5792 and Solana batch signing use the shared exact network/receipt gates; mainnet feature flag is off |
+| Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, pause/resume/retry, matching extension-wallet sender grouping and local encrypted-wallet testnet signing | v2.32 adds one-confirmation, sequential one-shot Worker signing for Sepolia/Devnet/Nile-Shasta; all mainnet gates remain off |
+| Asset Collector | EVM/Solana/TRON scanning/planning, reserve rules, Dry Run, pause/resume/retry, matching extension-wallet sender grouping and local encrypted-wallet testnet signing | v2.32 adds network-attested testnet scanning and one-confirmation, sequential one-shot Worker signing; all mainnet gates remain off |
 | Solana Batch Trade | Per-wallet Jupiter transaction preparation, simulation, price-impact limits and browser-wallet signing | Matching wallet, exact Mainnet genesis, transaction payer and confirmed/submitted/failed result states are deployed; global and Swap-specific mainnet gates remain off |
 | Swap | Provider availability endpoint, quote Worker, route/impact guards, sender-aware injected-wallet selection, exact network attestation, confirmed receipts, exact approval and wallet signing | EVM/LI.FI, Solana/Jupiter and TRON/SUN.io are deployed; optional 0x comparison remains supported; global and Swap-specific mainnet flags remain off pending authorized wallet acceptance |
 | Bridge | Read-only route comparison plus client-wallet EVM/Solana execution adapters | Sender, switched-chain, Solana Mainnet genesis and confirmed-receipt checks are deployed; global and Bridge-specific mainnet gates are off |
@@ -58,11 +58,14 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 ## Current verification baseline
 
 - API tests: 159 passing across 33 files.
-- Web tests: 278 passing across 71 files for the current code candidate.
+- Web tests: 288 passing across 73 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
-- Local API and Web Docker images: passing for candidate `a5c2b60`.
+- Local API and Web Docker images: passing for candidate `11c252f`.
 - Wallet Center browser acceptance: route render, provider tab, refresh and sender-prefilled Batch Transfer handoff pass with zero console errors and no wallet/signature/broadcast access.
+- Shared-vault candidate `11c252f` passes 159 API tests, 288 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build, high/critical dependency gating and both Docker image builds. Browser acceptance verified client-tab session sharing across Wallet Center, Batch Transfer and Asset Collector, automatic reload locking, and no white screen without requesting a signature or broadcast.
+- Production CI run `32413522190` passed for `11c252f`. Vercel Preview `dpl_Hv7YYB8LwCwfrVcbHVHBFkmTdtfQ`, Vercel Production `dpl_CfmzuANq3dFYR9JsimGXYCkZdnDi` and GCE immutable release `11c252f` serve v2.32.0. GCE rollback points to `5963902`; backup `lightning-20260820T202520Z.dump` is retained.
+- Post-rollout client/operator routing, refresh, security headers, API/PostgreSQL/Redis health and read-only provider acceptance pass. SUN.io returned three routes in 0.691128 seconds and LI.FI returned one route in 0.942622 seconds without wallet access, signing or broadcast. Final readiness remains fail-closed on exactly five external providers, authorized-wallet acceptance and all four disabled mainnet gates.
 - Local-signing candidate `5963902` passes 159 API tests, 278 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build and both Docker image builds. Browser acceptance verified v2.31 reload/automatic vault locking and RPC-error isolation without signing or broadcasting.
 - Production CI run `32409972622` passed for docs head `5d65e03`, including all verification and Docker jobs. Vercel Production deployment `dpl_8BZayhFfX29GoY5QELLjtBwEtbWt` and GCE immutable release `5963902` serve v2.31.0. GCE rollback points to `a5c2b60`; backup `lightning-20260820T195002Z.dump` is retained.
 - Post-rollout HTTP, CORS, security-header, API/PostgreSQL/Redis, browser route/reload and read-only SUN.io/LI.FI acceptance pass. Vercel reported zero error-level logs for the deployment; automated acceptance did not request a wallet, signature or broadcast.

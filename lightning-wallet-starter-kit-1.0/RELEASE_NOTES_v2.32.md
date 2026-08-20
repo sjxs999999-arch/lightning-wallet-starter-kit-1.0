@@ -23,4 +23,16 @@ Version 2.32 extends the encrypted local Wallet Center session into the existing
 
 ## Verification status
 
-- Unit, isolation, type, lint, production build, Docker, browser and deployment results are recorded after candidate validation.
+- Runtime commit: `11c252f`.
+- API: 159 tests passing across 33 files.
+- Web: 288 tests passing across 73 files, including address matching, one-shot local signing and lock-after-sign/no-broadcast isolation.
+- Type checking, lint, production build, credential scan, environment/rollback/provider gates and both local Docker image builds: passing.
+- Production dependency gate: zero high or critical advisories; six moderate transitive advisories remain without a compatible upstream fix.
+- Production CI run `32413522190`: passing, including verification and Docker jobs.
+- Vercel Preview `dpl_Hv7YYB8LwCwfrVcbHVHBFkmTdtfQ`: ready.
+- Vercel Production `dpl_CfmzuANq3dFYR9JsimGXYCkZdnDi`: ready on `lightingwallet.com` and `admin.lightingwallet.com`.
+- GCE immutable release: `/opt/lightning-wallet/releases/11c252f`; rollback: `/opt/lightning-wallet/releases/5963902`; retained pre-deploy backup: `lightning-20260820T202520Z.dump`.
+- Production browser checks pass for client/operator separation, Batch Transfer and Asset Collector routes, shared-vault UI and refresh locking without a white screen.
+- Production HTTP, CORS, security-header, API/PostgreSQL/Redis and read-only Provider acceptance pass. SUN.io returned three routes in 0.691128 seconds; LI.FI returned one route in 0.942622 seconds.
+- No automated acceptance connected a wallet, requested a signature or broadcast a transaction. Authorized real-wallet acceptance remains required.
+- Final approval remains fail-closed on exactly five external-provider prerequisites, wallet acceptance and four disabled mainnet gates.
