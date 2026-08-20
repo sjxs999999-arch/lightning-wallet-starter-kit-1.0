@@ -14,6 +14,8 @@
     "start": "concurrently -n web,api \"npm run start -w @lightning/web\" \"npm run start -w @lightning/api\"",
     "typecheck": "npm run build -w @lightning/core && npm run typecheck -w @lightning/api && npm run typecheck -w @lightning/web",
     "test": "npm run test --workspaces --if-present",
+    "test:live-provider-verifier": "./scripts/test-live-providers.sh",
+    "verify:live-providers": "./scripts/verify-live-providers.sh",
     "contract:compile": "node scripts/compile-launchpad-contract.mjs",
     "contract:compile:tron": "node scripts/compile-tron-launchpad-contract.mjs",
     "db:init": "psql \"$DATABASE_URL\" -f database/init.sql",

@@ -1,0 +1,21 @@
+{
+  "data": [
+    {
+      "provider": "SUN.io Smart Router",
+      "amountIn": "1000000",
+      "amountOut": "340000",
+      "minReceived": "338300",
+      "priceImpactPct": 0.001,
+      "privateKey": "forbidden-test-value",
+      "raw": {
+        "network": "mainnet",
+        "verifiedHooksOnly": true,
+        "sunRoute": {
+          "containsUnverifiedHook": false,
+          "tokens": ["T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb", "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"],
+          "poolVersions": ["v4"]
+        }
+      }
+    }
+  ]
+}

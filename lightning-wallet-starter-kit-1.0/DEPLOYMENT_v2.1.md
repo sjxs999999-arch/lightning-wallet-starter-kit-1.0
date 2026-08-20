@@ -53,6 +53,14 @@ After both deployments are on the exact approved commit, run the repeatable HTTP
 
 It checks both domain surfaces, clickjacking policy, the isolated FlashForge path, API/PostgreSQL/Redis readiness, truthful capability/provider status and the two-origin CORS allowlist. Wallet signatures and chain confirmations remain a separate manual acceptance step.
 
+Run the optional live-provider gate separately after a release:
+
+```bash
+./scripts/verify-live-providers.sh
+```
+
+This sends one read-only TRX/USDT quote request with the same Origin and CSRF headers as the client, then rejects empty, malformed, unverified-hook or secret-bearing responses. It never connects a wallet, signs or broadcasts. It is deliberately separate from `deploy.sh` so a transient third-party outage cannot trigger a production rollback.
+
 ## Testnet acceptance
 
 - EVM wallets must be set to Sepolia (`0xaa36a7`).

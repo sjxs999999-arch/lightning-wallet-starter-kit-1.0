@@ -32,6 +32,7 @@ jobs:
       - run: ./scripts/check-secrets.sh
       - run: ./scripts/test-production-env.sh
       - run: ./scripts/test-rollback-release.sh
+      - run: ./scripts/test-live-providers.sh
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
