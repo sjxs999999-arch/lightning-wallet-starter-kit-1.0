@@ -126,14 +126,13 @@ fi
 
 optional_provider VITE_WALLETCONNECT_PROJECT_ID 'WalletConnect Project ID'
 optional_provider ZEROX_API_KEY '0x Swap provider'
-optional_provider TRON_SWAP_PROVIDER_URL 'TRON Swap provider'
 optional_provider GASFREE_PROVIDER_URL 'GasFree Paymaster provider'
 optional_provider MARKET_HOLDER_PROVIDER_URL 'Market holder-data provider'
 optional_provider CRASH_REPORT_DSN 'Crash reporting provider'
 
 walletconnect_id=$(value VITE_WALLETCONNECT_PROJECT_ID)
 [ -z "$walletconnect_id" ] || printf '%s' "$walletconnect_id" | grep -Eq '^[a-fA-F0-9]{32}$' || fail 'VITE_WALLETCONNECT_PROJECT_ID must be a 32-character hexadecimal project ID'
-for key in TRON_SWAP_PROVIDER_URL GASFREE_PROVIDER_URL MARKET_HOLDER_PROVIDER_URL CRASH_REPORT_DSN; do
+for key in GASFREE_PROVIDER_URL MARKET_HOLDER_PROVIDER_URL CRASH_REPORT_DSN; do
   provider_url=$(value "$key")
   [ -z "$provider_url" ] || case "$provider_url" in https://*) : ;; *) fail "$key must use HTTPS" ;; esac
 done

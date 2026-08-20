@@ -6,6 +6,9 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Integrated the official SUN.io Smart Router for TRON mainnet quotes and client-only TronLink/OKX execution without a private-key or server-signing path.
+- Added exact TRC-20 Permit2 allowance handling, local typed-data signatures, verified no-hook V4 route support, strict route revalidation and confirmed transaction receipts.
+- Kept TRON Swap behind the existing mainnet feature flag until an authorized wallet acceptance transaction is completed.
 - Separated the public non-custodial client (`lightingwallet.com`) from the authenticated operator console (`admin.lightingwallet.com`).
 - Added durable browser-local public operation history and authenticated metadata-only operator history.
 - Added revocable HttpOnly operator sessions, optional TOTP, default-deny API authorization and stricter production CSP.
@@ -55,7 +58,7 @@ All notable stable Lightning Wallet releases are recorded here.
 ### Release gate
 
 - This section is not a stable release and has no final mainnet approval.
-- EVM Swap, TRON Swap, sponsored GasFree and real Flash Loan logic remain provider/adapter gated; Launchpad still requires real-wallet testnet acceptance.
+- EVM Swap, sponsored GasFree and real Flash Loan logic remain provider/adapter gated; TRON Swap is implemented but remains mainnet-flag and wallet-acceptance gated; Launchpad still requires real-wallet testnet acceptance.
 - Mainnet transaction flags remain disabled until chain-specific acceptance is complete.
 
 ## stable-v2.0-lightning-wallet

@@ -44,7 +44,7 @@ export function Swap() {
     void loadHistory();
     void api<{ data: { providers: SwapProviderAvailability[] } }>('/swap/status')
       .then(response => setProviders(response.data.providers))
-      .catch(() => { setProviders(fallbackSwapProviderAvailability()); setRecordError('服务状态接口暂时不可用；仅保留公共 Jupiter 报价，EVM/TRON 已锁定'); });
+      .catch(() => { setProviders(fallbackSwapProviderAvailability()); setRecordError('服务状态接口暂时不可用；仅保留公共 Jupiter 与 SUN.io 报价，EVM 已锁定'); });
     return () => workerRef.current?.terminate();
   }, [loadHistory]);
 
@@ -169,7 +169,7 @@ export function Swap() {
         <label>滑点：{slippage}%<input type="range" min="0.1" max="5" step="0.1" value={slippage} disabled={busy || executing} onChange={event => { setSlippage(Number(event.target.value)); invalidateQuotes(); }}/></label>
         <label className="dry-run"><input type="checkbox" checked={dryRun} disabled={busy || executing} onChange={event => setDryRun(event.target.checked)}/> Dry Run（默认开启）</label>
         <label className="dry-run"><input type="checkbox" checked={autoRefresh} disabled={executing} onChange={event => setAutoRefresh(event.target.checked)}/> 每 30 秒自动刷新报价 · 最后更新 {lastUpdated || '尚未报价'}</label>
-        <div className="notice"><ShieldCheck size={18}/>不接收私钥或原始交易数据；Approve 使用精确卖出量，真实 Swap 必须由钱包确认。</div>
+        <div className="notice"><ShieldCheck size={18}/>不接收私钥；Approve 使用精确卖出量。TRON 通过官方 SUN.io Smart Router 在签名前重新取路由，并由 TronLink/OKX Wallet 本地签名。</div>
         {error && <div className="batch-error">{error}</div>}{recordError && <div className="batch-error">{recordError}</div>}
         <button onClick={quote} disabled={busy || executing || !currentProvider?.available || !taker || !sellToken || !buyToken || !amount}>{busy ? '聚合报价中…' : '获取最优报价'}</button>
       </section>
