@@ -15,6 +15,18 @@
 3. Keep `AUTOMATION_ENABLE_DELIVERY=false` until notification channels have been separately verified.
 4. Never put private keys or mnemonics in any environment file.
 
+Run the fail-closed environment gate before building:
+
+```bash
+PRODUCTION_ENV_FILE=.env.production ./scripts/check-production-env.sh
+```
+
+It validates required credentials without printing their values, checks the isolated client/operator origins, reports unconfigured external providers, and rejects mainnet flags unless `STRICT_EXTERNAL_PROVIDERS=true`. Use strict mode only for final provider acceptance:
+
+```bash
+STRICT_EXTERNAL_PROVIDERS=true PRODUCTION_ENV_FILE=.env.production ./scripts/check-production-env.sh
+```
+
 ## Build and start
 
 ```bash
@@ -23,7 +35,7 @@
 
 The deploy command fails before Docker build when the target filesystem has less than 8 GiB available. If it stops on this preflight, inspect `docker system df` and remove only unused build cache or dangling images after confirming that running containers and volumes are not targeted. Override the threshold only with an explicit reviewed value such as `MIN_DEPLOY_DISK_KB=10485760`.
 
-The deploy script uses the fixed `lightning-wallet` Compose project and stops before rebuilding if the configured TLS certificate is missing or does not cover `DOMAIN`.
+The deploy script uses the fixed `lightning-wallet` Compose project and stops before rebuilding if the production environment gate fails or if the configured TLS certificate is missing or does not cover `DOMAIN`.
 
 Verify `https://api.lightingwallet.com/health`, `/health/ready` and `/metrics`. The readiness endpoint must report PostgreSQL and Redis as `ok` before traffic is accepted.
 

@@ -7,6 +7,8 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 test -f "$PRODUCTION_ENV_FILE" || { echo "Missing $PRODUCTION_ENV_FILE. Copy .env.production.example and configure secrets first." >&2; exit 1; }
 
+PRODUCTION_ENV_FILE="$PRODUCTION_ENV_FILE" "$SCRIPT_DIR/check-production-env.sh"
+
 DOMAIN_VALUE=$(sed -n 's/^DOMAIN=//p' "$PRODUCTION_ENV_FILE" | tail -n 1 | tr -d '\r' | sed 's/^"//;s/"$//')
 test -n "$DOMAIN_VALUE" || { echo "DOMAIN is missing from $PRODUCTION_ENV_FILE." >&2; exit 1; }
 

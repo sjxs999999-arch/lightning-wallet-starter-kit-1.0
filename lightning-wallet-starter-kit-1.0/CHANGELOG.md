@@ -33,6 +33,7 @@ All notable stable Lightning Wallet releases are recorded here.
 - Added reproducible OpenZeppelin artifacts from pinned upstream and checksum-verified official TRON Solidity compilers; fixed-supply deployment revokes Solana mint authority and exposes no later mint function on EVM/TRON.
 - Added the missing Vercel Serverless Launchpad validation route, shared strict draft validation and an explicit public-route policy so the client flow cannot fail with a 404 or require an operator session.
 - Isolated the Launchpad Solana Devnet RPC from the production Solana Mainnet RPC so testnet mint deployment cannot change or inherit the network used by batch transfers and asset collection.
+- Added a fail-closed production environment gate that rejects placeholder credentials, unsafe origins, invalid MFA/WalletConnect configuration and premature mainnet flags while reporting every external provider still required for final approval.
 
 ### Production verification
 
