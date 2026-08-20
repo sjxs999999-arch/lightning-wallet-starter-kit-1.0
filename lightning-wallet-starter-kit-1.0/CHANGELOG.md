@@ -6,6 +6,9 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Extended the Wallet Center's read-only portfolio to Ethereum, BSC, Polygon, Base, Arbitrum, Solana Mainnet and TRON Mainnet while retaining Sepolia, Solana Devnet, TRON Nile and TRON Shasta.
+- Added exact EVM Chain ID, Solana Genesis and approved official TRON hostname attestation before a read-only scan, plus explicit Mainnet/Testnet selection and stale-result clearing.
+- Added production Docker build plumbing for isolated browser-visible portfolio RPCs; secret-bearing RPC URLs remain forbidden in `VITE_*` values.
 - Added a lazy, read-only Wallet Center portfolio for EVM Sepolia, Solana Devnet and TRON Nile/Shasta by reusing the existing network-attested Asset Collector scanner.
 - Added Solana SPL/Token-2022 discovery plus registered ERC-20/TRC-20 balance reads, bounded Token concurrency, a 50-contract safety limit and stale-response suppression.
 - Kept RPC failures inside the asset panel with actionable retry/fallback copy; the portfolio does not unlock the vault, sign, broadcast or send secret material to the API.
@@ -84,6 +87,9 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Production verification
 
+- Multi-mainnet read-only candidate `3883c04` passes 159 API tests, 301 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build, high/critical production dependency gating and both Docker image builds. Production CI run `32418571919` passed; all 11 default RPC profiles returned their expected network identity.
+- Vercel Preview `dpl_4tshoKFSS8D5KzHY1TbMgomb6aQy` and Vercel Production `dpl_42jCZ5YMxnqJXE9JTYzfe2m5zyxK` serve web v2.34.0. Browser acceptance verified the Wallet Center, BSC Mainnet read-only selection, reload-safe rendering and zero console errors without wallet signing or broadcast.
+- GCE remains on immutable release `e58173a` / API v2.33.0 because access to the local Google Cloud credential directory was not granted in this run. No production server or database state was changed; v2.34 server rollout remains pending.
 - Read-only portfolio candidate `e58173a` passes 159 API tests, 293 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build, high/critical dependency gating and both local Docker image builds. Production CI run `32415927314` passed.
 - Vercel Preview `dpl_EPVFRUUoVnduYgi3nvk1coYbPVbR`, Vercel Production `dpl_HLK51wFAx3gqcv2x4gUEnEhmEMXa` and GCE immutable release `e58173a` serve v2.33.0. GCE rollback points to `11c252f`; backup `lightning-20260820T205300Z.dump` is retained.
 - Production browser checks verified the client Wallet Center, v2.33 version, no-white-screen state, zero console errors and operator/client isolation. HTTP and read-only provider acceptance pass without wallet access, signing or broadcast.

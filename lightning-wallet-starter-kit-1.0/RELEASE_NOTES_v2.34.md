@@ -22,4 +22,9 @@ Version 2.34 extends the Wallet Center's read-only asset view from testnets to t
 
 ## Verification status
 
-- Runtime, CI, browser, Preview and production deployment results will be recorded after candidate validation.
+- Commit `3883c04` passes 159 API tests, 301 Web tests, type checking, lint, production build, both Docker image builds, secret/environment/rollback/provider gates and the high/critical production dependency gate.
+- All 11 default read-only RPC profiles returned the exact expected EVM Chain ID, Solana Genesis or an official allowed TRON endpoint response.
+- Production CI run `32418571919` passed.
+- Vercel Preview `dpl_4tshoKFSS8D5KzHY1TbMgomb6aQy` and Vercel Production `dpl_42jCZ5YMxnqJXE9JTYzfe2m5zyxK` are Ready. `lightingwallet.com/wallets` serves v2.34.0 with the expected CSP and frame-denial headers.
+- Local and production browser acceptance verified Wallet Center rendering, the six EVM read-only network choices, BSC Mainnet labeling and zero console errors. No wallet, signature or broadcast was requested.
+- The GCE API remains on immutable release `e58173a` / v2.33.0 because local Google Cloud credential access was not granted. No server symlink, container or database state changed; GCE v2.34 deployment and post-rollout acceptance are pending.

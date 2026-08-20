@@ -5,11 +5,12 @@ Updated: 2026-08-21
 ## Candidate baseline
 
 - Development branch: `codex/final-production`
-- Latest deployed web candidate commit: `e58173a`
+- Latest deployed web candidate commit: `3883c04`
 - Current GCE API release commit: `e58173a`
-- Current code candidate version: `2.33.0`
-- Current code candidate commit: `e58173a`
-- Latest deployed application version: `2.33.0`
+- Current code candidate version: `2.34.0`
+- Current code candidate commit: `3883c04`
+- Latest deployed web version: `2.34.0`
+- Latest deployed API version: `2.33.0` (GCE rollout pending local Google Cloud credential permission)
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -22,8 +23,8 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 | Module | Implementation | Current production gate |
 |---|---|---|
-| Client/operator domain split | Complete | Web candidate `e58173a` is deployed; host routing and no-white-screen browser checks pass |
-| Wallet Center | Local AES-256-GCM vault, EVM/Solana/TRON create/import, EVM Keystore, multi-account derivation, receive QR, address book, custom Token metadata, isolated testnet signing, testnet-native/Token portfolio, plus MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink | v2.33 adds a lazy, read-only Sepolia/Devnet/Nile-Shasta asset view with exact network gates and panel-local RPC errors; final authorized real-wallet acceptance and mainnet approval remain pending |
+| Client/operator domain split | Complete | Web candidate `3883c04` is deployed; host routing and no-white-screen browser checks pass |
+| Wallet Center | Local AES-256-GCM vault, EVM/Solana/TRON create/import, EVM Keystore, multi-account derivation, receive QR, address book, custom Token metadata, isolated testnet signing, multi-network read-only portfolio, plus MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink | v2.34 adds attested read-only Ethereum/BSC/Polygon/Base/Arbitrum, Solana Mainnet and TRON Mainnet views while retaining Sepolia/Devnet/Nile/Shasta; final authorized real-wallet acceptance and mainnet transaction approval remain pending |
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
 | Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, pause/resume/retry, matching extension-wallet sender grouping and local encrypted-wallet testnet signing | v2.32 adds one-confirmation, sequential one-shot Worker signing for Sepolia/Devnet/Nile-Shasta; all mainnet gates remain off |
 | Asset Collector | EVM/Solana/TRON scanning/planning, reserve rules, Dry Run, pause/resume/retry, matching extension-wallet sender grouping and local encrypted-wallet testnet signing | v2.32 adds network-attested testnet scanning and one-confirmation, sequential one-shot Worker signing; all mainnet gates remain off |
@@ -58,10 +59,13 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 ## Current verification baseline
 
 - API tests: 159 passing across 33 files.
-- Web tests: 293 passing across 75 files for the current code candidate.
+- Web tests: 301 passing across 77 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
-- Local API and Web Docker images: passing for candidate `e58173a`.
+- Local API and Web Docker images: passing for candidate `3883c04`.
+- Multi-mainnet read-only candidate `3883c04` passes 159 API tests, 301 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build, high/critical production dependency gating and both Docker image builds. All 11 configured EVM/Solana/TRON profiles returned the expected network identity. Production CI run `32418571919` passed.
+- Vercel Preview `dpl_4tshoKFSS8D5KzHY1TbMgomb6aQy` and Vercel Production `dpl_42jCZ5YMxnqJXE9JTYzfe2m5zyxK` serve web v2.34.0. Local and production browser acceptance verified the Wallet Center, EVM network selector, BSC Mainnet read-only state, reload-safe rendering and zero console errors without signature or broadcast access.
+- GCE remains safely on immutable release `e58173a` / API v2.33.0 because this run was not granted access to the local Google Cloud credential directory. No server symlink, container or database state was changed; the v2.34 GCE rollout and post-rollout API acceptance remain pending.
 - Wallet Center browser acceptance: route render, provider tab, refresh and sender-prefilled Batch Transfer handoff pass with zero console errors and no wallet/signature/broadcast access.
 - Read-only portfolio candidate `e58173a` passes 159 API tests, 293 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build, high/critical dependency gating and both Docker image builds. Local browser acceptance verified temporary-wallet rendering, lazy portfolio loading and RPC-failure isolation without a white screen or secret access.
 - Production CI run `32415927314` passed. Vercel Preview `dpl_EPVFRUUoVnduYgi3nvk1coYbPVbR`, Vercel Production `dpl_HLK51wFAx3gqcv2x4gUEnEhmEMXa` and GCE immutable release `e58173a` serve v2.33.0. GCE rollback points to `11c252f`; backup `lightning-20260820T205300Z.dump` is retained.
