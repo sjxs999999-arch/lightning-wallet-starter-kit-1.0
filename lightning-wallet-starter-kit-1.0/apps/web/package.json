@@ -23,6 +23,7 @@
     "buffer": "6.0.3",
     "ethers": "6.17.0",
     "lucide-react": "^0.542.0",
+    "qrcode": "1.5.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "7.18.2"

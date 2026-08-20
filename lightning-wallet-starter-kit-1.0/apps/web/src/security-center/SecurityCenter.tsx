@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Clock3, Copy, ExternalLink, History, KeyRound, RefreshCw, ShieldCheck, ShieldOff, Users } from 'lucide-react';
 import { api } from '../api';
+import { createMfaQrCode } from './mfa-qr';
+import './mfa-qr.css';
 
 type AuditEvent = {
   id: number;
@@ -57,6 +59,8 @@ export function SecurityCenter() {
   const [password, setPassword] = useState('');
   const [factor, setFactor] = useState('');
   const [enrollment, setEnrollment] = useState<{ secret: string; otpauthUri: string; expiresAt: string } | null>(null);
+  const [enrollmentQr, setEnrollmentQr] = useState('');
+  const [qrFailed, setQrFailed] = useState(false);
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const load = useCallback(async () => {
     setError('');
@@ -69,6 +73,20 @@ export function SecurityCenter() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    setEnrollmentQr(''); setQrFailed(false);
+    if (!enrollment) return () => { active = false; };
+    const expiresIn = Math.max(0, new Date(enrollment.expiresAt).getTime() - Date.now());
+    const expiryTimer = window.setTimeout(() => {
+      if (!active) return;
+      setEnrollment(null); setFactor(''); setError('Authenticator 注册已超时，请重新开始。');
+    }, expiresIn);
+    void createMfaQrCode(enrollment.otpauthUri)
+      .then(result => { if (active) setEnrollmentQr(result); })
+      .catch(() => { if (active) setQrFailed(true); });
+    return () => { active = false; window.clearTimeout(expiryTimer); };
+  }, [enrollment]);
 
   async function revokeOthers() {
     if (!window.confirm('撤销除当前浏览器外的全部登录会话？')) return;
@@ -136,7 +154,7 @@ export function SecurityCenter() {
           <div><KeyRound size={18}/><span><b>Authenticator 管理</b><small>{data?.mfa.enabled ? `已启用 · 剩余 ${data.mfa.recoveryCodesRemaining} 个恢复码` : '未启用 · 注册后登录需要第二因素'}</small></span></div>
           {!data?.mfa.enabled && data?.mfa.manageable && !enrollment && <><label>确认当前密码<input type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} minLength={12}/></label><button disabled={busy || password.length < 12} onClick={() => void beginEnrollment()}>开始安全注册</button></>}
           {!data?.mfa.enabled && !data?.mfa.manageable && <p>服务器尚未配置二次验证加密密钥；当前不会生成或保存 Authenticator 密钥。</p>}
-          {enrollment && <div className="mfa-enrollment"><p>在 Google Authenticator、1Password 或其他 TOTP 应用中手动输入：</p><code>{enrollment.secret}</code><div className="mfa-actions"><button onClick={() => void copyText(enrollment.secret, '注册密钥已复制。')}><Copy size={14}/>复制密钥</button><a href={enrollment.otpauthUri}><ExternalLink size={14}/>打开身份验证器</a></div><small>有效期至 {new Date(enrollment.expiresAt).toLocaleTimeString()}；只有验证码确认成功后才会启用。</small><label>6 位动态验证码<input value={factor} inputMode="numeric" pattern="[0-9]{6}" maxLength={6} onChange={event => setFactor(event.target.value.replace(/\D/g, ''))}/></label><button disabled={busy || !/^\d{6}$/.test(factor)} onClick={() => void confirmEnrollment()}>确认并启用</button></div>}
+          {enrollment && <div className="mfa-enrollment"><p>使用 Google Authenticator、1Password 或其他 TOTP 应用扫描二维码：</p><div className="mfa-qr">{enrollmentQr ? <img src={enrollmentQr} width="220" height="220" alt="Authenticator 注册二维码"/> : <span>{qrFailed ? '二维码生成失败，请使用下面的手动密钥。' : '正在本地生成二维码…'}</span>}<small>二维码只在当前浏览器内存生成，不会发送给第三方。</small></div><p>无法扫码时手动输入：</p><code>{enrollment.secret}</code><div className="mfa-actions"><button onClick={() => void copyText(enrollment.secret, '注册密钥已复制。')}><Copy size={14}/>复制密钥</button><a href={enrollment.otpauthUri}><ExternalLink size={14}/>打开身份验证器</a></div><small>有效期至 {new Date(enrollment.expiresAt).toLocaleTimeString()}；只有验证码确认成功后才会启用。</small><label>6 位动态验证码<input value={factor} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} onChange={event => setFactor(event.target.value.replace(/\D/g, ''))}/></label><button disabled={busy || !/^\d{6}$/.test(factor)} onClick={() => void confirmEnrollment()}>确认并启用</button></div>}
           {data?.mfa.enabled && data.mfa.manageable && <><label>确认当前密码<input type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} minLength={12}/></label><label>动态验证码或恢复码<input value={factor} autoComplete="one-time-code" onChange={event => setFactor(event.target.value)} maxLength={14}/></label><button className="danger-outline" disabled={busy || password.length < 12 || factor.length < 6} onClick={() => void disableMfa()}>停用二次验证</button></>}
           {data?.mfa.source === 'environment' && <p>当前由服务器环境变量管理，只能通过受控部署流程更改。</p>}
         </div>

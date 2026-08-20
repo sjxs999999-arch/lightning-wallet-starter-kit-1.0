@@ -1,0 +1,24 @@
+.mfa-qr {
+  display: flex !important;
+  align-items: center !important;
+  flex-direction: column;
+  gap: 9px !important;
+  padding: 12px;
+  border: 1px solid #2b5b59;
+  border-radius: 9px;
+  background: #07151d;
+  color: #9ab0bd !important;
+  text-align: center;
+}
+
+.mfa-qr img {
+  display: block;
+  width: min(220px, 100%);
+  height: auto;
+  border: 8px solid #fff;
+  border-radius: 8px;
+}
+
+.mfa-qr small {
+  max-width: 260px;
+}
