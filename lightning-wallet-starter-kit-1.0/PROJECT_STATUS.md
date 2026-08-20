@@ -7,8 +7,8 @@ Updated: 2026-08-21
 - Development branch: `codex/final-production`
 - Latest deployed web candidate commit: `a5c2b60`
 - Current GCE API release commit: `a5c2b60`
-- Current code candidate version: `2.30.0`
-- Current code candidate commit: `a5c2b60`
+- Current code candidate version: `2.31.0`
+- Current code candidate commit: `5963902`
 - Latest deployed application version: `2.30.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
@@ -23,7 +23,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 | Module | Implementation | Current production gate |
 |---|---|---|
 | Client/operator domain split | Complete | Web candidate `a5c2b60` is deployed; host routing and no-white-screen browser checks pass |
-| Wallet Center | Local AES-256-GCM vault, EVM/Solana/TRON create/import, EVM Keystore, multi-account derivation, receive QR, address book, custom Token metadata, plus MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink | Local secrets remain encrypted and never reach API/database/logs; extension-wallet final signing acceptance remains |
+| Wallet Center | Local AES-256-GCM vault, EVM/Solana/TRON create/import, EVM Keystore, multi-account derivation, receive QR, address book, custom Token metadata, isolated testnet signing, plus MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink | v2.31 adds Worker-isolated Sepolia/Devnet/Nile-Shasta native/Token transfers; final authorized real-wallet acceptance and mainnet approval remain pending |
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
 | Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry, matching authorized-provider sender grouping and wallet signing | Exact Solana genesis/TRON host gates and per-call EIP-5792 receipts are deployed; mainnet feature flag is off pending chain-specific acceptance |
 | Asset Collector | EVM/Solana/TRON scanning/planning, reserve rules, Dry Run, matching authorized-provider sender grouping and wallet signing | EVM EIP-5792 and Solana batch signing use the shared exact network/receipt gates; mainnet feature flag is off |
@@ -58,11 +58,12 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 ## Current verification baseline
 
 - API tests: 159 passing across 33 files.
-- Web tests: 272 passing across 68 files for the current code candidate.
+- Web tests: 278 passing across 71 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
 - Local API and Web Docker images: passing for candidate `a5c2b60`.
 - Wallet Center browser acceptance: route render, provider tab, refresh and sender-prefilled Batch Transfer handoff pass with zero console errors and no wallet/signature/broadcast access.
+- Local-signing candidate `5963902` passes 159 API tests, 278 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build and both Docker image builds. Browser acceptance verified v2.31 reload/automatic vault locking and RPC-error isolation without signing or broadcasting.
 - Wallet Center candidate `416a3d9` passed Production CI run `32406199136`, including credential, environment, rollback and provider gates, type checking, 159 API tests, 272 Web tests, production build, high/critical dependency gating and both Docker image builds.
 - CI for candidate `184c5ea` (run `32289956843`): passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
 - CI for code candidate `c670e31` (run `32294819780`): passing, including secret scan, type check, 113 API tests, 199 Web tests, production build, dependency gate and both Docker images.

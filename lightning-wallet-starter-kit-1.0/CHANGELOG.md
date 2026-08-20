@@ -6,6 +6,10 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Added direct browser-local native and Token transfer planning for EVM Sepolia, Solana Devnet and official TRON Nile/Shasta RPCs while keeping every mainnet feature flag disabled.
+- Added one-shot Web Worker signing that decrypts one selected key, re-derives and matches its address, signs locally, clears plaintext bytes and returns only an already signed public transaction for client-side broadcast.
+- Added explicit preview/confirmation, 90-second transaction expiry, public-only local history, wallet-switch locking during execution and fail-closed sender/network/signature verification.
+- Split chain SDKs out of the signing Worker and lazy-loaded TRON planning so the Worker entry is 2.18 kB and the Wallet Center route chunk decreased from approximately 802 kB to 44 kB.
 - Replaced the provider-only `/wallets` screen with a complete non-custodial Wallet Center while retaining all ten extension-wallet entries in a separate tab.
 - Added a browser-local AES-256-GCM wallet vault with PBKDF2-SHA-256 (600,000 iterations), 15-minute inactivity locking, encrypted backup/restore and strict rejection of plaintext secret fields.
 - Added EVM, Solana and TRON wallet creation, mnemonic/private-key import, EVM Keystore import, mnemonic-backed multi-account derivation, receive QR codes, local address book and custom Token metadata.
@@ -73,6 +77,7 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Production verification
 
+- Local-signing candidate `5963902` passes 159 API tests, 278 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build and both local Docker image builds. Browser acceptance verified v2.31 route/reload, automatic vault locking and RPC-error isolation without requesting a signature or broadcast.
 - Wallet Center candidate `a5c2b60` passes 159 API tests, 272 Web tests, type checking, lint, credential/environment/rollback gates, production build and both local Docker image builds. Browser route, provider-tab, refresh and Batch Transfer handoff checks pass without wallet access, signing or broadcasting.
 - Candidate head `416a3d9` passed Production CI run `32406199136`, including both Docker image builds and the high/critical dependency gate.
 - Vercel Production deployment `dpl_AWnDMQiHDcn6LyaGnopUwMNiyPoP` and GCE immutable release `a5c2b60` now serve v2.30.0. GCE rollback points to `0ee87a7`; backup `lightning-20260820T190648Z.dump` is retained. Production Wallet Center, operator login, HTTP, capability and read-only SUN.io/LI.FI acceptance pass without wallet access, signing or broadcasting.
