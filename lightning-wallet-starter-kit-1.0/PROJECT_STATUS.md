@@ -8,7 +8,7 @@ Updated: 2026-08-21
 - Latest deployed web candidate commit: `0ee87a7`
 - Current GCE API release commit: `0ee87a7`
 - Current code candidate version: `2.30.0`
-- Current code candidate commit: pending
+- Current code candidate commit: `a5c2b60`
 - Latest deployed application version: `2.29.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
@@ -61,6 +61,8 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Web tests: 272 passing across 68 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
+- Local API and Web Docker images: passing for candidate `a5c2b60`.
+- Wallet Center browser acceptance: route render, provider tab, refresh and sender-prefilled Batch Transfer handoff pass with zero console errors and no wallet/signature/broadcast access.
 - CI for candidate `184c5ea` (run `32289956843`): passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
 - CI for code candidate `c670e31` (run `32294819780`): passing, including secret scan, type check, 113 API tests, 199 Web tests, production build, dependency gate and both Docker images.
 - Compatibility fix `111d279` passed Production CI run `32295696283`, including credential scan, type check, 117 API tests, 199 Web tests, production build, production dependency gate and both Docker images.
@@ -105,7 +107,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
 - The protected GCE environment passes the non-strict production preflight with mainnet execution, mainnet Swap, mainnet Launchpad and mainnet Bridge disabled. The strict gate correctly remains closed on exactly five external prerequisites: WalletConnect Project ID, Paymaster, holder-data provider, real Flash Loan application/API and Automation delivery configuration.
 - The production rollback Dry Run resolved current release `80da41e`, target release `6bb8ddb` and the protected backup directory, and passed environment and Compose preflight without changing links, containers or database state.
-- Production dependency audit: 0 critical, 0 high and 5 moderate transitive Solana/Jayson/UUID advisories. The offered forced fix is a breaking SDK downgrade, so no unsafe downgrade is applied.
+- Production dependency audit: 0 critical, 0 high and 6 moderate transitive SUN/Solana/Jayson/UUID advisories. No compatible fix is available, so no unsafe SDK downgrade is applied.
 
 ## Required before final approval
 

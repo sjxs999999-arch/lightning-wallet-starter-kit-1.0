@@ -26,6 +26,8 @@ Version 2.30 restores the missing everyday Wallet Center without replacing the v
 - ESLint: PASS.
 - Web tests: 272/272 PASS across 68 files, including nine new Wallet Center isolation, encryption, import and metadata tests.
 - Full production build: PASS.
+- Local API and Web Docker image builds: PASS.
+- Production dependency audit: 0 critical, 0 high and 6 moderate transitive advisories with no compatible fix currently available.
 - Local browser acceptance: Wallet Center route, provider tab, refresh and Wallet Center-to-Batch Transfer handoff PASS with zero console errors and no white screen.
 - No wallet connection, signature or transaction broadcast was requested during automated acceptance.
 
