@@ -73,11 +73,19 @@ The restore script requires typing `RESTORE`. Re-run readiness, login, database 
 
 ## Rollback
 
-1. Keep the previous stable Git tag and container images.
-2. Take a database backup.
-3. Check out the previous stable tag and rebuild immutable images.
-4. Start the previous Compose release and verify readiness.
-5. Restore the database only if the release included an incompatible migration.
+Keep the previous immutable release directory and run a non-mutating plan first:
+
+```bash
+sudo ./scripts/rollback-release.sh 184c5ea
+```
+
+The planner resolves both symlinks inside `/opt/lightning-wallet/releases`, validates required release files, runs the production environment and Compose preflights, and changes no state. Execute only during an approved maintenance window:
+
+```bash
+sudo env ROLLBACK_EXECUTE=true ROLLBACK_CONFIRM=184c5ea ./scripts/rollback-release.sh 184c5ea
+```
+
+Execution takes a PostgreSQL backup, atomically switches `current`, starts the target release and runs the full production HTTP gate. If deployment or verification fails, it atomically restores and redeploys the original release. Database restore is never automatic; use `restore.sh` only for an explicitly reviewed incompatible migration.
 
 ## Monitoring
 

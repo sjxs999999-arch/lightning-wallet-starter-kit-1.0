@@ -34,6 +34,7 @@ All notable stable Lightning Wallet releases are recorded here.
 - Added the missing Vercel Serverless Launchpad validation route, shared strict draft validation and an explicit public-route policy so the client flow cannot fail with a 404 or require an operator session.
 - Isolated the Launchpad Solana Devnet RPC from the production Solana Mainnet RPC so testnet mint deployment cannot change or inherit the network used by batch transfers and asset collection.
 - Added a fail-closed production environment gate that rejects placeholder credentials, unsafe origins, invalid MFA/WalletConnect configuration and premature mainnet flags while reporting every external provider still required for final approval.
+- Added an explicit-confirmation release rollback tool with preflight-only default mode, pre-switch database backup, atomic release links, production verification and automatic restoration of the original release on failure.
 
 ### Production verification
 
