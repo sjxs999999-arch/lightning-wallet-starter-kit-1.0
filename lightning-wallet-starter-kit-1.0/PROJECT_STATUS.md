@@ -7,7 +7,7 @@ Updated: 2026-08-20
 - Development branch: `codex/final-production`
 - Latest deployed candidate commit: `5258b12`
 - Current code candidate version: `2.20.0`
-- Current code candidate commit: `5258b12`
+- Current code candidate commit: `5be4e2e`
 - Latest deployed application version: `2.20.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
@@ -47,7 +47,8 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - RFC 6238 TOTP enrollment, confirmation, one-time recovery codes and verified disable flow are implemented; activation still requires the operator to complete enrollment in the Security Center.
 - Structured logs redact credentials, tokens, cookies and wallet secret fields.
 - PostgreSQL backup, guarded restore, readiness checks and rollback release layout are included.
-- CI runs type checking, tests, production build and Docker image builds.
+- Production deploys now run a fail-closed environment gate before Docker build; placeholder credentials, unsafe origins, invalid MFA/WalletConnect values and premature mainnet flags are rejected without printing secret values.
+- CI runs the production environment gate, type checking, tests, production build and Docker image builds.
 
 ## Current verification baseline
 
@@ -59,6 +60,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - CI for code candidate `c670e31` (run `32294819780`): passing, including secret scan, type check, 113 API tests, 199 Web tests, production build, dependency gate and both Docker images.
 - Compatibility fix `111d279` passed Production CI run `32295696283`, including credential scan, type check, 117 API tests, 199 Web tests, production build, production dependency gate and both Docker images.
 - Candidate `5258b12` passed Production CI run `32347721319`, including credential scan, type check, 117 API tests, 200 Web tests, production build, production dependency gate and both Docker images.
+- Operations-hardening candidate `5be4e2e` passed Production CI run `32349813299`, including production environment-gate tests, credential scan, type check, 117 API tests, 200 Web tests, production build, dependency gate and both Docker images.
 - Vercel Production deployment `HRZfYMQyjxDNjEdB3VWh1cKAvnGf` for candidate `5258b12`: ready; client and operator domains serve v2.20.0 with zero browser-console errors and enforce hostname route isolation.
 - GCE API release `5258b12`: healthy; PostgreSQL and Redis readiness pass. Rollback points to release `184c5ea`, and pre-deploy backup `lightning-20260820T081545Z.dump` is retained.
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
@@ -67,9 +69,8 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 ## Required before final approval
 
 1. Enroll the operator authenticator before enabling `ADMIN_TOTP_SECRET`.
-2. Configure and verify any external provider being claimed: 0x, TRON Swap, Paymaster, notification delivery and a real Flash Loan app.
+2. Configure and verify any external provider being claimed: WalletConnect, 0x, TRON Swap, Paymaster, market holder data, crash reporting, notification delivery and a real Flash Loan app. The final environment must pass `STRICT_EXTERNAL_PROVIDERS=true ./scripts/check-production-env.sh`.
 3. Perform authorized testnet then limited-mainnet wallet acceptance for EVM, Solana and TRON, recording public transaction hashes only.
 4. Run the final wallet/provider regression and a timed rollback drill.
-5. Complete a timed rollback drill after the remaining provider and wallet acceptance gates are ready.
 
 Until those gates pass, the product must be described as a production candidate and not as fully mainnet-approved.
