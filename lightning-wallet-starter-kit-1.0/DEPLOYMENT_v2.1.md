@@ -27,6 +27,8 @@ It validates required credentials without printing their values, checks the isol
 STRICT_EXTERNAL_PROVIDERS=true PRODUCTION_ENV_FILE=.env.production ./scripts/check-production-env.sh
 ```
 
+`FLASH_LOAN_PROVIDER_APPROVED=true` is an explicit approval record, not an availability switch. Set it only after the separate real Flash Loan application and API pass origin, session-bridge, error-isolation and metadata-only history acceptance. Compatibility-shell URLs never satisfy the strict gate.
+
 ## Build and start
 
 ```bash

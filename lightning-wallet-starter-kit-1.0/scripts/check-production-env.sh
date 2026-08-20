@@ -77,7 +77,8 @@ chat_secret=$(value CHAT_JWT_SECRET)
 [ -z "$jwt_secret" ] || [ -z "$chat_secret" ] || [ "$jwt_secret" != "$chat_secret" ] || fail 'JWT_SECRET and CHAT_JWT_SECRET must be distinct'
 
 admin_hash=$(value ADMIN_PASSWORD_HASH)
-if [ -n "$admin_hash" ] && ! printf '%s' "$admin_hash" | grep -Eq '^scrypt\$[a-fA-F0-9]{32}\$[a-fA-F0-9]{64}$'; then
+normalized_admin_hash=$(printf '%s' "$admin_hash" | sed 's/\$\$/\$/g')
+if [ -n "$normalized_admin_hash" ] && ! printf '%s' "$normalized_admin_hash" | grep -Eq '^scrypt\$[a-fA-F0-9]{32}\$[a-fA-F0-9]{64}$'; then
   fail 'ADMIN_PASSWORD_HASH must use the documented scrypt format'
 fi
 
@@ -139,7 +140,10 @@ done
 
 flash_app=$(value FLASH_LOAN_URL)
 flash_api=$(value FLASH_LOAN_API_URL)
-if [ -z "$flash_app" ] || [ -z "$flash_api" ] || printf '%s,%s' "$flash_app" "$flash_api" | grep -q 'example' || { [ "$flash_app" = http://flash-loan:32104 ] && [ "$flash_api" = http://flash-loan:32104/api ]; }; then
+flash_targets=$(printf '%s,%s' "$flash_app" "$flash_api")
+flash_approved=$(value FLASH_LOAN_PROVIDER_APPROVED)
+case "$flash_approved" in ''|false|true) : ;; *) fail 'FLASH_LOAN_PROVIDER_APPROVED must be true or false' ;; esac
+if [ "$flash_approved" != true ] || [ -z "$flash_app" ] || [ -z "$flash_api" ] || printf '%s' "$flash_targets" | grep -Eq 'example|localhost|lightingwallet\.com|flash-loan:32104'; then
   if [ "$STRICT_EXTERNAL_PROVIDERS" = true ]; then
     fail 'A real Flash Loan application and API are required by STRICT_EXTERNAL_PROVIDERS=true'
   else
