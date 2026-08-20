@@ -44,6 +44,7 @@ services:
         VITE_MAINNET_EXECUTION_ENABLED: "${VITE_MAINNET_EXECUTION_ENABLED:-false}"
         VITE_MAINNET_MAX_BATCH_COUNT: "${VITE_MAINNET_MAX_BATCH_COUNT:-1000}"
         VITE_ENABLE_MAINNET_SWAP: "${VITE_ENABLE_MAINNET_SWAP:-false}"
+        VITE_ENABLE_MAINNET_LAUNCHPAD: "${VITE_ENABLE_MAINNET_LAUNCHPAD:-false}"
     restart: unless-stopped
     read_only: true
     tmpfs: ["/var/cache/nginx", "/var/run"]

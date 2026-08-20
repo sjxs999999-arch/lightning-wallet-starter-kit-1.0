@@ -21,7 +21,7 @@ Run the fail-closed environment gate before building:
 PRODUCTION_ENV_FILE=.env.production ./scripts/check-production-env.sh
 ```
 
-It validates required credentials without printing their values, checks the isolated client/operator origins, reports unconfigured external providers, and rejects mainnet flags unless `STRICT_EXTERNAL_PROVIDERS=true`. Use strict mode only for final provider acceptance:
+It validates required credentials without printing their values, checks the isolated client/operator origins, reports unconfigured external providers, and rejects mainnet flags unless `STRICT_EXTERNAL_PROVIDERS=true`. Launchpad Mainnet additionally requires both `VITE_MAINNET_EXECUTION_ENABLED=true` and `VITE_ENABLE_MAINNET_LAUNCHPAD=true`; keep both false until authorized chain-specific acceptance is complete. Use strict mode only for final provider acceptance:
 
 ```bash
 STRICT_EXTERNAL_PROVIDERS=true PRODUCTION_ENV_FILE=.env.production ./scripts/check-production-env.sh

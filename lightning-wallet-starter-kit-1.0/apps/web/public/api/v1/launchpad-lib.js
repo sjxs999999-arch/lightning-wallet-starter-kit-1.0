@@ -32,7 +32,8 @@ export const parseLaunchpadDraft = input => {
   const allowed = ['chain', 'network', 'name', 'symbol', 'decimals', 'supply', 'description', 'website', 'socials', 'media', 'liquidity', 'dryRun'];
   if (!Object.keys(input).every(key => allowed.includes(key))) return null;
   const chain = ['EVM', 'SOL', 'TRON'].includes(input.chain) ? input.chain : null;
-  const expected = { EVM: 'sepolia', SOL: 'solana-devnet', TRON: 'tron-nile' }[chain];
+  const networks = { EVM: ['sepolia', 'ethereum', 'bsc', 'polygon', 'base', 'arbitrum'], SOL: ['solana-devnet', 'solana-mainnet'], TRON: ['tron-nile', 'tron-shasta', 'tron-mainnet'] };
+  const network = chain && networks[chain].includes(input.network) ? input.network : null;
   const name = typeof input.name === 'string' ? input.name.trim() : '';
   const symbol = typeof input.symbol === 'string' ? input.symbol.trim().toUpperCase() : '';
   const decimals = input.decimals;
@@ -49,8 +50,8 @@ export const parseLaunchpadDraft = input => {
     ? { tokenAmount: String(input.liquidity.tokenAmount ?? ''), quoteSymbol: String(input.liquidity.quoteSymbol ?? '').trim().toUpperCase(), quoteAmount: String(input.liquidity.quoteAmount ?? ''), lockDays: input.liquidity.lockDays }
     : null;
   const positive = value => /^\d{1,78}$/.test(value) && BigInt(value) > 0n;
-  if (!chain || input.network !== expected || name.length < 2 || name.length > 50 || !/^[A-Z0-9]{2,12}$/.test(symbol) || !Number.isInteger(decimals) || decimals < 0 || decimals > (chain === 'SOL' ? 9 : 18) || !positive(supply) || description.length > 1000 || website === null || !socials || Object.values(socials).includes(null) || !media || Object.values(media).includes(null) || !liquidity || !positive(liquidity.tokenAmount) || !positive(liquidity.quoteAmount) || !/^[A-Z0-9]{2,12}$/.test(liquidity.quoteSymbol) || !Number.isInteger(liquidity.lockDays) || liquidity.lockDays < 0 || liquidity.lockDays > 3650 || typeof input.dryRun !== 'boolean') return null;
-  return { chain, network: expected, name, symbol, decimals, supply, description, website, socials, media, liquidity, dryRun: input.dryRun };
+  if (!chain || !network || name.length < 2 || name.length > 50 || !/^[A-Z0-9]{2,12}$/.test(symbol) || !Number.isInteger(decimals) || decimals < 0 || decimals > (chain === 'SOL' ? 9 : 18) || !positive(supply) || description.length > 1000 || website === null || !socials || Object.values(socials).includes(null) || !media || Object.values(media).includes(null) || !liquidity || !positive(liquidity.tokenAmount) || !positive(liquidity.quoteAmount) || !/^[A-Z0-9]{2,12}$/.test(liquidity.quoteSymbol) || !Number.isInteger(liquidity.lockDays) || liquidity.lockDays < 0 || liquidity.lockDays > 3650 || typeof input.dryRun !== 'boolean') return null;
+  return { chain, network, name, symbol, decimals, supply, description, website, socials, media, liquidity, dryRun: input.dryRun };
 };
 
 export const createLaunchpadValidation = draft => ({

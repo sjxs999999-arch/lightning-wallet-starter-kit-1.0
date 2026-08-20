@@ -19,7 +19,7 @@ This branch is a production candidate, not a final mainnet approval. The truthfu
 - EVM Swap uses LI.FI same-chain aggregation by default, with optional 0x comparison; Solana uses Jupiter and TRON uses the official SUN.io Smart Router. Provider data is strictly matched to the public request and every real transaction remains wallet-signed.
 - Flash Loan currently provides only a safe Sepolia compatibility shell because the referenced historical repository does not contain a completed application.
 - GasFree requires an approved Paymaster provider for sponsored transactions.
-- Launchpad builds fixed-supply testnet deployments in the client for Sepolia, Solana Devnet and TRON Nile; real-wallet acceptance is still required before approval.
+- Launchpad builds fixed-supply deployments in the client for Sepolia, Ethereum, BSC, Polygon, Base, Arbitrum, Solana Devnet/Mainnet and TRON Nile/Shasta/Mainnet. Mainnet Launchpad requires both the global mainnet switch and its independent release switch; both remain off pending real-wallet acceptance.
 - Mainnet execution flags remain off by default.
 
 ## Local development
@@ -36,6 +36,8 @@ npm run dev
 ```
 
 Launchpad contract artifacts are reproducible with `npm run contract:compile` (upstream Solidity for Sepolia) and `npm run contract:compile:tron` (checksum-pinned official TRON Solidity compiler). Artifacts are committed; production web builds never compile contracts at runtime.
+
+Launchpad mainnet deployment is fail-closed. `VITE_MAINNET_EXECUTION_ENABLED=true` and `VITE_ENABLE_MAINNET_LAUNCHPAD=true` must both be present at web build time, and the protected production preflight must run with `STRICT_EXTERNAL_PROVIDERS=true`. Selecting a mainnet in Dry Run never connects a wallet.
 
 - Web: `http://localhost:5173`
 - API: `http://localhost:3001`

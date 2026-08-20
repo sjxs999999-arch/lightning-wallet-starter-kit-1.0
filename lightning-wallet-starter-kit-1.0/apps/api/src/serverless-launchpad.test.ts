@@ -22,10 +22,17 @@ describe('production serverless Launchpad validation', () => {
     expect(routeRequiresAuth('POST', 'launchpad/plan')).toBe(true);
   });
 
-  it('supports only exact testnet network pairs', () => {
-    expect(parseLaunchpadDraft({ ...draft, chain: 'SOL', network: 'solana-devnet', decimals: 9 })).not.toBeNull();
-    expect(parseLaunchpadDraft({ ...draft, chain: 'TRON', network: 'tron-nile' })).not.toBeNull();
-    expect(parseLaunchpadDraft({ ...draft, network: 'ethereum' })).toBeNull();
+  it.each([
+    ['EVM', 'ethereum', 18], ['SOL', 'solana-devnet', 9], ['SOL', 'solana-mainnet', 9],
+    ['TRON', 'tron-nile', 6], ['TRON', 'tron-shasta', 6], ['TRON', 'tron-mainnet', 6],
+  ])('supports the exact %s / %s network pair', (chain, network, decimals) => {
+    expect(parseLaunchpadDraft({ ...draft, chain, network, decimals })).not.toBeNull();
+  });
+
+  it.each([
+    ['EVM', 'solana-mainnet'], ['SOL', 'ethereum'], ['TRON', 'sepolia'],
+  ])('rejects the cross-chain %s / %s network pair', (chain, network) => {
+    expect(parseLaunchpadDraft({ ...draft, chain, network })).toBeNull();
   });
 
   it('rejects sensitive and unknown fields instead of silently accepting them', () => {

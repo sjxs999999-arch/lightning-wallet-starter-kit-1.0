@@ -6,6 +6,10 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Extended the existing client-built Launchpad adapters to Ethereum, BSC, Polygon, Base, Arbitrum, Solana Mainnet, TRON Shasta and TRON Mainnet without adding a server signer.
+- Added an independent `VITE_ENABLE_MAINNET_LAUNCHPAD` gate on top of the global mainnet gate; a closed gate rejects before wallet discovery, and production preflight rejects partial or premature enablement.
+- Corrected the truncated Solana Devnet genesis fingerprint and added exact full-genesis verification for both Devnet and Mainnet so the real official RPC is no longer rejected or confused with another cluster.
+- Added strict chain/network pair validation across Fastify, Vercel and the client, plus official-network TRON RPC host checks and dynamic explorer/fee disclosure.
 - Added LI.FI as the default no-key EVM same-chain Swap provider for Ethereum, BSC, Polygon, Base and Arbitrum, while retaining 0x as an optional independently validated comparison source.
 - Made public Swap status and metadata-only quote routes consistent across Fastify and Vercel, with a 30-request-per-minute anonymous Serverless limiter.
 - Added strict wallet, chain, Token, amount, minimum-output, allowance and transaction-data matching; EVM quotes are refreshed immediately before confirmation and signing.

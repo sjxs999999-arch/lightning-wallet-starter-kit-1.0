@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Keypair } from '@solana/web3.js';
-import { createFixedSupplySolanaInstructions, deployLaunchToken, launchpadSolanaRpcUrl, prepareLaunchDeployment } from './deployer';
+import { assertMainnetLaunchpadEnabled, assertSolanaLaunchNetwork, createFixedSupplySolanaInstructions, deployLaunchToken, launchpadSolanaRpcUrl, prepareLaunchDeployment } from './deployer';
+import { isMainnetLaunchNetwork, launchNetworkMatchesChain } from './types';
 import type { LaunchDraft } from './types';
 import tronArtifact from './artifacts/LightningFixedSupplyToken.tron.json';
 import evmArtifact from './artifacts/LightningFixedSupplyToken.json';
@@ -26,11 +27,27 @@ describe('client-side Launchpad deployment', () => {
     }
   });
 
-  it('rejects a TRON mainnet provider before building or signing', async () => {
+  it('rejects TRON Mainnet before accessing a wallet while either production gate is closed', async () => {
     const createSmartContract = vi.fn();
     Object.assign(window, { tronWeb: { defaultAddress: { base58: 'TMainnet' }, fullNode: { host: 'https://api.trongrid.io' }, transactionBuilder: { createSmartContract } } });
-    await expect(prepareLaunchDeployment(draft)).rejects.toThrow('Nile');
+    await expect(prepareLaunchDeployment({ ...draft, network: 'tron-mainnet' })).rejects.toThrow('双重生产开关');
     expect(createSmartContract).not.toHaveBeenCalled();
+  });
+
+  it('rejects every Mainnet network unless both production gates are enabled', () => {
+    for (const network of ['ethereum', 'bsc', 'polygon', 'base', 'arbitrum', 'solana-mainnet', 'tron-mainnet'] as const) {
+      expect(() => assertMainnetLaunchpadEnabled(network)).toThrow('双重生产开关');
+    }
+    expect(() => assertMainnetLaunchpadEnabled('sepolia')).not.toThrow();
+    expect(() => assertMainnetLaunchpadEnabled('solana-devnet')).not.toThrow();
+    expect(() => assertMainnetLaunchpadEnabled('tron-nile')).not.toThrow();
+  });
+
+  it('does not request an EVM account when the Mainnet production gates are closed', async () => {
+    const request = vi.fn();
+    Object.assign(window, { ethereum: { request } });
+    await expect(prepareLaunchDeployment({ ...draft, chain: 'EVM', network: 'ethereum', decimals: 18 })).rejects.toThrow('双重生产开关');
+    expect(request).not.toHaveBeenCalled();
   });
 
   it('constructs SPL Token initialize, ATA, mint and irreversible mint-authority revoke instructions', () => {
@@ -48,6 +65,23 @@ describe('client-side Launchpad deployment', () => {
     vi.stubEnv('VITE_SOLANA_RPC_URL', 'https://api.mainnet-beta.solana.com');
     vi.stubEnv('VITE_LAUNCHPAD_SOLANA_RPC_URL', 'https://api.devnet.solana.com');
     expect(launchpadSolanaRpcUrl()).toBe('https://api.devnet.solana.com');
+    expect(launchpadSolanaRpcUrl('solana-mainnet')).toBe('https://api.mainnet-beta.solana.com');
+  });
+
+  it('accepts the full official Solana genesis hashes and rejects a wrong network', async () => {
+    const devnet = { getGenesisHash: vi.fn().mockResolvedValue('EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG') };
+    const mainnet = { getGenesisHash: vi.fn().mockResolvedValue('5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d') };
+    await expect(assertSolanaLaunchNetwork(devnet, 'solana-devnet')).resolves.toBeUndefined();
+    await expect(assertSolanaLaunchNetwork(mainnet, 'solana-mainnet')).resolves.toBeUndefined();
+    await expect(assertSolanaLaunchNetwork(devnet, 'solana-mainnet')).rejects.toThrow('Solana Mainnet');
+  });
+
+  it.each([
+    ['EVM', 'ethereum', true], ['EVM', 'solana-mainnet', false], ['SOL', 'solana-mainnet', true],
+    ['SOL', 'tron-mainnet', false], ['TRON', 'tron-shasta', true], ['TRON', 'sepolia', false],
+  ] as const)('matches %s / %s to its exact chain', (chain, network, expected) => {
+    expect(launchNetworkMatchesChain(chain, network)).toBe(expected);
+    expect(isMainnetLaunchNetwork(network)).toBe(network.endsWith('mainnet') || ['ethereum', 'bsc', 'polygon', 'base', 'arbitrum'].includes(network));
   });
 
   it('builds, wallet-signs, broadcasts and confirms a Nile deployment without a server signer', async () => {
@@ -68,6 +102,34 @@ describe('client-side Launchpad deployment', () => {
     expect(sign).toHaveBeenCalledTimes(1);
     expect(sendRawTransaction).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(createSmartContract.mock.calls)).not.toMatch(/privateKey|mnemonic|seedPhrase/i);
+  });
+
+  it('recognizes Shasta and estimates without signing or broadcasting', async () => {
+    const createSmartContract = vi.fn();
+    const sign = vi.fn();
+    const sendRawTransaction = vi.fn();
+    Object.assign(window, { tronWeb: {
+      defaultAddress: { base58: 'TShastaWallet' }, fullNode: { host: 'https://api.shasta.trongrid.io' },
+      transactionBuilder: { createSmartContract }, trx: { sign, sendRawTransaction, getTransactionInfo: vi.fn() },
+    } });
+    await expect(prepareLaunchDeployment({ ...draft, network: 'tron-shasta' })).resolves.toMatchObject({ network: 'TRON Shasta', walletAddress: 'TShastaWallet' });
+    expect(createSmartContract).not.toHaveBeenCalled();
+    expect(sign).not.toHaveBeenCalled();
+    expect(sendRawTransaction).not.toHaveBeenCalled();
+  });
+
+  it('allows a read-only TRON Mainnet estimate only after both production gates are enabled', async () => {
+    vi.stubEnv('VITE_MAINNET_EXECUTION_ENABLED', 'true');
+    vi.stubEnv('VITE_ENABLE_MAINNET_LAUNCHPAD', 'true');
+    const createSmartContract = vi.fn();
+    const sign = vi.fn();
+    Object.assign(window, { tronWeb: {
+      defaultAddress: { base58: 'TMainnetWallet' }, fullNode: { host: 'https://api.trongrid.io' },
+      transactionBuilder: { createSmartContract }, trx: { sign, sendRawTransaction: vi.fn(), getTransactionInfo: vi.fn() },
+    } });
+    await expect(prepareLaunchDeployment({ ...draft, network: 'tron-mainnet' })).resolves.toMatchObject({ network: 'TRON Mainnet', walletAddress: 'TMainnetWallet' });
+    expect(createSmartContract).not.toHaveBeenCalled();
+    expect(sign).not.toHaveBeenCalled();
   });
 
   it('refuses EVM deployment when the wallet remains outside Sepolia', async () => {

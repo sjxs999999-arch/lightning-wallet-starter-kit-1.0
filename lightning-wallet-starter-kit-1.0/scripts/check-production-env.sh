@@ -107,9 +107,14 @@ esac
 
 mainnet=$(value VITE_MAINNET_EXECUTION_ENABLED)
 mainnet_swap=$(value VITE_ENABLE_MAINNET_SWAP)
+mainnet_launchpad=$(value VITE_ENABLE_MAINNET_LAUNCHPAD)
 case "$mainnet" in ''|false|true) : ;; *) fail 'VITE_MAINNET_EXECUTION_ENABLED must be true or false' ;; esac
 case "$mainnet_swap" in ''|false|true) : ;; *) fail 'VITE_ENABLE_MAINNET_SWAP must be true or false' ;; esac
-if [ "$mainnet" = true ] || [ "$mainnet_swap" = true ]; then
+case "$mainnet_launchpad" in ''|false|true) : ;; *) fail 'VITE_ENABLE_MAINNET_LAUNCHPAD must be true or false' ;; esac
+if [ "$mainnet_launchpad" = true ] && [ "$mainnet" != true ]; then
+  fail 'VITE_ENABLE_MAINNET_LAUNCHPAD=true requires VITE_MAINNET_EXECUTION_ENABLED=true'
+fi
+if [ "$mainnet" = true ] || [ "$mainnet_swap" = true ] || [ "$mainnet_launchpad" = true ]; then
   [ "$STRICT_EXTERNAL_PROVIDERS" = true ] || fail 'Mainnet flags require STRICT_EXTERNAL_PROVIDERS=true and the final acceptance gate'
 fi
 
@@ -182,4 +187,4 @@ if [ "$failure_count" -ne 0 ]; then
   exit 1
 fi
 
-printf '\nProduction environment preflight passed. Mainnet execution: %s; mainnet Swap: %s.\n' "${mainnet:-false}" "${mainnet_swap:-false}"
+printf '\nProduction environment preflight passed. Mainnet execution: %s; mainnet Swap: %s; mainnet Launchpad: %s.\n' "${mainnet:-false}" "${mainnet_swap:-false}" "${mainnet_launchpad:-false}"
