@@ -76,6 +76,9 @@ All notable stable Lightning Wallet releases are recorded here.
 - LI.FI EVM Swap candidate `9a25a62` passed Production CI run `32385558905` with 135 API tests, 211 Web tests, type checking, secret and environment gates, production build, dependency gating and both Docker image builds.
 - Vercel Production deployment `AHWpjUQPT4SBxBFgExnTCYUQNj3M` and GCE immutable release `9a25a62` now serve v2.23.0. GCE rollback points to `300c66f`, and both pre-deploy PostgreSQL backups are retained.
 - Production browser acceptance returned a verified LI.FI/SushiSwap Ethereum USDC/WETH route with minimum output, price impact, Provider fee, estimated Gas and expiry. The live-provider gate also returned one verified LI.FI route and three verified SUN.io routes without wallet access, signing or broadcast.
+- Launchpad candidate `2ef4d99` passed Production CI run `32389530988` with 156 API tests, 222 Web tests, type checking, secret/environment/rollback/provider gates, production build, production dependency gating and both Docker image builds.
+- Vercel Production deployment `Cs4cZM6WQvDk1XSLssbVLrePqzrv` and GCE immutable release `2ef4d99` now serve v2.24.0. GCE rollback points to `9a25a62`; backup `lightning-20260820T160500Z.dump` is retained.
+- Production browser acceptance verified all Launchpad network selectors, a validated but locked Ethereum Mainnet plan, `serverSigning: false`, and reload without a white screen. Mainnet transaction, Swap and Launchpad gates remain disabled; no wallet, signature or broadcast was requested.
 
 ### Release gate
 

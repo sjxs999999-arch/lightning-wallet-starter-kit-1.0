@@ -35,7 +35,7 @@ npm run build
 npm run dev
 ```
 
-Launchpad contract artifacts are reproducible with `npm run contract:compile` (upstream Solidity for Sepolia) and `npm run contract:compile:tron` (checksum-pinned official TRON Solidity compiler). Artifacts are committed; production web builds never compile contracts at runtime.
+Launchpad contract artifacts are reproducible with `npm run contract:compile` (upstream Solidity for EVM) and `npm run contract:compile:tron` (checksum-pinned official TRON Solidity compiler). Artifacts are committed; production web builds never compile contracts at runtime.
 
 Launchpad mainnet deployment is fail-closed. `VITE_MAINNET_EXECUTION_ENABLED=true` and `VITE_ENABLE_MAINNET_LAUNCHPAD=true` must both be present at web build time, and the protected production preflight must run with `STRICT_EXTERNAL_PROVIDERS=true`. Selecting a mainnet in Dry Run never connects a wallet.
 

@@ -34,5 +34,13 @@ Version 2.24 extends the existing non-custodial Launchpad adapters to formal EVM
 
 ## Production rollout
 
-- Pending CI, Preview and guarded production acceptance.
+- Runtime commit: `2ef4d99`.
+- Production CI: `32389530988` — PASS.
+- Vercel Preview: `https://lightning-wallet-r6bv929no-sjxs999999-archs-projects.vercel.app` — verified before promotion.
+- Vercel Production: `Cs4cZM6WQvDk1XSLssbVLrePqzrv` (`https://lightning-wallet-17noxc4bk-sjxs999999-archs-projects.vercel.app`) — Ready and current on `lightingwallet.com`.
+- GCE current release: `/opt/lightning-wallet/releases/2ef4d99`; rollback release: `/opt/lightning-wallet/releases/9a25a62`.
+- PostgreSQL backup retained: `lightning-20260820T160500Z.dump`.
+- Production HTTP acceptance, API/PostgreSQL/Redis health, client/operator security headers, CORS and provider truthfulness: PASS.
+- Production browser acceptance verified EVM, Solana and TRON network selectors, mainnet-plan validation, the disabled mainnet wallet entry and refresh without a white screen.
+- Live-provider acceptance returned three SUN.io routes in 0.473005 seconds and one LI.FI route in 1.389682 seconds without wallet access, signing or broadcast.
 - Mainnet transaction, Swap and Launchpad flags remain disabled.
