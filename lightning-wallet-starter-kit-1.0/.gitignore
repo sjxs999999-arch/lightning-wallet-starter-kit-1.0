@@ -10,3 +10,5 @@ backups/
 coverage
 .vite
 data
+.vercel/
+.env.local

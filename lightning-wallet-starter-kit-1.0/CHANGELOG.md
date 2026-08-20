@@ -6,6 +6,10 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Reused sender-aware wallet discovery in Swap, Bridge and Launchpad so an unrelated installed OKX/MetaMask/Phantom/TronLink provider is no longer selected ahead of the already-authorized public sender.
+- Added exact switched-chain revalidation, full Solana Mainnet genesis attestation and confirmed EVM/Solana receipt checks to Swap and Bridge execution; failed or ambiguous receipts cannot be reported as successful.
+- Added an independent `VITE_ENABLE_MAINNET_BRIDGE` gate and made Swap require both its feature gate and the global mainnet gate. Production preflight rejects every partially enabled mainnet feature combination.
+- Corrected the shared Solana Mainnet genesis constant to the complete value returned by the official Mainnet RPC, with regression coverage rejecting the previously truncated fingerprint.
 - Replaced fixed OKX-first transaction execution with public-account matching across injected EVM and Solana providers; multi-sender Batch Transfer and Asset Collector now resolve the wallet that is already authorized for the intended sender and refuse ambiguous mismatches.
 - Added complete Solana genesis attestation before batch signing and exact official TRON RPC hostname checks in the shared Batch Transfer/Asset Collector execution policy.
 - Made EIP-5792 batch receipts task-specific: successful, failed and missing receipts are recorded as confirmed, failed and submitted respectively instead of treating an incomplete batch as fully successful.
@@ -88,6 +92,8 @@ All notable stable Lightning Wallet releases are recorded here.
 - Vercel Production deployment `2Mf4TiaYJjzRXt31pzpqrkbqYkdc` and GCE immutable release `81fbe4f` now serve v2.25.0. GCE rollback points to `2ef4d99`; backup `lightning-20260820T163230Z.dump` is retained. Wallet Center production rendering/reload and the post-rollout read-only provider gate pass without wallet access, signing or broadcast.
 - Batch-execution candidate `2f63ccd` passed Production CI run `32394511524` with 156 API tests, 239 Web tests, type checking, secret/environment/rollback/provider gates, production build, production dependency gating and both Docker image builds.
 - Vercel Production deployment `4mh4js9UxuQuUTAY3ofFKqfethFY` and GCE immutable release `2f63ccd` now serve v2.26.0. GCE rollback points to `81fbe4f`; backup `lightning-20260820T165736Z.dump` is retained. Batch Transfer/Asset Collector rendering, default Dry Run, refresh and read-only provider verification pass without wallet access, signing or broadcast.
+- Swap/Bridge hardening candidate `72e3a05` passed Production CI run `32396930066` with 156 API tests, 245 Web tests, type checking, secret/environment/rollback/provider gates, production build, production dependency gating and both Docker image builds.
+- Vercel Production deployment `dpl_QgMnQ2qBZ9nPXadSeeh2h9v6zdXs` and GCE immutable release `72e3a05` now serve v2.27.0. GCE rollback points to `2f63ccd`; backup `lightning-20260820T173114Z.dump` is retained. Browser route/reload checks, HTTP acceptance and read-only SUN.io/LI.FI provider verification pass without wallet access, signing or broadcasting.
 
 ### Release gate
 

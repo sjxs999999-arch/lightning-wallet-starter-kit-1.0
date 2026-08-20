@@ -18,7 +18,8 @@ This branch is a production candidate, not a final mainnet approval. The truthfu
 - Wallet Center exposes MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink across the applicable testnet adapters, with exact network/account revalidation and confirmed-receipt checks before recording success.
 - Batch Transfer and Asset Collector have wallet-signed execution paths but still require final wallet-by-wallet acceptance on each supported mainnet.
 - Batch Transfer and Asset Collector match the intended sender against already-authorized public accounts, attest Solana genesis and exact TRON RPC hosts before signing, and never promote incomplete EIP-5792 receipts to confirmed success.
-- EVM Swap uses LI.FI same-chain aggregation by default, with optional 0x comparison; Solana uses Jupiter and TRON uses the official SUN.io Smart Router. Provider data is strictly matched to the public request and every real transaction remains wallet-signed.
+- EVM Swap uses LI.FI same-chain aggregation by default, with optional 0x comparison; Solana uses Jupiter and TRON uses the official SUN.io Smart Router. Provider data, intended sender, exact network and confirmed receipt are revalidated, and every real transaction remains wallet-signed.
+- Bridge route comparison is read-only by default. Real EVM/Solana Bridge execution additionally requires both the global mainnet switch and the independent Bridge switch; both remain off.
 - Flash Loan currently provides only a safe Sepolia compatibility shell because the referenced historical repository does not contain a completed application.
 - GasFree requires an approved Paymaster provider for sponsored transactions.
 - Launchpad builds fixed-supply deployments in the client for Sepolia, Ethereum, BSC, Polygon, Base, Arbitrum, Solana Devnet/Mainnet and TRON Nile/Shasta/Mainnet. Mainnet Launchpad requires both the global mainnet switch and its independent release switch; both remain off pending real-wallet acceptance.
@@ -39,7 +40,7 @@ npm run dev
 
 Launchpad contract artifacts are reproducible with `npm run contract:compile` (upstream Solidity for EVM) and `npm run contract:compile:tron` (checksum-pinned official TRON Solidity compiler). Artifacts are committed; production web builds never compile contracts at runtime.
 
-Launchpad mainnet deployment is fail-closed. `VITE_MAINNET_EXECUTION_ENABLED=true` and `VITE_ENABLE_MAINNET_LAUNCHPAD=true` must both be present at web build time, and the protected production preflight must run with `STRICT_EXTERNAL_PROVIDERS=true`. Selecting a mainnet in Dry Run never connects a wallet.
+Swap, Launchpad and Bridge mainnet execution are fail-closed. Each requires `VITE_MAINNET_EXECUTION_ENABLED=true` plus its own `VITE_ENABLE_MAINNET_*` switch at web build time, and the protected production preflight must run with `STRICT_EXTERNAL_PROVIDERS=true`. Selecting a mainnet in Dry Run never connects a wallet.
 
 - Web: `http://localhost:5173`
 - API: `http://localhost:3001`
