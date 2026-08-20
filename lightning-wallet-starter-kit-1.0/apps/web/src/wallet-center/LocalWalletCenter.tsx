@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import '../wallet-center.css';
 import { BookUser, Copy, Download, Eye, KeyRound, LockKeyhole, Plus, QrCode, Send, ShieldCheck, Trash2, Upload, WalletCards } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -10,16 +10,13 @@ import type { BatchChain } from '../batch-wallet/types';
 import { importEvmKeystore, importPrivateWallet } from './import';
 import { LocalTransferPanel } from './LocalTransferPanel';
 import {
-  createVault,
   encryptVaultWallet,
-  loadVault,
   parseVault,
-  saveVault,
-  unlockVault,
   type VaultEnvelope,
   type VaultWallet,
   type WalletOrigin,
 } from './vault';
+import { useLocalWalletSession } from './LocalWalletSession';
 import {
   loadAddressBook,
   loadCustomTokens,
@@ -32,12 +29,6 @@ import {
 } from './public-metadata';
 
 type ImportMode = 'create' | 'mnemonic' | 'private-key' | 'keystore';
-const AUTO_LOCK_MS = 15 * 60_000;
-
-function initialVault() {
-  try { return { vault: loadVault(), error: '' }; }
-  catch (cause) { return { vault: null, error: cause instanceof Error ? cause.message : '本地保险库无法读取' }; }
-}
 
 function explorerUrl(wallet: VaultWallet) {
   if (wallet.chain === 'SOL') return `https://explorer.solana.com/address/${encodeURIComponent(wallet.address)}`;
@@ -55,15 +46,13 @@ function downloadEncryptedVault(vault: VaultEnvelope) {
 }
 
 export function LocalWalletCenter() {
-  const [initial] = useState(initialVault);
-  const [vault, setVault] = useState<VaultEnvelope | null>(initial.vault);
-  const [vaultKey, setVaultKey] = useState<CryptoKey | null>(null);
+  const { vault, vaultKey, initialError, create, unlock: unlockSession, commit: commitSession, replace, lock: lockSession } = useLocalWalletSession();
   const [selectedId, setSelectedId] = useState<string | null>(vault?.wallets[0]?.id ?? null);
   const [chain, setChain] = useState<BatchChain>('EVM');
   const [mode, setMode] = useState<ImportMode>('create');
   const [busy, setBusy] = useState(false);
   const [sensitive, setSensitive] = useState(false);
-  const [error, setError] = useState(initial.error);
+  const [error, setError] = useState(initialError);
   const [notice, setNotice] = useState('');
   const [qr, setQr] = useState('');
   const [addressBook, setAddressBook] = useState<AddressBookEntry[]>(loadAddressBook);
@@ -84,27 +73,11 @@ export function LocalWalletCenter() {
   const navigate = useNavigate();
   const selected = vault?.wallets.find(wallet => wallet.id === selectedId) ?? vault?.wallets[0];
 
-  const lock = useCallback(() => {
-    setVaultKey(null);
+  function lock() {
+    lockSession();
     setSensitive(false);
     if (unlockPasswordRef.current) unlockPasswordRef.current.value = '';
-  }, []);
-
-  useEffect(() => {
-    if (!vaultKey) return;
-    let timer = window.setTimeout(lock, AUTO_LOCK_MS);
-    const reset = () => { window.clearTimeout(timer);timer = window.setTimeout(lock, AUTO_LOCK_MS); };
-    const pageHide = () => lock();
-    window.addEventListener('pointerdown', reset);
-    window.addEventListener('keydown', reset);
-    window.addEventListener('pagehide', pageHide);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener('pointerdown', reset);
-      window.removeEventListener('keydown', reset);
-      window.removeEventListener('pagehide', pageHide);
-    };
-  }, [lock, vaultKey]);
+  }
 
   useEffect(() => {
     let active = true;
@@ -117,8 +90,7 @@ export function LocalWalletCenter() {
   }, [selected]);
 
   function commitVault(next: VaultEnvelope) {
-    saveVault(next);
-    setVault(next);
+    commitSession(next);
   }
 
   function clearSecretInputs() {
@@ -133,9 +105,8 @@ export function LocalWalletCenter() {
     if (password !== confirmation) { setError('两次输入的保险库密码不一致');return; }
     setBusy(true);setError('');setNotice('');
     try {
-      const created = await createVault(password);
-      saveVault(created.vault);
-      setVault(created.vault);setVaultKey(created.key);setNotice('本地加密保险库已创建；密码没有保存或上传');
+      await create(password);
+      setNotice('本地加密保险库已创建；密码没有保存或上传');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '保险库创建失败'); }
     finally {
       if (setupPasswordRef.current) setupPasswordRef.current.value = '';
@@ -149,8 +120,8 @@ export function LocalWalletCenter() {
     const password = unlockPasswordRef.current?.value ?? '';
     setBusy(true);setError('');setNotice('');
     try {
-      const key = await unlockVault(vault, password);
-      setVaultKey(key);setNotice('保险库已解锁；15 分钟无操作会自动锁定');
+      await unlockSession(password);
+      setNotice('保险库已解锁；15 分钟无操作会自动锁定，切换客户端页面仍保持本标签页会话');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '保险库解锁失败'); }
     finally { if (unlockPasswordRef.current) unlockPasswordRef.current.value = '';setBusy(false); }
   }
@@ -231,7 +202,7 @@ export function LocalWalletCenter() {
       if (file.size > 5 * 1024 * 1024) throw new Error('保险库文件超过 5 MB');
       const imported = parseVault(await file.text());
       if (!imported) throw new Error('保险库文件为空');
-      saveVault(imported);setVault(imported);setVaultKey(null);setSelectedId(imported.wallets[0]?.id ?? null);setNotice('加密保险库已导入，请输入原密码解锁');
+      replace(imported);setSelectedId(imported.wallets[0]?.id ?? null);setNotice('加密保险库已导入，请输入原密码解锁');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '保险库导入失败'); }
     finally { setBusy(false); }
   }
