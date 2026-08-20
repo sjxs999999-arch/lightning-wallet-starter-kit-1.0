@@ -5,10 +5,10 @@ Updated: 2026-08-20
 ## Candidate baseline
 
 - Development branch: `codex/final-production`
-- Latest deployed candidate commit: `184c5ea`
-- Current code candidate version: `2.20.0` (deployment pending verification)
-- Current code candidate commit: `fc66218`
-- Latest deployed application version: `2.19.0`
+- Latest deployed candidate commit: `5258b12`
+- Current code candidate version: `2.20.0`
+- Current code candidate commit: `5258b12`
+- Latest deployed application version: `2.20.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -21,7 +21,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 | Module | Implementation | Current production gate |
 |---|---|---|
-| Client/operator domain split | Complete | Candidate `184c5ea` is deployed; host routing and console checks pass |
+| Client/operator domain split | Complete | Candidate `5258b12` is deployed; host routing and console checks pass |
 | Wallet providers | MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare, TronLink | Testnet acceptance complete in code; final manual extension acceptance remains |
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
 | Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry, active-wallet sender grouping and wallet signing | Mainnet feature flag is off; final chain-specific acceptance required |
@@ -58,9 +58,9 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - CI for candidate `184c5ea` (run `32289956843`): passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
 - CI for code candidate `c670e31` (run `32294819780`): passing, including secret scan, type check, 113 API tests, 199 Web tests, production build, dependency gate and both Docker images.
 - Compatibility fix `111d279` passed Production CI run `32295696283`, including credential scan, type check, 117 API tests, 199 Web tests, production build, production dependency gate and both Docker images.
-- Launchpad RPC-isolation candidate `fc66218` passes credential scan, type check, 117 API tests, 200 Web tests and production build locally; Production CI is pending.
-- Vercel Production deployment `GqCQM29fxZ6xVDVPzse3qe6U4yzB` for candidate `184c5ea`: ready; client and operator domains load with zero browser-console errors and enforce hostname route isolation.
-- GCE API release `184c5ea`: healthy with zero container restarts; PostgreSQL and Redis readiness pass, the `operator_mfa` schema and server-side encryption key are configured, and no second factor is activated before operator enrollment.
+- Candidate `5258b12` passed Production CI run `32347721319`, including credential scan, type check, 117 API tests, 200 Web tests, production build, production dependency gate and both Docker images.
+- Vercel Production deployment `HRZfYMQyjxDNjEdB3VWh1cKAvnGf` for candidate `5258b12`: ready; client and operator domains serve v2.20.0 with zero browser-console errors and enforce hostname route isolation.
+- GCE API release `5258b12`: healthy; PostgreSQL and Redis readiness pass. Rollback points to release `184c5ea`, and pre-deploy backup `lightning-20260820T081545Z.dump` is retained.
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
 - Production dependency audit: 0 critical, 0 high, 3 moderate transitive Solana/Jayson/UUID advisories. No unsafe downgrade is applied.
 
@@ -70,6 +70,6 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 2. Configure and verify any external provider being claimed: 0x, TRON Swap, Paymaster, notification delivery and a real Flash Loan app.
 3. Perform authorized testnet then limited-mainnet wallet acceptance for EVM, Solana and TRON, recording public transaction hashes only.
 4. Run the final wallet/provider regression and a timed rollback drill.
-5. Deploy code candidate `fc66218` after its CI passes, then repeat production HTTP and browser-console acceptance.
+5. Complete a timed rollback drill after the remaining provider and wallet acceptance gates are ready.
 
 Until those gates pass, the product must be described as a production candidate and not as fully mainnet-approved.

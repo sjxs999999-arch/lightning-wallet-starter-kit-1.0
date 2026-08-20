@@ -36,11 +36,13 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Production verification
 
-- Code candidate `c670e31` passed Production CI run `32294819780`: secret scan, type check, 113 API tests, 199 Web tests, production build, high/critical dependency gate and both Docker image builds. It is not yet deployed.
+- Earlier code candidate `c670e31` passed Production CI run `32294819780`: secret scan, type check, 113 API tests, 199 Web tests, production build, high/critical dependency gate and both Docker image builds.
 - Compatibility fix `111d279` passed Production CI run `32295696283`: credential scan, type check, 117 API tests, 199 Web tests, production build, production dependency gate and both Docker image builds.
 - Candidate commit `184c5ea` passed 113 API tests, 192 Web tests, type checking, production build, CI, secret scanning, dependency gating and both Docker image builds.
-- Version `2.19.0` from the exact candidate is deployed to GCE API release `184c5ea` and Vercel Production deployment `GqCQM29fxZ6xVDVPzse3qe6U4yzB`.
-- Production HTTP acceptance, API/PostgreSQL/Redis readiness, metrics authorization, host routing, CORS and zero-console-error checks pass.
+- Candidate `5258b12` passed Production CI run `32347721319`: credential scan, type check, 117 API tests, 200 Web tests, production build, production dependency gate and both Docker image builds.
+- Version `2.20.0` from exact candidate `5258b12` is deployed to GCE API release `5258b12` and Vercel Production deployment `HRZfYMQyjxDNjEdB3VWh1cKAvnGf`.
+- Release `184c5ea` remains the server rollback point; database backup `lightning-20260820T081545Z.dump` was created before the deployment.
+- Production HTTP acceptance, API/PostgreSQL/Redis readiness, metrics authorization, host routing, CORS and zero-console-error browser checks pass on v2.20.0.
 - The production MFA encryption key and database schema are configured, while enrollment remains intentionally inactive until the operator confirms a live Authenticator code.
 
 ### Release gate
