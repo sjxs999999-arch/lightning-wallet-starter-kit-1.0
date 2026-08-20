@@ -7,8 +7,8 @@ Updated: 2026-08-20
 - Development branch: `codex/final-production`
 - Latest deployed web candidate commit: `94c2b99`
 - Current GCE API release commit: `5258b12`
-- Current code candidate version: `2.20.0`
-- Current code candidate commit: `94c2b99`
+- Current code candidate version: `2.21.0`
+- Current code candidate commit: `91397dd`
 - Latest deployed application version: `2.20.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
@@ -27,7 +27,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
 | Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry, active-wallet sender grouping and wallet signing | Mainnet feature flag is off; final chain-specific acceptance required |
 | Asset Collector | EVM/Solana/TRON scanning/planning, reserve rules, Dry Run, active-wallet sender grouping and wallet signing | EVM EIP-5792 and Solana batch signing are implemented with safe sequential fallback; mainnet feature flag is off |
-| Swap | Provider availability endpoint, quote Worker, route/impact guards, exact approval and wallet signing | Solana/Jupiter available; EVM needs `ZEROX_API_KEY`; TRON needs `TRON_SWAP_PROVIDER_URL`; mainnet flag off |
+| Swap | Provider availability endpoint, quote Worker, route/impact guards, exact approval and wallet signing | Solana/Jupiter and TRON/SUN.io are implemented; EVM needs `ZEROX_API_KEY`; mainnet flag off pending authorized wallet acceptance |
 | Flash Loan | Isolated Sepolia session bridge and built-in no-broadcast compatibility shell | Referenced historical repository contains no completed Flash Loan app; real integration is blocked on an actual provider application/API |
 | GasFree | Sepolia estimates, VIP policy, Paymaster abstraction, top-up planning and user-wallet signing | Sponsored transactions blocked until an approved Paymaster URL is configured |
 | Launchpad | OpenZeppelin fixed-supply ERC-20/TRC-20 and SPL Token deployment transactions are built client-side for Sepolia, Solana Devnet and TRON Nile | Automated adapter tests pass; real wallet testnet acceptance is still required before approval |
@@ -54,8 +54,8 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 ## Current verification baseline
 
-- API tests: 117 passing across 27 files.
-- Web tests: 202 passing across 57 files for the current code candidate.
+- API tests: 122 passing across 29 files.
+- Web tests: 209 passing across 59 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
 - CI for candidate `184c5ea` (run `32289956843`): passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
@@ -66,17 +66,18 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Provider-approval preflight fix `01a7dc1` passed Production CI run `32350485348`, including the environment gate, credential scan, type check, 117 API tests, 200 Web tests, production build, dependency gate and both Docker images.
 - Guarded rollback candidate `175caff` passed Production CI run `32351059019`, including rollback-planner tests, environment-gate tests, credential scan, type check, 117 API tests, 200 Web tests, production build, dependency gate and both Docker images.
 - MFA QR candidate `94c2b99` passed Production CI run `32372450835`, including the environment gate, rollback tests, credential scan, type check, 117 API tests, 202 Web tests, production build, dependency gate and both Docker images.
+- SUN.io candidate `91397dd` passes 122 API tests, 209 Web tests, type checking, the default production build, credential scanning and local API/Web Docker image builds. A live read-only TRX/USDT quote returned three verified candidates in 397 ms, and its no-hook V4 route produced Universal Router calldata without requesting a wallet or broadcasting.
 - Vercel Production deployment `Dg4UXgYYkYfexSgPRgaonTm7yx25` for web candidate `94c2b99`: ready; client, operator and Security Center routes serve v2.20.0 with zero browser-console errors, enforce hostname route isolation and contain the local-only Authenticator QR implementation.
 - GCE API release `5258b12`: healthy; PostgreSQL and Redis readiness pass. Rollback points to release `184c5ea`, and pre-deploy backup `lightning-20260820T081545Z.dump` is retained.
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
 - The protected GCE environment passes the non-strict production preflight with mainnet execution and mainnet Swap disabled. The strict gate correctly remains closed for the unconfigured external providers and real Flash Loan application.
 - The production rollback Dry Run resolved current release `5258b12`, target release `184c5ea` and the protected backup directory, and passed Compose preflight without changing links, containers or database state.
-- Production dependency audit: 0 critical, 0 high, 3 moderate transitive Solana/Jayson/UUID advisories. No unsafe downgrade is applied.
+- Production dependency audit: 0 critical, 0 high, 6 moderate transitive SUN/Solana/Jayson/UUID advisories with no current upstream fix. No unsafe downgrade is applied.
 
 ## Required before final approval
 
 1. Enroll the operator authenticator before enabling `ADMIN_TOTP_SECRET`.
-2. Configure and verify any external provider being claimed: WalletConnect, 0x, TRON Swap, Paymaster, market holder data, crash reporting, notification delivery and a real Flash Loan app. The final environment must pass `STRICT_EXTERNAL_PROVIDERS=true ./scripts/check-production-env.sh`.
+2. Configure and verify any external provider being claimed: WalletConnect, 0x, Paymaster, market holder data, crash reporting, notification delivery and a real Flash Loan app. The final environment must pass `STRICT_EXTERNAL_PROVIDERS=true ./scripts/check-production-env.sh`.
 3. Perform authorized testnet then limited-mainnet wallet acceptance for EVM, Solana and TRON, recording public transaction hashes only.
 4. Run the final wallet/provider regression and a timed rollback drill.
 
