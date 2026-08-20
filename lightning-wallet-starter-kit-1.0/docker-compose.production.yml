@@ -35,6 +35,7 @@ services:
         VITE_EVM_RPC_URL: "${VITE_EVM_RPC_URL:-https://ethereum-rpc.publicnode.com}"
         VITE_EVM_RPC_FALLBACK_URLS: "${VITE_EVM_RPC_FALLBACK_URLS:-https://eth.llamarpc.com}"
         VITE_SOLANA_RPC_URL: "${VITE_SOLANA_RPC_URL:-https://api.mainnet-beta.solana.com}"
+        VITE_LAUNCHPAD_SOLANA_RPC_URL: "${VITE_LAUNCHPAD_SOLANA_RPC_URL:-https://api.devnet.solana.com}"
         VITE_SOLANA_RPC_FALLBACK_URLS: "${VITE_SOLANA_RPC_FALLBACK_URLS:-https://solana-rpc.publicnode.com,https://solana.drpc.org}"
         VITE_SOLANA_NETWORK: "${VITE_SOLANA_NETWORK:-mainnet-beta}"
         VITE_TRON_RPC_URL: "${VITE_TRON_RPC_URL:-https://api.trongrid.io}"

@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Keypair } from '@solana/web3.js';
-import { createFixedSupplySolanaInstructions, deployLaunchToken, prepareLaunchDeployment } from './deployer';
+import { createFixedSupplySolanaInstructions, deployLaunchToken, launchpadSolanaRpcUrl, prepareLaunchDeployment } from './deployer';
 import type { LaunchDraft } from './types';
 import tronArtifact from './artifacts/LightningFixedSupplyToken.tron.json';
 import evmArtifact from './artifacts/LightningFixedSupplyToken.json';
@@ -13,6 +13,7 @@ const draft: LaunchDraft = {
 
 describe('client-side Launchpad deployment', () => {
   beforeEach(() => { Object.defineProperty(globalThis, 'window', { value: {}, writable: true, configurable: true }); });
+  afterEach(() => vi.unstubAllEnvs());
 
   it('rejects any broadcast while Dry Run is enabled', async () => {
     await expect(deployLaunchToken({ ...draft, dryRun: true })).rejects.toThrow('Dry Run');
@@ -41,6 +42,12 @@ describe('client-side Launchpad deployment', () => {
     expect(token.instructions[1]!.data).toHaveLength(0);
     expect([...token.instructions[2]!.data]).toEqual([7, 21, 205, 91, 7, 0, 0, 0, 0]);
     expect([...token.instructions[3]!.data]).toEqual([6, 0, 0]);
+  });
+
+  it('keeps Launchpad Devnet RPC isolated from the Mainnet transaction RPC', () => {
+    vi.stubEnv('VITE_SOLANA_RPC_URL', 'https://api.mainnet-beta.solana.com');
+    vi.stubEnv('VITE_LAUNCHPAD_SOLANA_RPC_URL', 'https://api.devnet.solana.com');
+    expect(launchpadSolanaRpcUrl()).toBe('https://api.devnet.solana.com');
   });
 
   it('builds, wallet-signs, broadcasts and confirms a Nile deployment without a server signer', async () => {

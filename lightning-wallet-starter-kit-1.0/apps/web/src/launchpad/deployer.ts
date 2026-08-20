@@ -93,7 +93,8 @@ async function deployEvm(draft: LaunchDraft): Promise<DeploymentResult> {
   return { chain: 'EVM', network: 'Sepolia', walletAddress: active.address, contractAddress: address, transactionHash: transaction.hash, status: 'confirmed', explorerUrl: `https://sepolia.etherscan.io/address/${address}` };
 }
 
-const solanaConnection = () => new Connection(import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
+export const launchpadSolanaRpcUrl = () => import.meta.env.VITE_LAUNCHPAD_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+const solanaConnection = () => new Connection(launchpadSolanaRpcUrl(), 'confirmed');
 async function assertSolanaDevnet(connection: Connection) {
   if (await connection.getGenesisHash() !== SOLANA_DEVNET_GENESIS) throw new Error('Solana RPC 不是 Devnet，已停止部署');
 }
