@@ -26,4 +26,13 @@ Version 2.25 hardens the existing non-custodial Wallet Center without enabling a
 
 ## Production rollout
 
-Pending CI, Preview acceptance and guarded production rollout.
+- Runtime commit: `81fbe4f`.
+- Production CI: `32392185721` — PASS.
+- Vercel Preview: `https://lightning-wallet-iqe3l5ukq-sjxs999999-archs-projects.vercel.app` — verified before promotion.
+- Vercel Production: `2Mf4TiaYJjzRXt31pzpqrkbqYkdc` (`https://lightning-wallet-82kftp0qp-sjxs999999-archs-projects.vercel.app`) — Ready and current on `lightingwallet.com`.
+- GCE current release: `/opt/lightning-wallet/releases/81fbe4f`; rollback release: `/opt/lightning-wallet/releases/2ef4d99`.
+- PostgreSQL backup retained: `lightning-20260820T163230Z.dump`.
+- Production HTTP acceptance, API/PostgreSQL/Redis health, security headers, CORS and provider truthfulness: PASS.
+- Production browser acceptance verified all ten provider entry points, v2.25.0, OKX Solana/TRON visibility and refresh without a white screen.
+- Live-provider acceptance returned three SUN.io routes in 0.503863 seconds and one LI.FI route in 1.785241 seconds without wallet access, signing or broadcast.
+- Mainnet transaction, Swap and Launchpad flags remain disabled.

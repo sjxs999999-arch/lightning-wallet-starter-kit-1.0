@@ -81,6 +81,8 @@ All notable stable Lightning Wallet releases are recorded here.
 - Launchpad candidate `2ef4d99` passed Production CI run `32389530988` with 156 API tests, 222 Web tests, type checking, secret/environment/rollback/provider gates, production build, production dependency gating and both Docker image builds.
 - Vercel Production deployment `Cs4cZM6WQvDk1XSLssbVLrePqzrv` and GCE immutable release `2ef4d99` now serve v2.24.0. GCE rollback points to `9a25a62`; backup `lightning-20260820T160500Z.dump` is retained.
 - Production browser acceptance verified all Launchpad network selectors, a validated but locked Ethereum Mainnet plan, `serverSigning: false`, and reload without a white screen. Mainnet transaction, Swap and Launchpad gates remain disabled; no wallet, signature or broadcast was requested.
+- Wallet-provider candidate `81fbe4f` passed Production CI run `32392185721` with 156 API tests, 232 Web tests, type checking, secret/environment/rollback/provider gates, production build, production dependency gating and both Docker image builds.
+- Vercel Production deployment `2Mf4TiaYJjzRXt31pzpqrkbqYkdc` and GCE immutable release `81fbe4f` now serve v2.25.0. GCE rollback points to `2ef4d99`; backup `lightning-20260820T163230Z.dump` is retained. Wallet Center production rendering/reload and the post-rollout read-only provider gate pass without wallet access, signing or broadcast.
 
 ### Release gate
 
