@@ -78,7 +78,7 @@ diagnostic_status=$(curl --silent --show-error --max-time 20 --output "$VERIFY_D
   -H "Origin: $CLIENT_ORIGIN" \
   -H 'Content-Type: application/json' \
   -H 'x-lightning-csrf: 1' \
-  --data '{"name":"AcceptanceProbe","code":"RENDER_FAILURE","route":"/health-acceptance","fingerprint":"222222222222222222222222","release":"2.24.0"}') || diagnostic_status=000
+  --data '{"name":"AcceptanceProbe","code":"RENDER_FAILURE","route":"/health-acceptance","fingerprint":"222222222222222222222222","release":"2.25.0"}') || diagnostic_status=000
 if [ "$diagnostic_status" = 202 ] && jq -e '.data.accepted == true' "$VERIFY_DIR/diagnostic.body" >/dev/null; then
   pass 'anonymous metadata-only client diagnostic is accepted'
 else

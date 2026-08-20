@@ -6,6 +6,8 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Hardened Wallet Center provider acceptance: EVM now re-reads Sepolia after a requested switch and revalidates the active account before signing; Solana validates the complete Devnet genesis; TRON accepts only exact official testnet hosts and Base58Check-valid addresses.
+- Added explicit OKX Wallet entry points for Solana and TRON, unique multi-chain provider identities, failure-state cleanup, and fail-closed Solana/TRON receipt handling so rejected or failed confirmations cannot be recorded as successful.
 - Extended the existing client-built Launchpad adapters to Ethereum, BSC, Polygon, Base, Arbitrum, Solana Mainnet, TRON Shasta and TRON Mainnet without adding a server signer.
 - Added an independent `VITE_ENABLE_MAINNET_LAUNCHPAD` gate on top of the global mainnet gate; a closed gate rejects before wallet discovery, and production preflight rejects partial or premature enablement.
 - Corrected the truncated Solana Devnet genesis fingerprint and added exact full-genesis verification for both Devnet and Mainnet so the real official RPC is no longer rejected or confused with another cluster.

@@ -15,6 +15,7 @@ The client is wallet-first and does not require an operator account. The operato
 This branch is a production candidate, not a final mainnet approval. The truthful capability matrix is maintained in [PROJECT_STATUS.md](./PROJECT_STATUS.md). In particular:
 
 - Wallet generation, encrypted export, address verification and read-only centers are implemented.
+- Wallet Center exposes MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink across the applicable testnet adapters, with exact network/account revalidation and confirmed-receipt checks before recording success.
 - Batch Transfer and Asset Collector have wallet-signed execution paths but still require final wallet-by-wallet acceptance on each supported mainnet.
 - EVM Swap uses LI.FI same-chain aggregation by default, with optional 0x comparison; Solana uses Jupiter and TRON uses the official SUN.io Smart Router. Provider data is strictly matched to the public request and every real transaction remains wallet-signed.
 - Flash Loan currently provides only a safe Sepolia compatibility shell because the referenced historical repository does not contain a completed application.
