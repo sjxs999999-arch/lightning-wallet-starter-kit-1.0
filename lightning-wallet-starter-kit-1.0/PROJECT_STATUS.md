@@ -7,7 +7,7 @@ Updated: 2026-08-20
 - Development branch: `codex/final-production`
 - Latest deployed candidate commit: `5258b12`
 - Current code candidate version: `2.20.0`
-- Current code candidate commit: `5be4e2e`
+- Current code candidate commit: `01a7dc1`
 - Latest deployed application version: `2.20.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
@@ -61,9 +61,11 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Compatibility fix `111d279` passed Production CI run `32295696283`, including credential scan, type check, 117 API tests, 199 Web tests, production build, production dependency gate and both Docker images.
 - Candidate `5258b12` passed Production CI run `32347721319`, including credential scan, type check, 117 API tests, 200 Web tests, production build, production dependency gate and both Docker images.
 - Operations-hardening candidate `5be4e2e` passed Production CI run `32349813299`, including production environment-gate tests, credential scan, type check, 117 API tests, 200 Web tests, production build, dependency gate and both Docker images.
+- Provider-approval preflight fix `01a7dc1` passed Production CI run `32350485348`, including the environment gate, credential scan, type check, 117 API tests, 200 Web tests, production build, dependency gate and both Docker images.
 - Vercel Production deployment `HRZfYMQyjxDNjEdB3VWh1cKAvnGf` for candidate `5258b12`: ready; client and operator domains serve v2.20.0 with zero browser-console errors and enforce hostname route isolation.
 - GCE API release `5258b12`: healthy; PostgreSQL and Redis readiness pass. Rollback points to release `184c5ea`, and pre-deploy backup `lightning-20260820T081545Z.dump` is retained.
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
+- The protected GCE environment passes the non-strict production preflight with mainnet execution and mainnet Swap disabled. The strict gate correctly remains closed for the unconfigured external providers and real Flash Loan application.
 - Production dependency audit: 0 critical, 0 high, 3 moderate transitive Solana/Jayson/UUID advisories. No unsafe downgrade is applied.
 
 ## Required before final approval
