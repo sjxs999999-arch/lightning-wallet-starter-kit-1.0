@@ -4,7 +4,7 @@ set -u
 CLIENT_ORIGIN=${CLIENT_ORIGIN:-https://lightingwallet.com}
 ADMIN_ORIGIN=${ADMIN_ORIGIN:-https://admin.lightingwallet.com}
 API_ORIGIN=${API_ORIGIN:-https://api.lightingwallet.com}
-EXPECTED_RELEASE=${EXPECTED_RELEASE:-2.32.0}
+EXPECTED_RELEASE=${EXPECTED_RELEASE:-2.33.0}
 VERIFY_DIR=$(mktemp -d)
 FAILURES_FILE=$VERIFY_DIR/failures
 : > "$FAILURES_FILE"
