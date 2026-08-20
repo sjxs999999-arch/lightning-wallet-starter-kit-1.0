@@ -7,7 +7,7 @@ Updated: 2026-08-20
 - Development branch: `codex/final-production`
 - Latest deployed candidate commit: `184c5ea`
 - Current code candidate version: `2.20.0` (deployment pending verification)
-- Current code candidate commit: `111d279`
+- Current code candidate commit: `fc66218`
 - Latest deployed application version: `2.19.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
@@ -52,12 +52,13 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 ## Current verification baseline
 
 - API tests: 117 passing across 27 files.
-- Web tests: 199 passing across 56 files for the current code candidate.
+- Web tests: 200 passing across 56 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
 - CI for candidate `184c5ea` (run `32289956843`): passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
 - CI for code candidate `c670e31` (run `32294819780`): passing, including secret scan, type check, 113 API tests, 199 Web tests, production build, dependency gate and both Docker images.
 - Compatibility fix `111d279` passed Production CI run `32295696283`, including credential scan, type check, 117 API tests, 199 Web tests, production build, production dependency gate and both Docker images.
+- Launchpad RPC-isolation candidate `fc66218` passes credential scan, type check, 117 API tests, 200 Web tests and production build locally; Production CI is pending.
 - Vercel Production deployment `GqCQM29fxZ6xVDVPzse3qe6U4yzB` for candidate `184c5ea`: ready; client and operator domains load with zero browser-console errors and enforce hostname route isolation.
 - GCE API release `184c5ea`: healthy with zero container restarts; PostgreSQL and Redis readiness pass, the `operator_mfa` schema and server-side encryption key are configured, and no second factor is activated before operator enrollment.
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
@@ -69,6 +70,6 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 2. Configure and verify any external provider being claimed: 0x, TRON Swap, Paymaster, notification delivery and a real Flash Loan app.
 3. Perform authorized testnet then limited-mainnet wallet acceptance for EVM, Solana and TRON, recording public transaction hashes only.
 4. Run the final wallet/provider regression and a timed rollback drill.
-5. Deploy code candidate `111d279` after its CI passes and the platform write-authorization/usage gate is available, then repeat production HTTP and browser-console acceptance.
+5. Deploy code candidate `fc66218` after its CI passes, then repeat production HTTP and browser-console acceptance.
 
 Until those gates pass, the product must be described as a production candidate and not as fully mainnet-approved.
