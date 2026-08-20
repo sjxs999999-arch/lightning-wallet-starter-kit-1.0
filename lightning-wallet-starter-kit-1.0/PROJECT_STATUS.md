@@ -5,11 +5,11 @@ Updated: 2026-08-21
 ## Candidate baseline
 
 - Development branch: `codex/final-production`
-- Latest deployed web candidate commit: `81fbe4f`
-- Current GCE API release commit: `81fbe4f`
-- Current code candidate version: `2.25.0`
-- Current code candidate commit: `81fbe4f`
-- Latest deployed application version: `2.25.0`
+- Latest deployed web candidate commit: `2f63ccd`
+- Current GCE API release commit: `2f63ccd`
+- Current code candidate version: `2.26.0`
+- Current code candidate commit: `2f63ccd`
+- Latest deployed application version: `2.26.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -22,11 +22,11 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 | Module | Implementation | Current production gate |
 |---|---|---|
-| Client/operator domain split | Complete | Web candidate `81fbe4f` is deployed; host routing and no-white-screen browser checks pass |
+| Client/operator domain split | Complete | Web candidate `2f63ccd` is deployed; host routing and no-white-screen browser checks pass |
 | Wallet providers | MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare, TronLink | Exact testnet/network/account and confirmed-receipt gates are deployed; final manual extension signing acceptance remains |
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
-| Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry, active-wallet sender grouping and wallet signing | Mainnet feature flag is off; final chain-specific acceptance required |
-| Asset Collector | EVM/Solana/TRON scanning/planning, reserve rules, Dry Run, active-wallet sender grouping and wallet signing | EVM EIP-5792 and Solana batch signing are implemented with safe sequential fallback; mainnet feature flag is off |
+| Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry, matching authorized-provider sender grouping and wallet signing | Exact Solana genesis/TRON host gates and per-call EIP-5792 receipts are deployed; mainnet feature flag is off pending chain-specific acceptance |
+| Asset Collector | EVM/Solana/TRON scanning/planning, reserve rules, Dry Run, matching authorized-provider sender grouping and wallet signing | EVM EIP-5792 and Solana batch signing use the shared exact network/receipt gates; mainnet feature flag is off |
 | Swap | Provider availability endpoint, quote Worker, route/impact guards, exact approval and wallet signing | EVM/LI.FI, Solana/Jupiter and TRON/SUN.io are deployed; optional 0x comparison remains supported; mainnet flag remains off pending authorized wallet acceptance |
 | Flash Loan | Isolated Sepolia session bridge and built-in no-broadcast compatibility shell | Referenced historical repository contains no completed Flash Loan app; real integration is blocked on an actual provider application/API |
 | GasFree | Sepolia estimates, VIP policy, Paymaster abstraction, top-up planning and user-wallet signing | Sponsored transactions blocked until an approved Paymaster URL is configured |
@@ -56,7 +56,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 ## Current verification baseline
 
 - API tests: 156 passing across 32 files.
-- Web tests: 232 passing across 60 files for the current code candidate.
+- Web tests: 239 passing across 60 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
 - CI for candidate `184c5ea` (run `32289956843`): passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
@@ -87,6 +87,9 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Wallet-provider candidate `81fbe4f` passed Production CI run `32392185721`, including credential, environment, rollback and provider gates, type checking, 156 API tests, 232 Web tests, production build, production dependency gating and both Docker image builds.
 - Vercel Production deployment `2Mf4TiaYJjzRXt31pzpqrkbqYkdc` (`https://lightning-wallet-82kftp0qp-sjxs999999-archs-projects.vercel.app`) and GCE immutable release `81fbe4f` serve v2.25.0. GCE rollback points to `2ef4d99`, and backup `lightning-20260820T163230Z.dump` is retained.
 - Production Wallet Center browser acceptance verified v2.25.0, all ten provider entry points, OKX Solana/TRON visibility, testnet-only security copy and reload without a white screen. No wallet, signature or broadcast was requested. Post-rollout verification returned three SUN.io routes in 0.503863 seconds and one LI.FI route in 1.785241 seconds.
+- Batch-execution candidate `2f63ccd` passed Production CI run `32394511524`, including credential, environment, rollback and provider gates, type checking, 156 API tests, 239 Web tests, production build, production dependency gating and both Docker image builds.
+- Vercel Production deployment `4mh4js9UxuQuUTAY3ofFKqfethFY` (`https://lightning-wallet-n0c0gvdp2-sjxs999999-archs-projects.vercel.app`) and GCE immutable release `2f63ccd` serve v2.26.0. GCE rollback points to `81fbe4f`, and backup `lightning-20260820T165736Z.dump` is retained.
+- Production Batch Transfer/Asset Collector browser acceptance verified v2.26.0, default Dry Run and reload without a white screen. Automated verification used no wallet, signature or broadcast. Post-rollout verification returned three SUN.io routes in 0.403222 seconds and one LI.FI route in 0.808441 seconds.
 - The first guarded v2.21 rollout exposed an API-startup readiness race in external acceptance. No data was lost; containers became healthy, the production links were corrected, and `6bb8ddb` now waits for Docker health before acceptance or rollback decisions.
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
 - The protected GCE environment passes the non-strict production preflight with mainnet execution, mainnet Swap and mainnet Launchpad disabled. The strict gate correctly remains closed on exactly five external prerequisites: WalletConnect Project ID, Paymaster, holder-data provider, real Flash Loan application/API and Automation delivery configuration.

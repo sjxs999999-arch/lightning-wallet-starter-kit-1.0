@@ -28,4 +28,13 @@ Version 2.26 hardens the shared Batch Transfer and Asset Collector execution pat
 
 ## Production rollout
 
-Pending CI, Preview acceptance and guarded production rollout.
+- Runtime commit: `2f63ccd`.
+- Production CI: `32394511524` — PASS.
+- Vercel Preview: `https://lightning-wallet-p6zg9ljla-sjxs999999-archs-projects.vercel.app` — verified before promotion.
+- Vercel Production: `4mh4js9UxuQuUTAY3ofFKqfethFY` (`https://lightning-wallet-n0c0gvdp2-sjxs999999-archs-projects.vercel.app`) — Ready and current on `lightingwallet.com`.
+- GCE current release: `/opt/lightning-wallet/releases/2f63ccd`; rollback release: `/opt/lightning-wallet/releases/81fbe4f`.
+- PostgreSQL backup retained: `lightning-20260820T165736Z.dump`.
+- Production HTTP acceptance, API/PostgreSQL/Redis health, security headers, CORS and provider truthfulness: PASS.
+- Production browser acceptance verified v2.26.0, Batch Transfer, Asset Collector, default Dry Run and refresh without a white screen.
+- Live-provider acceptance returned three SUN.io routes in 0.403222 seconds and one LI.FI route in 0.808441 seconds without wallet access, signing or broadcast.
+- Mainnet transaction, Swap and Launchpad flags remain disabled.
