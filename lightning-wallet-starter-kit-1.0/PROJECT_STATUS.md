@@ -7,8 +7,8 @@ Updated: 2026-08-21
 - Development branch: `codex/final-production`
 - Latest deployed web candidate commit: `0ee87a7`
 - Current GCE API release commit: `0ee87a7`
-- Current code candidate version: `2.29.0`
-- Current code candidate commit: `0ee87a7`
+- Current code candidate version: `2.30.0`
+- Current code candidate commit: pending
 - Latest deployed application version: `2.29.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
@@ -23,7 +23,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 | Module | Implementation | Current production gate |
 |---|---|---|
 | Client/operator domain split | Complete | Web candidate `0ee87a7` is deployed; host routing and no-white-screen browser checks pass |
-| Wallet providers | MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare, TronLink | Exact testnet/network/account and confirmed-receipt gates are deployed; final manual extension signing acceptance remains |
+| Wallet Center | Local AES-256-GCM vault, EVM/Solana/TRON create/import, EVM Keystore, multi-account derivation, receive QR, address book, custom Token metadata, plus MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink | Local secrets remain encrypted and never reach API/database/logs; extension-wallet final signing acceptance remains |
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
 | Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry, matching authorized-provider sender grouping and wallet signing | Exact Solana genesis/TRON host gates and per-call EIP-5792 receipts are deployed; mainnet feature flag is off pending chain-specific acceptance |
 | Asset Collector | EVM/Solana/TRON scanning/planning, reserve rules, Dry Run, matching authorized-provider sender grouping and wallet signing | EVM EIP-5792 and Solana batch signing use the shared exact network/receipt gates; mainnet feature flag is off |
@@ -58,7 +58,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 ## Current verification baseline
 
 - API tests: 159 passing across 33 files.
-- Web tests: 262 passing across 64 files for the current code candidate.
+- Web tests: 272 passing across 68 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
 - CI for candidate `184c5ea` (run `32289956843`): passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.

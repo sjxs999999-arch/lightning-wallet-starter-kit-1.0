@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { History, RefreshCw, Send, ShieldCheck } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { ApiError, api } from '../api';
 import { downloadTransferTemplate, exportResults, parseTransferCsv, transferCsvExample } from './csv';
 import { executeTask, getActiveSender } from './executor';
@@ -10,9 +11,15 @@ import type { TransferChain, TransferInput, TransferLog, TransferMode, TransferP
 import { executeSolanaBatch } from './solana-batch';
 import { loadLocalTransferHistory, saveLocalTransferJob } from './local-history';
 import { pendingSenderCount, senderCount, tasksForActiveSender } from './sender-groups';
+import { validateAddress } from './validation';
 
 export function BatchTransfer() {
-  const [chain, setChain] = useState<TransferChain>('EVM');
+  const [searchParams] = useSearchParams();
+  const requestedChain = searchParams.get('chain');
+  const initialChain: TransferChain = requestedChain === 'SOL' || requestedChain === 'TRON' ? requestedChain : 'EVM';
+  const requestedSenderValue = searchParams.get('from')?.trim() ?? '';
+  const requestedSender = validateAddress(initialChain, requestedSenderValue) ? requestedSenderValue : '';
+  const [chain, setChain] = useState<TransferChain>(initialChain);
   const [mode, setMode] = useState<TransferMode>('one-to-many');
   const [dryRun, setDryRun] = useState(true);
   const [inputs, setInputs] = useState<TransferInput[]>([]);
@@ -259,7 +266,8 @@ export function BatchTransfer() {
         <h3>创建转账任务</h3>
         <label>网络<select value={chain} disabled={running} onChange={event => { setChain(event.target.value as TransferChain); setPlan(null); }}><option>EVM</option><option value="SOL">Solana</option><option>TRON</option></select></label>
         <label>模式<select value={mode} disabled={running} onChange={event => setMode(event.target.value as TransferMode)}><option value="one-to-many">一对多</option><option value="many-to-one">多对一</option><option value="many-to-many">多对多</option></select></label>
-        <div className="template-actions"><button onClick={() => downloadTransferTemplate('EVM')}>下载 EVM 模板</button><button onClick={() => downloadTransferTemplate('SOL')}>下载 Solana 模板</button><button onClick={() => downloadTransferTemplate('TRON')}>下载 TRON 模板</button><button onClick={() => setShowExample(value => !value)}>{showExample ? '收起 CSV 示例' : '查看 CSV 格式示例'}</button></div>
+        {requestedSender && <div className="notice"><ShieldCheck size={18}/>已从钱包中心带入发送地址。下载当前网络模板后只需填写接收地址、金额和可选 Token。</div>}
+        <div className="template-actions"><button onClick={() => downloadTransferTemplate('EVM',chain==='EVM'?requestedSender:undefined)}>下载 EVM 模板</button><button onClick={() => downloadTransferTemplate('SOL',chain==='SOL'?requestedSender:undefined)}>下载 Solana 模板</button><button onClick={() => downloadTransferTemplate('TRON',chain==='TRON'?requestedSender:undefined)}>下载 TRON 模板</button><button onClick={() => setShowExample(value => !value)}>{showExample ? '收起 CSV 示例' : '查看 CSV 格式示例'}</button></div>
         {showExample && <pre className="csv-example">{transferCsvExample(chain)}</pre>}
         <label>CSV 导入<input type="file" accept=".csv,text/csv" disabled={running} onChange={event => void importCsv(event.target.files?.[0])}/></label>
         <label className="dry-run"><input type="checkbox" checked={dryRun} disabled={running} onChange={event => setDryRun(event.target.checked)}/> Dry Run（默认开启，不广播）</label>

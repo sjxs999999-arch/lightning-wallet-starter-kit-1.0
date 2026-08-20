@@ -232,3 +232,56 @@ export async function deriveWallet(chain: BatchChain, mnemonic: string, index: n
     seed.fill(0);
   }
 }
+
+export function deriveWalletFromPrivateKey(chain: BatchChain, input: string) {
+  if (chain === 'SOL') {
+    let secret: Uint8Array;
+    try {
+      secret = bs58.decode(input.trim());
+    } catch {
+      throw new Error('Solana 私钥必须是 Base58 编码');
+    }
+    try {
+      if (secret.length !== 64) throw new Error('Solana 私钥解码后必须为 64 字节');
+      const publicBytes = ed25519.getPublicKey(secret.slice(0, 32));
+      try {
+        const embedded = secret.slice(32);
+        const matches = embedded.every((byte, index) => byte === publicBytes[index]);
+        embedded.fill(0);
+        if (!matches) throw new Error('Solana 私钥中的公钥部分不匹配');
+        const publicKey = bs58.encode(publicBytes);
+        return { address: publicKey, publicKey, privateKey: bs58.encode(secret) };
+      } finally {
+        publicBytes.fill(0);
+      }
+    } finally {
+      secret.fill(0);
+    }
+  }
+
+  const normalized = input.trim().startsWith('0x') ? input.trim() : `0x${input.trim()}`;
+  if (!/^0x[0-9a-fA-F]{64}$/.test(normalized)) throw new Error(`${chain} 私钥必须为 32 字节十六进制`);
+  const wallet = new Wallet(normalized);
+  if (chain === 'EVM') {
+    return {
+      address: wallet.address,
+      publicKey: SigningKey.computePublicKey(normalized, true),
+      privateKey: normalized,
+    };
+  }
+  const publicKey = SigningKey.computePublicKey(normalized, false);
+  const publicBytes = fromHex(publicKey);
+  const hashBytes = fromHex(keccak256(publicBytes.slice(1)));
+  const body = concat(new Uint8Array([0x41]), hashBytes.slice(-20));
+  const checksum = sha256(sha256(body)).slice(0, 4);
+  const encoded = concat(body, checksum);
+  try {
+    return { address: bs58.encode(encoded), publicKey, privateKey: normalized };
+  } finally {
+    publicBytes.fill(0);
+    hashBytes.fill(0);
+    body.fill(0);
+    checksum.fill(0);
+    encoded.fill(0);
+  }
+}

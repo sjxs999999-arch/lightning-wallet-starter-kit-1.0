@@ -60,6 +60,7 @@ export function MigrationPanel({
   batchSalt,
   batchRevision,
   disabled = false,
+  allowMnemonic = true,
   onSensitiveStateChange,
 }: {
   wallet?: LocalWalletRecord;
@@ -67,6 +68,7 @@ export function MigrationPanel({
   batchSalt: string;
   batchRevision: number;
   disabled?: boolean;
+  allowMnemonic?: boolean;
   onSensitiveStateChange?: (active: boolean) => void;
 }) {
   const secretRef = useRef<HTMLTextAreaElement | null>(null);
@@ -296,11 +298,11 @@ export function MigrationPanel({
     </div>
     <div className="wallet-recovery-actions">
       <label>加密 JSON 密码<input ref={passwordRef} type="password" autoComplete="off" minLength={12} disabled={!wallet || disabled || Boolean(busy)} placeholder="仅在本机用于本次解密" data-1p-ignore="true" data-lpignore="true" data-bwignore="true"/></label>
-      <button
+      {allowMnemonic && <button
         type="button"
         onClick={() => void reveal('mnemonic')}
         disabled={!wallet || disabled || Boolean(busy)}
-      ><KeyRound size={15}/>{busy === 'mnemonic' ? busyLabel : '显示整批助记词'}</button>
+      ><KeyRound size={15}/>{busy === 'mnemonic' ? busyLabel : '显示整批助记词'}</button>}
       <button
         type="button"
         onClick={() => void reveal('privateKey')}

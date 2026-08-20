@@ -1,3 +1,79 @@
-import{useState}from'react';import{CheckCircle2,Link,Radio,ShieldCheck,Wallet}from'lucide-react';import{broadcastSelfTest,connectEvm,connectSol,connectTron,signChallenge}from'./providers';import{loadProviderHistory,saveProviderHistory}from'./history';import type{ConnectedWallet,TestnetHistory,WalletName}from'./types';
-const wallets:{name:WalletName;family:'EVM'|'SOL'|'TRON';note:string}[]=[{name:'MetaMask',family:'EVM',note:'EIP-6963 · Sepolia'},{name:'WalletConnect',family:'EVM',note:'QR / Mobile · Sepolia'},{name:'OKX Wallet',family:'EVM',note:'EIP-6963 · Sepolia'},{name:'Rabby',family:'EVM',note:'EIP-6963 · Sepolia'},{name:'OKX Wallet',family:'SOL',note:'Injected · Solana Devnet'},{name:'Phantom',family:'SOL',note:'Injected · Devnet'},{name:'Backpack',family:'SOL',note:'Injected · Devnet'},{name:'Solflare',family:'SOL',note:'Injected · Devnet'},{name:'OKX Wallet',family:'TRON',note:'Injected · Nile / Shasta'},{name:'TronLink',family:'TRON',note:'Nile / Shasta'}];
-export function WalletProviderCenter(){const[connected,setConnected]=useState<ConnectedWallet|null>(null),[history,setHistory]=useState<TestnetHistory[]>(loadProviderHistory),[confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(''),[message,setMessage]=useState('');function record(wallet:ConnectedWallet,operation:TestnetHistory['operation'],status:TestnetHistory['status'],hash?:string,error?:string){setHistory(saveProviderHistory({wallet:wallet.name,family:wallet.family,network:wallet.network,address:wallet.address,operation,status,hash,error}))}async function connect(name:WalletName,family:'EVM'|'SOL'|'TRON'){setBusy(`${name}-${family}`);setMessage('');setConfirmed(false);try{const result=family==='EVM'?await connectEvm(name,import.meta.env.VITE_WALLETCONNECT_PROJECT_ID):family==='SOL'?await connectSol(name):await connectTron(name==='OKX Wallet'?'OKX Wallet':'TronLink');setConnected(result);record(result,'connect','connected');setMessage(`${name} 已验证并连接到 ${result.network}`)}catch(error){setConnected(null);setMessage(error instanceof Error?error.message:'连接失败')}finally{setBusy('')}}async function sign(){if(!connected)return;setBusy('sign');setMessage('');try{await signChallenge(connected);record(connected,'sign','signed');setMessage('签名验证成功；签名内容未上传或保存')}catch(error){const text=error instanceof Error?error.message:'用户拒绝签名';record(connected,'sign',text.toLowerCase().includes('reject')?'rejected':'failed',undefined,text);setMessage(text)}finally{setBusy('')}}async function broadcast(){if(!connected||!confirmed)return;setBusy('broadcast');setMessage('');try{const hash=await broadcastSelfTest(connected);record(connected,'broadcast','confirmed',hash);setMessage(`测试网交易已确认：${hash}`)}catch(error){const text=error instanceof Error?error.message:'广播失败';record(connected,'broadcast',text.toLowerCase().includes('reject')?'rejected':'failed',undefined,text);setMessage(`${text}；未确认或失败的交易不会标记为成功`)}finally{setBusy('')}}return <><div className="page-head"><div><p className="eyebrow">NON-CUSTODIAL PROVIDER GATEWAY</p><h1>钱包中心</h1><p>连接用户钱包，在严格验证的测试网完成签名、广播、确认与公开历史记录。</p></div></div><div className="provider-security"><ShieldCheck size={17}/>非托管连接 · 网络与活动账户再次核验 · 密钥永不离开钱包 · 主网自测关闭</div><div className="provider-layout"><section className="panel provider-list"><div className="panel-head"><h3>Wallet Providers</h3><span>{wallets.length} 个连接入口</span></div>{wallets.map(item=>{const active=connected?.name===item.name&&connected.family===item.family;return <button key={`${item.name}-${item.family}`} className={active?'connected':''} disabled={Boolean(busy)} onClick={()=>void connect(item.name,item.family)}><span className={`provider-logo ${item.family.toLowerCase()}`}>{item.name.slice(0,2)}</span><div><b>{item.name}</b><small>{item.note}</small></div>{active?<CheckCircle2/>:<Link/>}</button>})}</section><section className="provider-main"><section className="panel provider-session"><div className="panel-head"><h3>测试网验证</h3><span>{connected?.network??'未连接'}</span></div>{connected?<><div className="provider-address"><Wallet/><div><span>{connected.name}</span><code>{connected.address}</code></div></div><div className="provider-flow"><span className="done">1 Connect</span><span>2 Sign</span><span>3 Broadcast</span><span>4 Confirm</span><span>5 History</span></div><div className="provider-actions"><button disabled={Boolean(busy)} onClick={()=>void sign()}>{busy==='sign'?'等待钱包…':'签名验证'}</button><label><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>我确认这是测试网自转交易，并将检查钱包弹窗</label><button className="danger" disabled={Boolean(busy)||!confirmed} onClick={()=>void broadcast()}><Radio size={15}/>{busy==='broadcast'?'等待链上确认…':'广播最小测试交易'}</button></div></>:<div className="provider-empty"><Wallet/><h3>选择一个钱包连接</h3><p>EVM 强制并复核 Sepolia；Solana 核验 Devnet genesis；TRON 仅接受官方 Nile 或 Shasta RPC。</p></div>}{message&&<div className="provider-message">{message}</div>}</section><section className="panel provider-history"><div className="panel-head"><h3>Testnet History</h3><span>仅公开元数据 · {history.length}</span></div>{history.map(item=><div key={item.id}><span>{new Date(item.at).toLocaleString()}</span><b>{item.wallet} · {item.operation}</b><code>{item.hash??item.address}</code><em className={item.status}>{item.status}</em></div>)}{!history.length&&<p>尚无连接、签名或广播记录。</p>}</section></section></div></>}
+import { useState } from 'react';
+import { CheckCircle2, Link, Radio, ShieldCheck, Wallet } from 'lucide-react';
+import { broadcastSelfTest, connectEvm, connectSol, connectTron, signChallenge } from './providers';
+import { loadProviderHistory, saveProviderHistory } from './history';
+import type { ConnectedWallet, TestnetHistory, WalletName } from './types';
+import { LocalWalletCenter } from '../wallet-center/LocalWalletCenter';
+
+const wallets: { name: WalletName; family: 'EVM' | 'SOL' | 'TRON'; note: string }[] = [
+  { name: 'MetaMask', family: 'EVM', note: 'EIP-6963 · Sepolia' },
+  { name: 'WalletConnect', family: 'EVM', note: 'QR / Mobile · Sepolia' },
+  { name: 'OKX Wallet', family: 'EVM', note: 'EIP-6963 · Sepolia' },
+  { name: 'Rabby', family: 'EVM', note: 'EIP-6963 · Sepolia' },
+  { name: 'OKX Wallet', family: 'SOL', note: 'Injected · Solana Devnet' },
+  { name: 'Phantom', family: 'SOL', note: 'Injected · Devnet' },
+  { name: 'Backpack', family: 'SOL', note: 'Injected · Devnet' },
+  { name: 'Solflare', family: 'SOL', note: 'Injected · Devnet' },
+  { name: 'OKX Wallet', family: 'TRON', note: 'Injected · Nile / Shasta' },
+  { name: 'TronLink', family: 'TRON', note: 'Nile / Shasta' },
+];
+
+function ProviderGateway({ embedded = false }: { embedded?: boolean }) {
+  const [connected, setConnected] = useState<ConnectedWallet | null>(null);
+  const [history, setHistory] = useState<TestnetHistory[]>(loadProviderHistory);
+  const [confirmed, setConfirmed] = useState(false);
+  const [busy, setBusy] = useState('');
+  const [message, setMessage] = useState('');
+
+  function record(wallet: ConnectedWallet, operation: TestnetHistory['operation'], status: TestnetHistory['status'], hash?: string, error?: string) {
+    setHistory(saveProviderHistory({ wallet: wallet.name, family: wallet.family, network: wallet.network, address: wallet.address, operation, status, hash, error }));
+  }
+
+  async function connect(name: WalletName, family: 'EVM' | 'SOL' | 'TRON') {
+    setBusy(`${name}-${family}`);setMessage('');setConfirmed(false);
+    try {
+      const result = family === 'EVM'
+        ? await connectEvm(name, import.meta.env.VITE_WALLETCONNECT_PROJECT_ID)
+        : family === 'SOL' ? await connectSol(name) : await connectTron(name === 'OKX Wallet' ? 'OKX Wallet' : 'TronLink');
+      setConnected(result);record(result, 'connect', 'connected');setMessage(`${name} 已验证并连接到 ${result.network}`);
+    } catch (error) { setConnected(null);setMessage(error instanceof Error ? error.message : '连接失败'); }
+    finally { setBusy(''); }
+  }
+
+  async function sign() {
+    if (!connected) return;
+    setBusy('sign');setMessage('');
+    try { await signChallenge(connected);record(connected, 'sign', 'signed');setMessage('签名验证成功；签名内容未上传或保存'); }
+    catch (error) { const text = error instanceof Error ? error.message : '用户拒绝签名';record(connected, 'sign', text.toLowerCase().includes('reject') ? 'rejected' : 'failed', undefined, text);setMessage(text); }
+    finally { setBusy(''); }
+  }
+
+  async function broadcast() {
+    if (!connected || !confirmed) return;
+    setBusy('broadcast');setMessage('');
+    try { const hash = await broadcastSelfTest(connected);record(connected, 'broadcast', 'confirmed', hash);setMessage(`测试网交易已确认：${hash}`); }
+    catch (error) { const text = error instanceof Error ? error.message : '广播失败';record(connected, 'broadcast', text.toLowerCase().includes('reject') ? 'rejected' : 'failed', undefined, text);setMessage(`${text}；未确认或失败的交易不会标记为成功`); }
+    finally { setBusy(''); }
+  }
+
+  return <>
+    {!embedded && <div className="page-head"><div><p className="eyebrow">NON-CUSTODIAL PROVIDER GATEWAY</p><h1>钱包中心</h1><p>连接用户钱包，在严格验证的测试网完成签名、广播、确认与公开历史记录。</p></div></div>}
+    <div className="provider-security"><ShieldCheck size={17}/>非托管连接 · 网络与活动账户再次核验 · 密钥永不离开钱包 · 主网自测关闭</div>
+    <div className="provider-layout">
+      <section className="panel provider-list"><div className="panel-head"><h3>Wallet Providers</h3><span>{wallets.length} 个连接入口</span></div>{wallets.map(item => { const active = connected?.name === item.name && connected.family === item.family;return <button key={`${item.name}-${item.family}`} className={active ? 'connected' : ''} disabled={Boolean(busy)} onClick={() => void connect(item.name, item.family)}><span className={`provider-logo ${item.family.toLowerCase()}`}>{item.name.slice(0, 2)}</span><div><b>{item.name}</b><small>{item.note}</small></div>{active ? <CheckCircle2/> : <Link/>}</button>; })}</section>
+      <section className="provider-main">
+        <section className="panel provider-session"><div className="panel-head"><h3>测试网验证</h3><span>{connected?.network ?? '未连接'}</span></div>{connected ? <><div className="provider-address"><Wallet/><div><span>{connected.name}</span><code>{connected.address}</code></div></div><div className="provider-flow"><span className="done">1 Connect</span><span>2 Sign</span><span>3 Broadcast</span><span>4 Confirm</span><span>5 History</span></div><div className="provider-actions"><button disabled={Boolean(busy)} onClick={() => void sign()}>{busy === 'sign' ? '等待钱包…' : '签名验证'}</button><label><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)}/>我确认这是测试网自转交易，并将检查钱包弹窗</label><button className="danger" disabled={Boolean(busy) || !confirmed} onClick={() => void broadcast()}><Radio size={15}/>{busy === 'broadcast' ? '等待链上确认…' : '广播最小测试交易'}</button></div></> : <div className="provider-empty"><Wallet/><h3>选择一个钱包连接</h3><p>EVM 强制并复核 Sepolia；Solana 核验 Devnet genesis；TRON 仅接受官方 Nile 或 Shasta RPC。</p></div>}{message && <div className="provider-message">{message}</div>}</section>
+        <section className="panel provider-history"><div className="panel-head"><h3>Testnet History</h3><span>仅公开元数据 · {history.length}</span></div>{history.map(item => <div key={item.id}><span>{new Date(item.at).toLocaleString()}</span><b>{item.wallet} · {item.operation}</b><code>{item.hash ?? item.address}</code><em className={item.status}>{item.status}</em></div>)}{!history.length && <p>尚无连接、签名或广播记录。</p>}</section>
+      </section>
+    </div>
+  </>;
+}
+
+export function WalletProviderCenter() {
+  const [tab, setTab] = useState<'local' | 'provider'>('local');
+  return <>
+    <div className="page-head"><div><p className="eyebrow">NON-CUSTODIAL WALLET CENTER</p><h1>钱包中心</h1><p>创建、导入和管理本地加密钱包，或连接扩展钱包进行用户确认签名。</p></div></div>
+    <div className="wallet-center-tabs"><button className={tab === 'local' ? 'active' : ''} onClick={() => setTab('local')}>本地加密钱包</button><button className={tab === 'provider' ? 'active' : ''} onClick={() => setTab('provider')}>连接扩展钱包</button></div>
+    {tab === 'local' ? <LocalWalletCenter/> : <ProviderGateway embedded/>}
+  </>;
+}

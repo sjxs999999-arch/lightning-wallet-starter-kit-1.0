@@ -6,6 +6,11 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Replaced the provider-only `/wallets` screen with a complete non-custodial Wallet Center while retaining all ten extension-wallet entries in a separate tab.
+- Added a browser-local AES-256-GCM wallet vault with PBKDF2-SHA-256 (600,000 iterations), 15-minute inactivity locking, encrypted backup/restore and strict rejection of plaintext secret fields.
+- Added EVM, Solana and TRON wallet creation, mnemonic/private-key import, EVM Keystore import, mnemonic-backed multi-account derivation, receive QR codes, local address book and custom Token metadata.
+- Reused the existing locally verified migration flow for temporary key recovery; every reveal is address-verified, auto-cleared and never sent to an API, database or log.
+- Connected selected Wallet Center addresses to Batch Transfer with a validated, sender-prefilled CSV template while preserving Dry Run and wallet-signature gates.
 - Added a truthful production-readiness contract shared by Fastify and the Vercel fallback, with exactly five external-provider blockers, a separate wallet-acceptance gate and explicit mainnet feature states.
 - Made the public capability route authentication-free and removed the stale fallback response that incorrectly marked Flash Loan, GasFree, Swap and other gated modules as ready.
 - Added visible final-readiness status to the client and operator settings plus an executable gate that fails until every provider, wallet acceptance and mainnet switch is complete.

@@ -9,7 +9,7 @@ type Readiness = { finalApproval: boolean; walletAcceptanceRequired: boolean; ex
 type CapabilityResponse = { data: { version: string; chains: string[]; features: Capability[]; readiness?: Readiness; security: { privateKeysUploaded: boolean; serverSigning: boolean } } };
 
 const quickLinks = [
-  { title: '连接钱包', detail: '连接扩展钱包并完成签名验证', path: '/wallets', icon: WalletCards },
+  { title: '钱包中心', detail: '创建、导入或连接非托管钱包', path: '/wallets', icon: WalletCards },
   { title: '批量钱包', detail: '本地生成、加密导出和控制权验证', path: '/batch-wallets', icon: Boxes },
   { title: '批量转账', detail: 'CSV、Dry Run 与钱包批量签名', path: '/batch-transfer', icon: Send },
   { title: '资产归集', detail: '扫描资产、保留余额并规划归集', path: '/collection', icon: CircleDollarSign },
@@ -33,7 +33,7 @@ export function ClientHome() {
     <div className="page-head"><div><p className="eyebrow">NON-CUSTODIAL CLIENT</p><h1>闪电钱包首页</h1><p>连接钱包、本地生成密钥，并从同一个客户端进入多链资产工具。</p></div></div>
     <div className="client-home-safety"><ShieldCheck size={18}/><div><b>私钥始终留在本机</b><span>服务端签名：关闭 · 私钥上传：0 · 真实交易必须由钱包确认</span></div></div>
     <div className="client-home-stats">
-      <section className="panel"><span>客户端版本</span><strong>{capabilities?.version ?? '2.29.0'}</strong><small>生产候选</small></section>
+      <section className="panel"><span>客户端版本</span><strong>{capabilities?.version ?? '2.30.0'}</strong><small>生产候选</small></section>
       <section className="panel"><span>支持网络</span><strong>{capabilities?.chains.length ?? 9}</strong><small>EVM · Solana · TRON</small></section>
       <section className="panel"><span>本地公开记录</span><strong>{activity.length}</strong><small>不包含私钥或签名内容</small></section>
       <section className="panel"><span>已就绪模块</span><strong>{capabilities ? ready : '—'}</strong><small>{statusError ? '状态服务暂时不可用' : '其余模块按准入状态显示'}</small></section>
