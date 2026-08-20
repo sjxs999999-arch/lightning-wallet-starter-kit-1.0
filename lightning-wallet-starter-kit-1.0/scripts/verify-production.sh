@@ -4,6 +4,7 @@ set -u
 CLIENT_ORIGIN=${CLIENT_ORIGIN:-https://lightingwallet.com}
 ADMIN_ORIGIN=${ADMIN_ORIGIN:-https://admin.lightingwallet.com}
 API_ORIGIN=${API_ORIGIN:-https://api.lightingwallet.com}
+EXPECTED_RELEASE=${EXPECTED_RELEASE:-2.29.0}
 VERIFY_DIR=$(mktemp -d)
 FAILURES_FILE=$VERIFY_DIR/failures
 : > "$FAILURES_FILE"
@@ -60,14 +61,26 @@ if fetch flash "$CLIENT_ORIGIN/flashforge/"; then
 fi
 
 if fetch health "$API_ORIGIN/health"; then
-  jq -e '.status == "ok" and .service == "lightning-api"' "$VERIFY_DIR/health.body" >/dev/null || fail 'API health payload is invalid' || true
+  jq -e --arg release "$EXPECTED_RELEASE" '.status == "ok" and .service == "lightning-api" and .version == $release' "$VERIFY_DIR/health.body" >/dev/null || fail 'API health payload or release is invalid' || true
 fi
 if fetch ready "$API_ORIGIN/health/ready"; then
   jq -e '.status == "ready" and .postgres == "ok" and .redis == "ok"' "$VERIFY_DIR/ready.body" >/dev/null || fail 'API readiness payload is invalid' || true
 fi
 
 if fetch capabilities "$API_ORIGIN/api/v1/system/capabilities"; then
-  jq -e '.data.security.privateKeysUploaded == false and .data.security.serverSigning == false and .data.operator == "separate-admin-surface"' "$VERIFY_DIR/capabilities.body" >/dev/null || fail 'capability safety boundary is invalid' || true
+  jq -e --arg release "$EXPECTED_RELEASE" '
+    .data.version == $release and
+    .data.security.privateKeysUploaded == false and
+    .data.security.serverSigning == false and
+    .data.operator == "separate-admin-surface" and
+    (.data.readiness.finalApproval | type) == "boolean" and
+    (.data.readiness.walletAcceptanceRequired | type) == "boolean" and
+    (.data.readiness.externalBlockers | type) == "array" and
+    ([.data.readiness.externalBlockers[].code] | length) == ([.data.readiness.externalBlockers[].code] | unique | length) and
+    all(.data.readiness.externalBlockers[]; [.code] - ["WALLETCONNECT_PROJECT_ID","GASFREE_PAYMASTER","MARKET_HOLDER_PROVIDER","FLASH_LOAN_APPLICATION","AUTOMATION_DELIVERY_PROVIDER"] | length == 0) and
+    (.data.readiness.finalApproval == ((.data.readiness.externalBlockers | length) == 0 and (.data.readiness.walletAcceptanceRequired | not) and .data.readiness.mainnet.execution and .data.readiness.mainnet.swap and .data.readiness.mainnet.launchpad and .data.readiness.mainnet.bridge)) and
+    (if (.data.readiness.externalBlockers | length) > 0 then any(.data.features[]; .status != "ready") else true end)
+  ' "$VERIFY_DIR/capabilities.body" >/dev/null || fail 'capability safety or readiness contract is invalid' || true
 fi
 if fetch swap "$API_ORIGIN/api/v1/swap/status"; then
   jq -e '.data.privateKeyAccepted == false and .data.serverSigning == false and (.data.providers | length == 3) and any(.data.providers[]; .chain == "EVM" and .available == true and (.provider | contains("LI.FI")))' "$VERIFY_DIR/swap.body" >/dev/null || fail 'Swap provider status is invalid' || true
@@ -78,7 +91,7 @@ diagnostic_status=$(curl --silent --show-error --max-time 20 --output "$VERIFY_D
   -H "Origin: $CLIENT_ORIGIN" \
   -H 'Content-Type: application/json' \
   -H 'x-lightning-csrf: 1' \
-  --data '{"name":"AcceptanceProbe","code":"RENDER_FAILURE","route":"/health-acceptance","fingerprint":"222222222222222222222222","release":"2.26.0"}') || diagnostic_status=000
+  --data "{\"name\":\"AcceptanceProbe\",\"code\":\"RENDER_FAILURE\",\"route\":\"/health-acceptance\",\"fingerprint\":\"222222222222222222222222\",\"release\":\"$EXPECTED_RELEASE\"}") || diagnostic_status=000
 if [ "$diagnostic_status" = 202 ] && jq -e '.data.accepted == true' "$VERIFY_DIR/diagnostic.body" >/dev/null; then
   pass 'anonymous metadata-only client diagnostic is accepted'
 else

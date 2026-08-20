@@ -5,6 +5,7 @@ export const PUBLIC_API_ROUTES = new Set([
   'GET gasfree/status',
   'GET integrations/flash-loan/health',
   'GET swap/status',
+  'GET system/capabilities',
   'POST auth/login',
   'POST errors/report',
   'POST wallets/batch-generate',

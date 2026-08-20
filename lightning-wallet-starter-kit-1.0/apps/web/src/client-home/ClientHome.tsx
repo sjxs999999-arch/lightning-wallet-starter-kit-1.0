@@ -5,7 +5,8 @@ import { api } from '../api';
 import { loadLocalActivity } from '../activity/history';
 
 type Capability = { name: string; mode: string; status: string };
-type CapabilityResponse = { data: { version: string; chains: string[]; features: Capability[]; security: { privateKeysUploaded: boolean; serverSigning: boolean } } };
+type Readiness = { finalApproval: boolean; walletAcceptanceRequired: boolean; externalBlockers: { code: string; label: string }[]; mainnet: { execution: boolean; swap: boolean; launchpad: boolean; bridge: boolean } };
+type CapabilityResponse = { data: { version: string; chains: string[]; features: Capability[]; readiness?: Readiness; security: { privateKeysUploaded: boolean; serverSigning: boolean } } };
 
 const quickLinks = [
   { title: '连接钱包', detail: '连接扩展钱包并完成签名验证', path: '/wallets', icon: WalletCards },
@@ -32,11 +33,12 @@ export function ClientHome() {
     <div className="page-head"><div><p className="eyebrow">NON-CUSTODIAL CLIENT</p><h1>闪电钱包首页</h1><p>连接钱包、本地生成密钥，并从同一个客户端进入多链资产工具。</p></div></div>
     <div className="client-home-safety"><ShieldCheck size={18}/><div><b>私钥始终留在本机</b><span>服务端签名：关闭 · 私钥上传：0 · 真实交易必须由钱包确认</span></div></div>
     <div className="client-home-stats">
-      <section className="panel"><span>客户端版本</span><strong>{capabilities?.version ?? '2.28.0'}</strong><small>生产候选</small></section>
+      <section className="panel"><span>客户端版本</span><strong>{capabilities?.version ?? '2.29.0'}</strong><small>生产候选</small></section>
       <section className="panel"><span>支持网络</span><strong>{capabilities?.chains.length ?? 9}</strong><small>EVM · Solana · TRON</small></section>
       <section className="panel"><span>本地公开记录</span><strong>{activity.length}</strong><small>不包含私钥或签名内容</small></section>
       <section className="panel"><span>已就绪模块</span><strong>{capabilities ? ready : '—'}</strong><small>{statusError ? '状态服务暂时不可用' : '其余模块按准入状态显示'}</small></section>
     </div>
+    {capabilities?.readiness && <section className={`client-readiness ${capabilities.readiness.finalApproval ? 'approved' : 'blocked'}`}><ShieldCheck size={18}/><div><b>{capabilities.readiness.finalApproval ? '最终生产验收已通过' : '最终生产验收尚未通过'}</b><span>{capabilities.readiness.externalBlockers.length} 项外部依赖未完成{capabilities.readiness.walletAcceptanceRequired ? ' · 钱包签名验收待完成' : ''} · 主网执行：{capabilities.readiness.mainnet.execution ? '已开启' : '关闭'}</span></div></section>}
     <section className="client-home-links">{quickLinks.map(({ title, detail, path, icon: Icon }) => <NavLink to={path} className="panel" key={path}><span><Icon size={20}/></span><div><b>{title}</b><small>{detail}</small></div><strong>进入</strong></NavLink>)}</section>
     <section className="panel client-home-capabilities"><div className="panel-head"><div><p className="eyebrow">LIVE CAPABILITY GATES</p><h3>模块准入状态</h3></div><span>{capabilities?.features.length ?? 0} 项</span></div>{capabilities?.features.map(feature => <div key={feature.name}><div><b>{feature.name}</b><small>{feature.mode}</small></div><em className={feature.status === 'ready' ? 'ready' : 'gated'}>{feature.status}</em></div>)}{!capabilities && <p>{statusError ? '状态服务暂时无法读取；钱包本地功能仍可使用。' : '正在读取正式环境能力清单…'}</p>}</section>
   </>;

@@ -5,7 +5,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 VALID_FIXTURE=$SCRIPT_DIR/fixtures/production-env.valid.test
 EXAMPLE_FILE=$SCRIPT_DIR/../.env.production.example
 
-sh -n "$SCRIPT_DIR/check-production-env.sh" "$SCRIPT_DIR/deploy.sh" "$SCRIPT_DIR/rollback-release.sh" "$SCRIPT_DIR/verify-production.sh" "$SCRIPT_DIR/verify-live-providers.sh"
+sh -n "$SCRIPT_DIR/check-production-env.sh" "$SCRIPT_DIR/deploy.sh" "$SCRIPT_DIR/rollback-release.sh" "$SCRIPT_DIR/verify-production.sh" "$SCRIPT_DIR/verify-final-readiness.sh" "$SCRIPT_DIR/verify-live-providers.sh"
 PRODUCTION_ENV_FILE="$VALID_FIXTURE" "$SCRIPT_DIR/check-production-env.sh"
 
 mainnet_fixture=$(mktemp)

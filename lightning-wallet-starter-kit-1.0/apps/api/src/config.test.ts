@@ -22,4 +22,11 @@ describe('production optional provider configuration', () => {
     expect(configSchema.safeParse({ ...base, OPERATOR_MFA_ENCRYPTION_KEY: 'too-short' }).success).toBe(false);
     expect(configSchema.safeParse({ ...base, OPERATOR_MFA_ENCRYPTION_KEY: '' }).success).toBe(true);
   });
+
+  it('parses production approval flags strictly and defaults them closed', () => {
+    const value=configSchema.parse({NODE_ENV:'test'});
+    expect(value.FINAL_WALLET_ACCEPTANCE_APPROVED).toBe(false);
+    expect(value.VITE_MAINNET_EXECUTION_ENABLED).toBe(false);
+    expect(configSchema.safeParse({NODE_ENV:'test',FINAL_WALLET_ACCEPTANCE_APPROVED:'yes'}).success).toBe(false);
+  });
 });
