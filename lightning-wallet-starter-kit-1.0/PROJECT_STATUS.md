@@ -6,9 +6,9 @@ Updated: 2026-08-20
 
 - Development branch: `codex/final-production`
 - Latest deployed web candidate commit: `6bb8ddb`
-- Current GCE API release commit: `6bb8ddb`
+- Current GCE API release commit: `80da41e`
 - Current code candidate version: `2.21.0`
-- Current code candidate commit: `6bb8ddb`
+- Current code candidate commit: `80da41e`
 - Latest deployed application version: `2.21.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
@@ -68,13 +68,14 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - MFA QR candidate `94c2b99` passed Production CI run `32372450835`, including the environment gate, rollback tests, credential scan, type check, 117 API tests, 202 Web tests, production build, dependency gate and both Docker images.
 - SUN.io candidate `91397dd` passes 122 API tests, 209 Web tests, type checking, the default production build, credential scanning and local API/Web Docker image builds. A live read-only TRX/USDT quote returned three verified candidates in 397 ms, and its no-hook V4 route produced Universal Router calldata without requesting a wallet or broadcasting.
 - SUN.io implementation `91397dd` passed Production CI run `32376052339`; deployment-readiness fix `6bb8ddb` passed Production CI run `32377723421`. Both runs include credential scanning, type checking, 122 API tests, 209 Web tests, production build, dependency gating and both Docker image builds.
+- Live-provider acceptance commit `80da41e` passed Production CI run `32379623180`, including its offline positive/negative fixtures, the full 331-test suite, production build, dependency gate and both Docker image builds.
 - Vercel Production deployment `bbMhTpsFoAHHrcX7MwqMLRQr8BC7` (`https://lightning-wallet-31n7fsxs1-sjxs999999-archs-projects.vercel.app`) serves web candidate `6bb8ddb` as v2.21.0. The client route, operator link, SUN.io copy, Dry Run default and error boundaries were verified with zero browser-console errors.
-- GCE current release is `6bb8ddb`; the running v2.21.0 API/Web, PostgreSQL and Redis containers are healthy. Rollback points to `46c91aa`, and pre-deploy backup `lightning-20260820T135139Z.dump` is retained.
+- GCE current immutable operations release is `80da41e`; the running v2.21.0 API/Web, PostgreSQL and Redis containers are healthy. Rollback points to `6bb8ddb`, and pre-deploy backup `lightning-20260820T135139Z.dump` is retained.
 - A production read-only TRX/USDT quote through `api.lightingwallet.com` returned HTTP 200 and three verified SUN.io mainnet candidates. The request used only public addresses and exact amounts; wallet access, signature and broadcast were not requested.
 - The first guarded v2.21 rollout exposed an API-startup readiness race in external acceptance. No data was lost; containers became healthy, the production links were corrected, and `6bb8ddb` now waits for Docker health before acceptance or rollback decisions.
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
 - The protected GCE environment passes the non-strict production preflight with mainnet execution and mainnet Swap disabled. The strict gate correctly remains closed for the unconfigured external providers and real Flash Loan application.
-- The production rollback Dry Run resolved current release `6bb8ddb`, target release `46c91aa` and the protected backup directory, and passed environment and Compose preflight without changing links, containers or database state.
+- The production rollback Dry Run resolved current release `80da41e`, target release `6bb8ddb` and the protected backup directory, and passed environment and Compose preflight without changing links, containers or database state.
 - Production dependency audit: 0 critical, 0 high, 6 moderate transitive SUN/Solana/Jayson/UUID advisories with no current upstream fix. No unsafe downgrade is applied.
 
 ## Required before final approval

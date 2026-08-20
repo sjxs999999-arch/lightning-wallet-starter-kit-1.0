@@ -59,6 +59,7 @@ All notable stable Lightning Wallet releases are recorded here.
 - A production read-only TRX/USDT request returned HTTP 200 with three strictly validated SUN.io mainnet routes; no wallet, signature or broadcast was requested.
 - Production HTTP acceptance, API/PostgreSQL/Redis readiness, host routing, CORS, zero-console-error browser checks and the `6bb8ddb` to `46c91aa` rollback Dry Run pass on v2.21.0.
 - The initial v2.21 guarded rollout exposed a normal-startup readiness race in the acceptance step. No data was lost; `6bb8ddb` adds a bounded Docker health wait before external verification or rollback decisions.
+- Live-provider acceptance commit `80da41e` passed Production CI run `32379623180`, was installed as the current immutable GCE operations release, returned three verified production SUN.io routes in 0.589 seconds, and passed the non-mutating rollback preflight to `6bb8ddb`.
 - The production MFA encryption key and database schema are configured, while enrollment remains intentionally inactive until the operator confirms a live Authenticator code.
 
 ### Release gate

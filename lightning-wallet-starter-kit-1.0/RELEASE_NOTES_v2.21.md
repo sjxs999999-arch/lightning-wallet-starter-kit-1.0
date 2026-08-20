@@ -20,9 +20,9 @@ EVM Swap still requires `ZEROX_API_KEY`. Flash Loan, sponsored GasFree and optio
 
 ## Production record
 
-- Code and GCE release: `6bb8ddb`.
+- Application deployment source: `6bb8ddb`; current immutable GCE operations release: `80da41e`.
 - Vercel deployment: `bbMhTpsFoAHHrcX7MwqMLRQr8BC7`.
-- CI: runs `32376052339` and `32377723421` passed.
+- CI: runs `32376052339`, `32377723421` and `32379623180` passed.
 - Verification: 122 API tests, 209 Web tests, type check, production build, both Docker image builds and production HTTP acceptance passed.
 - Live read-only check: the production API returned three verified SUN.io TRX/USDT mainnet candidates without wallet access, signing or broadcasting.
-- Rollback: `46c91aa` passed the non-mutating production rollback preflight; backup `lightning-20260820T135139Z.dump` is retained.
+- Rollback: `6bb8ddb` passed the non-mutating production rollback preflight from `80da41e`; backup `lightning-20260820T135139Z.dump` is retained.
