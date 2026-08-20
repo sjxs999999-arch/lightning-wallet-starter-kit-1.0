@@ -30,8 +30,12 @@ Version 2.31 adds direct browser-local testnet signing to the encrypted Wallet C
 - Production dependency gate: 0 critical, 0 high; 6 moderate transitive advisories remain without compatible fixes.
 - Local browser acceptance: v2.31 route/reload, automatic vault lock and isolated RPC-error rendering PASS without a white screen. No signature or broadcast was requested.
 - The local signing Worker entry is 2.18 kB and chain SDKs load only when their corresponding chain is used; the Wallet Center route chunk decreased from approximately 802 kB to 44 kB.
+- Production CI: run `32409972622` PASS for head `5d65e03`.
+- Vercel Preview: `dpl_7o9cb8FCwZnC6xRoRvE9buNhAMAq` READY.
+- Vercel Production: `dpl_8BZayhFfX29GoY5QELLjtBwEtbWt` READY and aliased to `lightingwallet.com` and `admin.lightingwallet.com`.
+- GCE current release: `/opt/lightning-wallet/releases/5963902`; rollback: `/opt/lightning-wallet/releases/a5c2b60`; backup: `lightning-20260820T195002Z.dump`.
+- Post-rollout HTTP, CORS, security-header, container, API, browser route/reload and read-only provider acceptance: PASS. Vercel error-level log scan: clean.
 
 ## Remaining final gates
 
 The five external provider blockers, authorized real-wallet acceptance and all mainnet execution switches remain unchanged and fail closed.
-

@@ -5,11 +5,11 @@ Updated: 2026-08-21
 ## Candidate baseline
 
 - Development branch: `codex/final-production`
-- Latest deployed web candidate commit: `a5c2b60`
-- Current GCE API release commit: `a5c2b60`
+- Latest deployed web candidate commit: `5963902`
+- Current GCE API release commit: `5963902`
 - Current code candidate version: `2.31.0`
 - Current code candidate commit: `5963902`
-- Latest deployed application version: `2.30.0`
+- Latest deployed application version: `2.31.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -64,6 +64,8 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Local API and Web Docker images: passing for candidate `a5c2b60`.
 - Wallet Center browser acceptance: route render, provider tab, refresh and sender-prefilled Batch Transfer handoff pass with zero console errors and no wallet/signature/broadcast access.
 - Local-signing candidate `5963902` passes 159 API tests, 278 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build and both Docker image builds. Browser acceptance verified v2.31 reload/automatic vault locking and RPC-error isolation without signing or broadcasting.
+- Production CI run `32409972622` passed for docs head `5d65e03`, including all verification and Docker jobs. Vercel Production deployment `dpl_8BZayhFfX29GoY5QELLjtBwEtbWt` and GCE immutable release `5963902` serve v2.31.0. GCE rollback points to `a5c2b60`; backup `lightning-20260820T195002Z.dump` is retained.
+- Post-rollout HTTP, CORS, security-header, API/PostgreSQL/Redis, browser route/reload and read-only SUN.io/LI.FI acceptance pass. Vercel reported zero error-level logs for the deployment; automated acceptance did not request a wallet, signature or broadcast.
 - Wallet Center candidate `416a3d9` passed Production CI run `32406199136`, including credential, environment, rollback and provider gates, type checking, 159 API tests, 272 Web tests, production build, high/critical dependency gating and both Docker image builds.
 - CI for candidate `184c5ea` (run `32289956843`): passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
 - CI for code candidate `c670e31` (run `32294819780`): passing, including secret scan, type check, 113 API tests, 199 Web tests, production build, dependency gate and both Docker images.

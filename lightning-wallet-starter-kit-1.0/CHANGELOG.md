@@ -78,6 +78,8 @@ All notable stable Lightning Wallet releases are recorded here.
 ### Production verification
 
 - Local-signing candidate `5963902` passes 159 API tests, 278 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build and both local Docker image builds. Browser acceptance verified v2.31 route/reload, automatic vault locking and RPC-error isolation without requesting a signature or broadcast.
+- Production CI run `32409972622` passed for head `5d65e03`. Vercel Production deployment `dpl_8BZayhFfX29GoY5QELLjtBwEtbWt` and GCE immutable release `5963902` now serve v2.31.0; rollback points to `a5c2b60` and backup `lightning-20260820T195002Z.dump` is retained.
+- Post-rollout production HTTP, CORS, security headers, API/PostgreSQL/Redis, browser route/reload and read-only SUN.io/LI.FI verification pass. Mainnet execution remains disabled and no automated acceptance connected a wallet, signed or broadcast.
 - Wallet Center candidate `a5c2b60` passes 159 API tests, 272 Web tests, type checking, lint, credential/environment/rollback gates, production build and both local Docker image builds. Browser route, provider-tab, refresh and Batch Transfer handoff checks pass without wallet access, signing or broadcasting.
 - Candidate head `416a3d9` passed Production CI run `32406199136`, including both Docker image builds and the high/critical dependency gate.
 - Vercel Production deployment `dpl_AWnDMQiHDcn6LyaGnopUwMNiyPoP` and GCE immutable release `a5c2b60` now serve v2.30.0. GCE rollback points to `0ee87a7`; backup `lightning-20260820T190648Z.dump` is retained. Production Wallet Center, operator login, HTTP, capability and read-only SUN.io/LI.FI acceptance pass without wallet access, signing or broadcasting.
