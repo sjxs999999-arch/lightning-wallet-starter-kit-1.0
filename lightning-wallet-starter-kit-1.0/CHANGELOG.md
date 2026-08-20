@@ -62,6 +62,9 @@ All notable stable Lightning Wallet releases are recorded here.
 - The initial v2.21 guarded rollout exposed a normal-startup readiness race in the acceptance step. No data was lost; `6bb8ddb` adds a bounded Docker health wait before external verification or rollback decisions.
 - Live-provider acceptance commit `80da41e` passed Production CI run `32379623180`, was installed as the current immutable GCE operations release, returned three verified production SUN.io routes in 0.589 seconds, and passed the non-mutating rollback preflight to `6bb8ddb`.
 - The production MFA encryption key and database schema are configured, while enrollment remains intentionally inactive until the operator confirms a live Authenticator code.
+- Privacy-safe diagnostics candidate `300c66f` passed Production CI run `32381332282`: credential scanning, type checking, 126 API tests, 209 Web tests, production build, dependency gating and both Docker image builds.
+- Vercel Production deployment `3B8sGdocX86uRhyRiMvKQCLGbaBG` and GCE immutable release `300c66f` now serve v2.22.0. GCE rollback points to `80da41e`, and both pre-deploy PostgreSQL backups are retained.
+- Production acceptance passes for client/operator domain routing, API/PostgreSQL/Redis readiness, security headers, CORS, SUN.io read-only quotes and privacy-safe client diagnostics. The aggregate store contains one anonymous fingerprint with two acceptance occurrences; unauthenticated reads are rejected.
 
 ### Release gate
 

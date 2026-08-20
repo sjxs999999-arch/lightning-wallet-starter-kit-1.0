@@ -5,11 +5,11 @@ Updated: 2026-08-20
 ## Candidate baseline
 
 - Development branch: `codex/final-production`
-- Latest deployed web candidate commit: `6bb8ddb`
-- Current GCE API release commit: `80da41e`
-- Current code candidate version: `2.21.0`
-- Current code candidate commit: `80da41e`
-- Latest deployed application version: `2.21.0`
+- Latest deployed web candidate commit: `300c66f`
+- Current GCE API release commit: `300c66f`
+- Current code candidate version: `2.22.0`
+- Current code candidate commit: `300c66f`
+- Latest deployed application version: `2.22.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -22,7 +22,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 | Module | Implementation | Current production gate |
 |---|---|---|
-| Client/operator domain split | Complete | Web candidate `6bb8ddb` is deployed; host routing and zero-console-error browser checks pass |
+| Client/operator domain split | Complete | Web candidate `300c66f` is deployed; host routing and no-white-screen browser checks pass |
 | Wallet providers | MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare, TronLink | Testnet acceptance complete in code; final manual extension acceptance remains |
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
 | Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry, active-wallet sender grouping and wallet signing | Mainnet feature flag is off; final chain-specific acceptance required |
@@ -44,6 +44,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Encrypted wallet export uses AES-256-GCM with PBKDF2-SHA-256.
 - Real transactions require the user wallet; the server does not sign or broadcast.
 - Error boundaries isolate route, Worker, RPC and provider failures to prevent blank pages.
+- Client crash diagnostics are self-hosted, accept only anonymous metadata under a strict schema, aggregate duplicate fingerprints, expire after 90 inactive days and expose reads only to authenticated operators.
 - Operator sessions are revocable HttpOnly cookies with default-deny API authorization, CSRF checks and rate limits.
 - RFC 6238 TOTP enrollment, confirmation, one-time recovery codes and verified disable flow are implemented; the enrollment QR is generated locally in browser memory with a manual-key fallback, and activation still requires the operator to complete enrollment in the Security Center.
 - Structured logs redact credentials, tokens, cookies and wallet secret fields.
@@ -54,7 +55,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 ## Current verification baseline
 
-- API tests: 122 passing across 29 files.
+- API tests: 126 passing across 30 files.
 - Web tests: 209 passing across 59 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
@@ -69,9 +70,13 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - SUN.io candidate `91397dd` passes 122 API tests, 209 Web tests, type checking, the default production build, credential scanning and local API/Web Docker image builds. A live read-only TRX/USDT quote returned three verified candidates in 397 ms, and its no-hook V4 route produced Universal Router calldata without requesting a wallet or broadcasting.
 - SUN.io implementation `91397dd` passed Production CI run `32376052339`; deployment-readiness fix `6bb8ddb` passed Production CI run `32377723421`. Both runs include credential scanning, type checking, 122 API tests, 209 Web tests, production build, dependency gating and both Docker image builds.
 - Live-provider acceptance commit `80da41e` passed Production CI run `32379623180`, including its offline positive/negative fixtures, the full 331-test suite, production build, dependency gate and both Docker image builds.
+- Privacy-safe diagnostics candidate `300c66f` passed Production CI run `32381332282`, including credential scanning, type checking, 126 API tests, 209 Web tests, production build, dependency gating and both Docker image builds.
 - Vercel Production deployment `bbMhTpsFoAHHrcX7MwqMLRQr8BC7` (`https://lightning-wallet-31n7fsxs1-sjxs999999-archs-projects.vercel.app`) serves web candidate `6bb8ddb` as v2.21.0. The client route, operator link, SUN.io copy, Dry Run default and error boundaries were verified with zero browser-console errors.
 - GCE current immutable operations release is `80da41e`; the running v2.21.0 API/Web, PostgreSQL and Redis containers are healthy. Rollback points to `6bb8ddb`, and pre-deploy backup `lightning-20260820T135139Z.dump` is retained.
 - A production read-only TRX/USDT quote through `api.lightingwallet.com` returned HTTP 200 and three verified SUN.io mainnet candidates. The request used only public addresses and exact amounts; wallet access, signature and broadcast were not requested.
+- Vercel Production deployment `3B8sGdocX86uRhyRiMvKQCLGbaBG` (`https://lightning-wallet-etyr2p4rf-sjxs999999-archs-projects.vercel.app`) serves commit `300c66f` as v2.22.0 on `lightingwallet.com`. The client Security Center reports the expected local-only boundaries, while `admin.lightingwallet.com/security` redirects unauthenticated users to the operator login.
+- GCE current immutable release is `300c66f`; rollback points to `80da41e`. API v2.22.0, Web, PostgreSQL and Redis are healthy, and the pre-deploy backups `lightning-20260820T144127Z.dump` and `lightning-20260820T144212Z.dump` are retained.
+- Production diagnostics acceptance recorded one anonymous aggregate with two occurrences. Anonymous writes return 202, unauthenticated aggregate reads return 401, and no error message, stack, wallet address or identity is accepted.
 - The first guarded v2.21 rollout exposed an API-startup readiness race in external acceptance. No data was lost; containers became healthy, the production links were corrected, and `6bb8ddb` now waits for Docker health before acceptance or rollback decisions.
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
 - The protected GCE environment passes the non-strict production preflight with mainnet execution and mainnet Swap disabled. The strict gate correctly remains closed for the unconfigured external providers and real Flash Loan application.
@@ -81,7 +86,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 ## Required before final approval
 
 1. Enroll the operator authenticator before enabling `ADMIN_TOTP_SECRET`.
-2. Configure and verify any external provider being claimed: WalletConnect, 0x, Paymaster, market holder data, crash reporting, notification delivery and a real Flash Loan app. The final environment must pass `STRICT_EXTERNAL_PROVIDERS=true ./scripts/check-production-env.sh`.
+2. Configure and verify any external provider being claimed: WalletConnect, 0x, Paymaster, market holder data, notification delivery and a real Flash Loan app. The final environment must pass `STRICT_EXTERNAL_PROVIDERS=true ./scripts/check-production-env.sh`.
 3. Perform authorized testnet then limited-mainnet wallet acceptance for EVM, Solana and TRON, recording public transaction hashes only.
 4. Run the final wallet/provider regression and a timed rollback drill.
 

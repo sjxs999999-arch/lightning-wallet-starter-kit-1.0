@@ -17,3 +17,12 @@ Version 2.22 closes the client crash-reporting gap without adding a third-party 
 This module does not use analytics cookies, a device identifier or a third-party Crash Reporting DSN. It never receives a wallet address, signature, transaction payload or secret material.
 
 Mainnet execution and mainnet Swap flags remain disabled.
+
+## Production verification
+
+- Commit `300c66f` passed Production CI run `32381332282`.
+- Local verification passed 126 API tests and 209 Web tests, type checking, production build, secret scan and both Docker image builds.
+- Vercel Production deployment `3B8sGdocX86uRhyRiMvKQCLGbaBG` serves v2.22.0 on `lightingwallet.com`.
+- GCE release `/opt/lightning-wallet/releases/300c66f` is current; rollback points to `/opt/lightning-wallet/releases/80da41e`.
+- Client, operator, API, security-header, CORS, PostgreSQL, Redis and live SUN.io read-only acceptance checks pass.
+- Anonymous diagnostic writes return 202, unauthenticated aggregate reads return 401, and the production database contains one safe aggregate with two acceptance occurrences.
