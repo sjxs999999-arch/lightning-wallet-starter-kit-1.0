@@ -51,7 +51,7 @@ After both deployments are on the exact approved commit, run the repeatable HTTP
 ./scripts/verify-production.sh
 ```
 
-It checks both domain surfaces, clickjacking policy, the isolated FlashForge path, API/PostgreSQL/Redis readiness, truthful capability/provider status and the two-origin CORS allowlist. Wallet signatures and chain confirmations remain a separate manual acceptance step.
+It checks both domain surfaces, clickjacking policy, the isolated FlashForge path, API/PostgreSQL/Redis readiness, truthful capability/provider status, privacy-safe anonymous diagnostic writes, operator-only diagnostic reads and the two-origin CORS allowlist. Wallet signatures and chain confirmations remain a separate manual acceptance step.
 
 Run the optional live-provider gate separately after a release:
 
@@ -100,5 +100,6 @@ Execution takes a PostgreSQL backup, atomically switches `current`, starts the t
 ## Monitoring
 
 - Scrape `/metrics` with `Authorization: Bearer <METRICS_TOKEN>` through a private monitoring path. Production rejects requests without the dedicated token.
+- Alert on `lightning_client_crash_reports_total` increases and inspect the aggregated, metadata-only reports in the operator Security Center. The API stores no message, stack, wallet identity or secret field and deletes aggregates that have not reappeared for 90 days.
 - Alert on `/health/ready` failures, elevated `lightning_http_errors_total`, container restarts and backup age.
 - Forward JSON container logs to the approved log platform. Authorization headers, cookies and sensitive request fields are redacted.

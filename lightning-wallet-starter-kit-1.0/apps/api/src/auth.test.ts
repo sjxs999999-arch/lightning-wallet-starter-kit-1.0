@@ -43,6 +43,8 @@ describe('operator credentials', () => {
   it('defaults API routes to authenticated and keeps a narrow public allowlist', () => {
     expect(apiRouteRequiresAuth('GET', '/health')).toBe(false);
     expect(apiRouteRequiresAuth('POST', '/api/v1/auth/login')).toBe(false);
+    expect(apiRouteRequiresAuth('POST', '/api/v1/errors/report')).toBe(false);
+    expect(apiRouteRequiresAuth('GET', '/api/v1/errors/reports')).toBe(true);
     expect(apiRouteRequiresAuth('GET', '/api/v1/chains')).toBe(false);
     expect(apiRouteRequiresAuth('GET', '/api/v1/solana/latest-blockhash')).toBe(false);
     expect(apiRouteRequiresAuth('POST', '/api/v1/swap/quotes')).toBe(false);

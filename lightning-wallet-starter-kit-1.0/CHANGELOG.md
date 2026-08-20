@@ -11,6 +11,7 @@ All notable stable Lightning Wallet releases are recorded here.
 - Kept TRON Swap behind the existing mainnet feature flag until an authorized wallet acceptance transaction is completed.
 - Added a bounded post-start Docker health wait so guarded releases do not mistake normal API startup time for a failed deployment and trigger an unnecessary rollback.
 - Added a separate live-provider acceptance gate that exercises the production CSRF-protected SUN.io quote path and strictly rejects malformed, unverified-hook or secret-bearing responses without touching a wallet.
+- Replaced the non-functional external Crash Reporting placeholder with a self-hosted, rate-limited metadata-only crash aggregator, 90-day retention, protected operator reads, Security Center visibility and a dedicated Prometheus counter.
 - Separated the public non-custodial client (`lightingwallet.com`) from the authenticated operator console (`admin.lightingwallet.com`).
 - Added durable browser-local public operation history and authenticated metadata-only operator history.
 - Added revocable HttpOnly operator sessions, optional TOTP, default-deny API authorization and stricter production CSP.

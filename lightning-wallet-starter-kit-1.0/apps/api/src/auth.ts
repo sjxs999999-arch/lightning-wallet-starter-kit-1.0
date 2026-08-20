@@ -63,6 +63,7 @@ const PUBLIC_API_ROUTES = new Set([
   'POST risk/token',
   'POST lp/positions',
   'POST auth/login',
+  'POST errors/report',
   'POST wallets/batch-generate',
   'POST collections/plan',
 ]);

@@ -73,6 +73,25 @@ if fetch swap "$API_ORIGIN/api/v1/swap/status"; then
   jq -e '.data.privateKeyAccepted == false and .data.serverSigning == false and (.data.providers | length == 3)' "$VERIFY_DIR/swap.body" >/dev/null || fail 'Swap provider status is invalid' || true
 fi
 
+diagnostic_status=$(curl --silent --show-error --max-time 20 --output "$VERIFY_DIR/diagnostic.body" --write-out '%{http_code}' \
+  -X POST "$API_ORIGIN/api/v1/errors/report" \
+  -H "Origin: $CLIENT_ORIGIN" \
+  -H 'Content-Type: application/json' \
+  -H 'x-lightning-csrf: 1' \
+  --data '{"name":"AcceptanceProbe","code":"RENDER_FAILURE","route":"/health-acceptance","fingerprint":"222222222222222222222222","release":"2.22.0"}') || diagnostic_status=000
+if [ "$diagnostic_status" = 202 ] && jq -e '.data.accepted == true' "$VERIFY_DIR/diagnostic.body" >/dev/null; then
+  pass 'anonymous metadata-only client diagnostic is accepted'
+else
+  fail "client diagnostic returned HTTP $diagnostic_status" || true
+fi
+
+diagnostic_read_status=$(curl --silent --show-error --max-time 20 --output "$VERIFY_DIR/diagnostic-read.body" --write-out '%{http_code}' "$API_ORIGIN/api/v1/errors/reports?limit=1") || diagnostic_read_status=000
+if [ "$diagnostic_read_status" = 401 ]; then
+  pass 'client diagnostic aggregates remain operator-only'
+else
+  fail "unauthenticated diagnostic read returned HTTP $diagnostic_read_status" || true
+fi
+
 for origin in "$CLIENT_ORIGIN" "$ADMIN_ORIGIN"; do
   name=$(printf '%s' "$origin" | tr -cd 'A-Za-z0-9')
   if curl --silent --show-error --max-time 20 --output /dev/null --dump-header "$VERIFY_DIR/cors-$name.headers" -H "Origin: $origin" "$API_ORIGIN/api/v1/chains"; then
@@ -93,5 +112,6 @@ pass 'client and operator security headers'
 pass 'FlashForge compatibility frame isolation'
 pass 'API, PostgreSQL and Redis readiness'
 pass 'public capability and Swap provider truthfulness'
+pass 'privacy-safe client diagnostic write and operator-only read'
 pass 'client and operator CORS allowlist'
 printf '\nProduction HTTP acceptance passed.\n'

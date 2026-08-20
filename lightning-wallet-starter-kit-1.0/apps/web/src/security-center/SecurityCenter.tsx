@@ -38,6 +38,17 @@ type SecurityOverview = {
   events: AuditEvent[];
 };
 
+type CrashReport = {
+  name: string;
+  code: 'RENDER_FAILURE';
+  route: string;
+  fingerprint: string;
+  release: string;
+  occurrences: number;
+  firstSeen: string;
+  lastSeen: string;
+};
+
 const actionNames: Record<string, string> = {
   'auth.login': '管理员登录',
   'auth.login.failed': '登录失败',
@@ -53,6 +64,7 @@ const actionNames: Record<string, string> = {
 
 export function SecurityCenter() {
   const [data, setData] = useState<SecurityOverview | null>(null);
+  const [crashReports, setCrashReports] = useState<CrashReport[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
@@ -65,8 +77,13 @@ export function SecurityCenter() {
   const load = useCallback(async () => {
     setError('');
     try {
-      const result = await api<{ data: SecurityOverview }>('/security/overview');
-      setData(result.data);
+      const [overview, crashes] = await Promise.allSettled([
+        api<{ data: SecurityOverview }>('/security/overview'),
+        api<{ data: CrashReport[] }>('/errors/reports?limit=20'),
+      ]);
+      if (overview.status === 'rejected') throw overview.reason;
+      setData(overview.value.data);
+      setCrashReports(crashes.status === 'fulfilled' ? crashes.value.data : []);
     } catch {
       setError('安全状态暂时无法读取，请重新登录后重试。');
     }
@@ -163,6 +180,8 @@ export function SecurityCenter() {
       </section>
       <section className="panel audit-panel"><div className="panel-head"><div><p className="eyebrow">AUDIT TRAIL</p><h3>最近审计事件</h3></div><History size={18}/></div>
         <div className="audit-list">{data?.events.length ? data.events.map(event => <div key={event.id}><span className={event.action.includes('failed') ? 'audit-warn' : 'audit-ok'}><ShieldCheck size={15}/></span><div><b>{actionNames[event.action] ?? event.action}</b><small>{event.resource_type} · {event.resource_id || '—'}</small></div><time>{new Date(event.created_at).toLocaleString()}</time></div>) : <p className="muted">暂无审计事件。</p>}</div>
+        <div className="panel-head crash-report-head"><div><p className="eyebrow">CLIENT DIAGNOSTICS</p><h3>匿名客户端崩溃聚合</h3></div><ShieldOff size={18}/></div>
+        <div className="audit-list crash-report-list">{crashReports.length ? crashReports.map(report => <div key={`${report.fingerprint}:${report.release}:${report.route}`}><span className="audit-warn"><ShieldOff size={15}/></span><div><b>{report.name} · {report.route}</b><small>v{report.release} · 指纹 {report.fingerprint} · 首次 {new Date(report.firstSeen).toLocaleString()}</small></div><time>{report.occurrences} 次<br/>{new Date(report.lastSeen).toLocaleString()}</time></div>) : <p className="muted">暂无客户端崩溃报告。</p>}</div>
       </section>
     </div>
   </>;
