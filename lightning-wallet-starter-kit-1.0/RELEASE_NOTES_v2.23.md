@@ -26,3 +26,15 @@ Version 2.23 removes the 0x API key as a required EVM Swap dependency and fixes 
 - Type check, production build, credential scan and API/Web Docker image builds: PASS.
 - Dependency audit: 0 high, 0 critical; 6 moderate transitive advisories have no current upstream fix.
 - A live read-only LI.FI quote returned an executable SushiSwap route with exact allowance, Provider fees and Gas estimate; no wallet, signature or broadcast was requested.
+
+## Production rollout
+
+- Runtime commit: `9a25a62`.
+- Production CI: `32385558905` — PASS.
+- Vercel Production: `AHWpjUQPT4SBxBFgExnTCYUQNj3M` (`https://lightning-wallet-1cmo3xvf9-sjxs999999-archs-projects.vercel.app`) — Ready and current on `lightingwallet.com`.
+- GCE current release: `/opt/lightning-wallet/releases/9a25a62`; rollback release: `/opt/lightning-wallet/releases/300c66f`.
+- PostgreSQL backups retained: `lightning-20260820T152717Z.dump` and `lightning-20260820T152839Z.dump`.
+- Production HTTP acceptance passed for both domains, API/PostgreSQL/Redis readiness, security headers, CORS, diagnostic privacy and provider truthfulness.
+- Production browser acceptance returned a verified LI.FI/SushiSwap Ethereum USDC/WETH quote with minimum output, price impact, Provider fee, estimated Gas and expiry. The protected Preview Dry Run history also survived a browser reload.
+- Live-provider acceptance returned one verified LI.FI route in 1.003703 seconds and three verified SUN.io routes in 0.383144 seconds without wallet access, signing or broadcast.
+- Mainnet transaction and Swap flags remain disabled.

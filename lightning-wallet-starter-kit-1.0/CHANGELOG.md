@@ -69,6 +69,9 @@ All notable stable Lightning Wallet releases are recorded here.
 - Privacy-safe diagnostics candidate `300c66f` passed Production CI run `32381332282`: credential scanning, type checking, 126 API tests, 209 Web tests, production build, dependency gating and both Docker image builds.
 - Vercel Production deployment `3B8sGdocX86uRhyRiMvKQCLGbaBG` and GCE immutable release `300c66f` now serve v2.22.0. GCE rollback points to `80da41e`, and both pre-deploy PostgreSQL backups are retained.
 - Production acceptance passes for client/operator domain routing, API/PostgreSQL/Redis readiness, security headers, CORS, SUN.io read-only quotes and privacy-safe client diagnostics. The aggregate store contains one anonymous fingerprint with two acceptance occurrences; unauthenticated reads are rejected.
+- LI.FI EVM Swap candidate `9a25a62` passed Production CI run `32385558905` with 135 API tests, 211 Web tests, type checking, secret and environment gates, production build, dependency gating and both Docker image builds.
+- Vercel Production deployment `AHWpjUQPT4SBxBFgExnTCYUQNj3M` and GCE immutable release `9a25a62` now serve v2.23.0. GCE rollback points to `300c66f`, and both pre-deploy PostgreSQL backups are retained.
+- Production browser acceptance returned a verified LI.FI/SushiSwap Ethereum USDC/WETH route with minimum output, price impact, Provider fee, estimated Gas and expiry. The live-provider gate also returned one verified LI.FI route and three verified SUN.io routes without wallet access, signing or broadcast.
 
 ### Release gate
 
