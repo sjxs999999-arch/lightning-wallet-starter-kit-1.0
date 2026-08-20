@@ -3,15 +3,10 @@ import { Fuel, RefreshCw, ShieldCheck } from 'lucide-react';
 import { formatEther, ZeroHash } from 'ethers';
 import { ApiError, api } from '../api';
 import { loadLocalGasHistory, saveLocalGasJob } from './local-history';
+import { executeSepoliaTopUp, GasTopUpFailedError } from './topup';
 import type { GasAuditJob, GasEstimate, GasPlan, VipTier } from './types';
 
 const empty = '0x0000000000000000000000000000000000000000';
-type EthereumProvider = { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
-
-function provider(): EthereumProvider | undefined {
-  const root = window as typeof window & { ethereum?: EthereumProvider; okxwallet?: EthereumProvider };
-  return root.okxwallet ?? root.ethereum;
-}
 
 export function GasFree() {
   const [from, setFrom] = useState('');
@@ -85,7 +80,7 @@ export function GasFree() {
       setBusy(false);
       setError('Gas RPC 或审计服务不可用；没有签名、没有广播交易');
     }
-  }, [from, loadHistory, reserve, tier, to, value]);
+  }, [from, reserve, tier, to, value]);
 
   useEffect(() => {
     if (!monitor || !from || !to) return;
@@ -116,23 +111,21 @@ export function GasFree() {
 
   async function topUp() {
     if (!plan || BigInt(plan.topUpWei) <= 0n) return;
-    if (!window.confirm(`确认由当前浏览器钱包向 ${from} 补充 ${formatEther(plan.topUpWei)} Sepolia ETH？钱包将显示最终交易明细。`)) return;
     setBusy(true); setError(''); setNotice('');
     try {
-      const wallet = provider();
-      if (!wallet) throw new Error('未检测到 EVM 钱包');
-      const accounts = await wallet.request({ method: 'eth_requestAccounts' });
-      const account = Array.isArray(accounts) && typeof accounts[0] === 'string' ? accounts[0] : '';
-      if (!account) throw new Error('钱包未授权');
-      const chainId = String(await wallet.request({ method: 'eth_chainId' }));
-      if (chainId.toLowerCase() !== '0xaa36a7') throw new Error('请先将钱包切换到 Sepolia（Chain ID 11155111）');
-      const txHash = String(await wallet.request({ method: 'eth_sendTransaction', params: [{ from: account, to: from, value: `0x${BigInt(plan.topUpWei).toString(16)}` }] }));
-      if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) throw new Error('钱包未返回有效交易哈希');
+      const execution = await executeSepoliaTopUp(from, plan.topUpWei);
       const now = new Date().toISOString();
-      const job: GasAuditJob = { id: `local-${crypto.randomUUID()}`, kind: 'gas-topup', status: 'submitted', payload: { network: 'Sepolia', from: account, to: from, topUpWei: plan.topUpWei, dryRun: false }, result: { txHash, serverSigning: false, serverBroadcast: false, broadcastByWallet: true }, created_at: now, updated_at: now };
+      const job: GasAuditJob = { id: `local-${crypto.randomUUID()}`, kind: 'gas-topup', status: execution.state, payload: { network: 'Sepolia', from: execution.account, to: from, topUpWei: plan.topUpWei, dryRun: false }, result: { txHash: execution.hash, serverSigning: false, serverBroadcast: false, broadcastByWallet: true }, created_at: now, updated_at: now };
       setHistory(saveLocalGasJob(job));
-      setNotice(`补 Gas 交易已由钱包广播：${txHash}`);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '补 Gas 未执行；没有服务器签名'); }
+      setNotice(execution.state === 'confirmed' ? `补 Gas 交易已链上确认：${execution.hash}` : `补 Gas 交易已由钱包广播，但确认 RPC 暂时不可用；请勿重复发送：${execution.hash}`);
+    } catch (cause) {
+      if (cause instanceof GasTopUpFailedError) {
+        const now = new Date().toISOString();
+        const job: GasAuditJob = { id: `local-${crypto.randomUUID()}`, kind: 'gas-topup', status: 'failed', payload: { network: 'Sepolia', to: from, topUpWei: plan.topUpWei, dryRun: false }, result: { txHash: cause.hash, serverSigning: false, serverBroadcast: false, broadcastByWallet: true }, created_at: now, updated_at: now };
+        setHistory(saveLocalGasJob(job));
+      }
+      setError(cause instanceof Error ? cause.message : '补 Gas 未执行；没有服务器签名');
+    }
     finally { setBusy(false); }
   }
 
@@ -182,7 +175,7 @@ export function GasFree() {
 
 function historyLabel(item: GasAuditJob) {
   if (item.kind === 'gas-estimate') return '估算完成 · Dry Run';
-  if (item.kind === 'gas-topup') return item.status === 'submitted' ? '钱包已广播补 Gas' : '补 Gas 未完成';
+  if (item.kind === 'gas-topup') return item.status === 'confirmed' ? '补 Gas 已确认' : item.status === 'submitted' ? '钱包已广播补 Gas' : '补 Gas 未完成';
   return item.result.eligible ? 'Sponsor 合格 · Dry Run' : `Sponsor 未通过 · ${item.result.reason ?? 'POLICY_REJECTED'}`;
 }
 
