@@ -3,11 +3,10 @@ import { Buffer } from 'buffer';
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
 import artifact from './artifacts/LightningFixedSupplyToken.json';
 import tronArtifact from './artifacts/LightningFixedSupplyToken.tron.json';
-import { getSolanaProvider } from '../batch-transfer/executor';
+import { getSolanaProvider, resolveEvmProvider } from '../batch-transfer/executor';
 import { isMainnetLaunchNetwork, launchNetworkMatchesChain } from './types';
 import type { LaunchDraft, LaunchNetwork } from './types';
 
-type RequestProvider = { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
 type TronWeb = {
   defaultAddress?: { base58?: string };
   fullNode?: { host?: string };
@@ -69,20 +68,13 @@ const unitAmount = (draft: LaunchDraft) => {
   if (!Number.isInteger(draft.decimals) || draft.decimals < 0 || draft.decimals > maximumDecimals) throw new Error(`Decimals 必须是 0-${maximumDecimals} 的整数`);
   return BigInt(draft.supply) * 10n ** BigInt(draft.decimals);
 };
-const evmProvider = () => {
-  const root = window as typeof window & { okxwallet?: RequestProvider; rabby?: RequestProvider; ethereum?: RequestProvider };
-  return root.okxwallet ?? root.rabby ?? root.ethereum;
-};
 const deployArguments = (draft: LaunchDraft) => [draft.name, draft.symbol, draft.decimals, unitAmount(draft)] as const;
 
 async function requireEvm(draft: LaunchDraft) {
   if (draft.chain !== 'EVM' || !launchNetworkMatchesChain('EVM', draft.network)) throw new Error('EVM Launchpad 网络无效');
   assertMainnetLaunchpadEnabled(draft.network);
   const network = EVM_NETWORKS[draft.network as keyof typeof EVM_NETWORKS];
-  const provider = evmProvider();
-  if (!provider) throw new Error('未检测到 MetaMask、OKX Wallet 或 Rabby');
-  const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
-  if (!accounts[0] || !isAddress(accounts[0])) throw new Error('EVM 钱包未返回有效活动账户');
+  const { provider, address } = await resolveEvmProvider();
   const expectedChainId = `0x${network.chainId.toString(16)}`;
   let chainId = String(await provider.request({ method: 'eth_chainId' })).toLowerCase();
   if (chainId !== expectedChainId) {
@@ -90,7 +82,9 @@ async function requireEvm(draft: LaunchDraft) {
     chainId = String(await provider.request({ method: 'eth_chainId' })).toLowerCase();
   }
   if (chainId !== expectedChainId) throw new Error(`钱包没有切换到 ${network.label}，已停止部署`);
-  return { provider, address: getAddress(accounts[0]), network };
+  const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
+  if (!accounts.some(account => isAddress(account) && account.toLowerCase() === address.toLowerCase())) throw new Error('切换网络后活动账户发生变化，已停止部署');
+  return { provider, address: getAddress(address), network };
 }
 
 async function prepareEvm(draft: LaunchDraft): Promise<DeploymentEstimate> {

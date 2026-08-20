@@ -5,7 +5,7 @@ const EVM_TESTNETS = new Set(['0xaa36a7']);
 const TRON_MAINNET_HOSTS = new Set(['api.trongrid.io']);
 const TRON_TESTNET_HOSTS = new Set(['nile.trongrid.io', 'api.nileex.io', 'api.shasta.trongrid.io']);
 const SOLANA_GENESIS: Record<string, string> = {
-  'mainnet-beta': '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+  'mainnet-beta': '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',
   devnet: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG',
   testnet: '4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY',
 };

@@ -50,8 +50,14 @@ function responseCode(value: unknown) {
   return value !== null && typeof value === 'object' && 'code' in value ? Number((value as { code?: unknown }).code) : undefined;
 }
 
-export async function connectInjectedTron(root: TronWindow = window as TronWindow) {
-  const provider = root.tron ?? root.okxwallet?.tronLink ?? root.tronLink;
+export async function connectInjectedTron(expectedAddress?: string, root: TronWindow = window as TronWindow) {
+  const injected: (InjectedTronProvider | undefined)[] = [root.tron as InjectedTronProvider | undefined, root.okxwallet?.tronLink, root.tronLink as InjectedTronProvider | undefined];
+  const candidates = injected.filter((provider, index, all): provider is InjectedTronProvider => provider !== undefined && all.indexOf(provider) === index);
+  const provider = expectedAddress
+    ? candidates.find(candidate => candidate.tronWeb && candidate.tronWeb.defaultAddress?.base58 === expectedAddress)
+    : candidates.find(candidate => candidate.tronWeb && candidate.tronWeb.defaultAddress?.base58) ?? candidates[0];
+  const standaloneMatches = Boolean(expectedAddress && root.tronWeb?.defaultAddress?.base58 === expectedAddress);
+  if (expectedAddress && !provider && !standaloneMatches) throw new Error('存在多个 TRON 钱包，但没有已连接且匹配报价 taker 的账户');
   if (provider) {
     const method = provider === root.tron ? 'eth_requestAccounts' : 'tron_requestAccounts';
     const result = await provider.request({ method });
@@ -59,7 +65,7 @@ export async function connectInjectedTron(root: TronWindow = window as TronWindo
     if (code === 4001) throw new Error('用户拒绝连接 TRON 钱包');
     if (code !== undefined && code !== 200) throw new Error('TRON 钱包连接失败');
   }
-  const tronWeb = provider?.tronWeb || root.tronWeb;
+  const tronWeb = provider?.tronWeb || (!expectedAddress || root.tronWeb?.defaultAddress?.base58 === expectedAddress ? root.tronWeb : undefined);
   if (!tronWeb || !tronWeb.defaultAddress?.base58) throw new Error('未检测到已授权的 TronLink 或 OKX Wallet');
   return { provider, tronWeb, address: tronWeb.defaultAddress.base58 };
 }

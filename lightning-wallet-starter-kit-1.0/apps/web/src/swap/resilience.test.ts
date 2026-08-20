@@ -1,13 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { confirmedWalletAction } from './guard';
 import { fetchQuotes } from './quote';
+import { executeSwap } from './executor';
 import type { SwapRequest } from './types';
 
 const request: SwapRequest = { chain: 'SOL', sellToken: 'a', buyToken: 'b', sellAmount: '1', taker: '11111111111111111111111111111111', slippageBps: 50 };
 const response = { data: [{ provider: 'test', amountIn: '1', amountOut: '2', minReceived: '1', priceImpactPct: 0, route: [], raw: {} }] };
 
 describe('swap resilience', () => {
-  beforeEach(() => vi.unstubAllGlobals());
+  beforeEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+  it('rejects before wallet access while either mainnet Swap gate is closed', async () => {
+    vi.stubEnv('VITE_MAINNET_EXECUTION_ENABLED', 'true');
+    vi.stubEnv('VITE_ENABLE_MAINNET_SWAP', 'false');
+    await expect(executeSwap(request, response.data[0]!)).rejects.toThrow(/双重生产开关/);
+  });
   it('does not broadcast when the user rejects wallet signature', async () => {
     const broadcast = vi.fn(async () => 'hash');
     await expect(confirmedWalletAction(() => false, broadcast)).rejects.toThrow('用户取消');

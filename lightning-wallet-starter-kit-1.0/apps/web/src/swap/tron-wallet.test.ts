@@ -23,6 +23,23 @@ describe('injected SUN.io wallet boundary', () => {
     expect(request).toHaveBeenCalledWith({ method: 'eth_requestAccounts' });
   });
 
+  it('selects the connected TRON provider whose public address matches the quote taker', async () => {
+    const wrong = tronWeb({ defaultAddress: { base58: 'TWrongWallet' } });
+    const expected = tronWeb({ defaultAddress: { base58: 'TExpectedWallet' } });
+    const wrongRequest = vi.fn(async () => ({ code: 200 }));
+    const expectedRequest = vi.fn(async () => ({ code: 200 }));
+    Object.assign(window, { tron: { request: wrongRequest, tronWeb: wrong }, okxwallet: { tronLink: { request: expectedRequest, tronWeb: expected } } });
+    await expect(connectInjectedTron('TExpectedWallet')).resolves.toMatchObject({ tronWeb: expected, address: 'TExpectedWallet' });
+    expect(wrongRequest).not.toHaveBeenCalled();
+    expect(expectedRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps compatibility with a matching standalone TronWeb injection', async () => {
+    const injected = tronWeb({ defaultAddress: { base58: 'TStandaloneWallet' } });
+    Object.assign(window, { tronWeb: injected });
+    await expect(connectInjectedTron('TStandaloneWallet')).resolves.toMatchObject({ tronWeb: injected, address: 'TStandaloneWallet' });
+  });
+
   it('fails closed on testnet or an unverifiable RPC host', async () => {
     await expect(assertTronMainnet(tronWeb({ fullNode: { host: 'https://nile.trongrid.io' } }))).rejects.toThrow('Mainnet');
     await expect(assertTronMainnet(tronWeb({ fullNode: { host: 'https://rpc.unknown.example' } }))).rejects.toThrow('无法验证');

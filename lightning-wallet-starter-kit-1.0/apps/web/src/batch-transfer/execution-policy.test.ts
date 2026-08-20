@@ -33,6 +33,8 @@ describe('production execution policy', () => {
 
   it('attests the complete Solana genesis before signing', async () => {
     await expect(assertSolanaRpcNetwork({ getGenesisHash: async () => 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG' }, 'devnet')).resolves.toBeUndefined();
+    await expect(assertSolanaRpcNetwork({ getGenesisHash: async () => '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d' }, 'mainnet-beta')).resolves.toBeUndefined();
+    await expect(assertSolanaRpcNetwork({ getGenesisHash: async () => '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' }, 'mainnet-beta')).rejects.toThrow(/Genesis/);
     await expect(assertSolanaRpcNetwork({ getGenesisHash: async () => '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' }, 'devnet')).rejects.toThrow(/Genesis/);
   });
 });

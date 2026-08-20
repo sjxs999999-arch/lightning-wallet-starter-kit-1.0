@@ -36,7 +36,7 @@ describe('Solana batch transaction construction', () => {
     const owner = Keypair.generate().publicKey;
     const signAllTransactions = vi.fn();
     Object.defineProperty(globalThis, 'window', { configurable: true, value: { solana: { publicKey: { toString: () => owner.toBase58() }, signAndSendTransaction: vi.fn(), signAllTransactions } } });
-    const connection = { getGenesisHash: vi.fn().mockResolvedValue('5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp') } as unknown as import('@solana/web3.js').Connection;
+    const connection = { getGenesisHash: vi.fn().mockResolvedValue('5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d') } as unknown as import('@solana/web3.js').Connection;
     await expect(executeSolanaBatch([{ ...task(0), from: owner.toBase58() }], { connection })).rejects.toThrow(/Genesis/);
     expect(signAllTransactions).not.toHaveBeenCalled();
   });
