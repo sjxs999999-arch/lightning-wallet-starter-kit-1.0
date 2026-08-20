@@ -7,7 +7,7 @@ Updated: 2026-08-20
 - Development branch: `codex/final-production`
 - Latest deployed candidate commit: `5258b12`
 - Current code candidate version: `2.20.0`
-- Current code candidate commit: `01a7dc1`
+- Current code candidate commit: `175caff`
 - Latest deployed application version: `2.20.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
@@ -47,6 +47,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - RFC 6238 TOTP enrollment, confirmation, one-time recovery codes and verified disable flow are implemented; activation still requires the operator to complete enrollment in the Security Center.
 - Structured logs redact credentials, tokens, cookies and wallet secret fields.
 - PostgreSQL backup, guarded restore, readiness checks and rollback release layout are included.
+- Guarded rollback defaults to a non-mutating plan, requires exact release confirmation for execution, backs up PostgreSQL, atomically switches releases and automatically restores the original release when deployment verification fails.
 - Production deploys now run a fail-closed environment gate before Docker build; placeholder credentials, unsafe origins, invalid MFA/WalletConnect values and premature mainnet flags are rejected without printing secret values.
 - CI runs the production environment gate, type checking, tests, production build and Docker image builds.
 
@@ -62,10 +63,12 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Candidate `5258b12` passed Production CI run `32347721319`, including credential scan, type check, 117 API tests, 200 Web tests, production build, production dependency gate and both Docker images.
 - Operations-hardening candidate `5be4e2e` passed Production CI run `32349813299`, including production environment-gate tests, credential scan, type check, 117 API tests, 200 Web tests, production build, dependency gate and both Docker images.
 - Provider-approval preflight fix `01a7dc1` passed Production CI run `32350485348`, including the environment gate, credential scan, type check, 117 API tests, 200 Web tests, production build, dependency gate and both Docker images.
+- Guarded rollback candidate `175caff` passed Production CI run `32351059019`, including rollback-planner tests, environment-gate tests, credential scan, type check, 117 API tests, 200 Web tests, production build, dependency gate and both Docker images.
 - Vercel Production deployment `HRZfYMQyjxDNjEdB3VWh1cKAvnGf` for candidate `5258b12`: ready; client and operator domains serve v2.20.0 with zero browser-console errors and enforce hostname route isolation.
 - GCE API release `5258b12`: healthy; PostgreSQL and Redis readiness pass. Rollback points to release `184c5ea`, and pre-deploy backup `lightning-20260820T081545Z.dump` is retained.
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
 - The protected GCE environment passes the non-strict production preflight with mainnet execution and mainnet Swap disabled. The strict gate correctly remains closed for the unconfigured external providers and real Flash Loan application.
+- The production rollback Dry Run resolved current release `5258b12`, target release `184c5ea` and the protected backup directory, and passed Compose preflight without changing links, containers or database state.
 - Production dependency audit: 0 critical, 0 high, 3 moderate transitive Solana/Jayson/UUID advisories. No unsafe downgrade is applied.
 
 ## Required before final approval
