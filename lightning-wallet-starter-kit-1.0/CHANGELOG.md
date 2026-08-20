@@ -74,6 +74,8 @@ All notable stable Lightning Wallet releases are recorded here.
 ### Production verification
 
 - Wallet Center candidate `a5c2b60` passes 159 API tests, 272 Web tests, type checking, lint, credential/environment/rollback gates, production build and both local Docker image builds. Browser route, provider-tab, refresh and Batch Transfer handoff checks pass without wallet access, signing or broadcasting.
+- Candidate head `416a3d9` passed Production CI run `32406199136`, including both Docker image builds and the high/critical dependency gate.
+- Vercel Production deployment `dpl_AWnDMQiHDcn6LyaGnopUwMNiyPoP` and GCE immutable release `a5c2b60` now serve v2.30.0. GCE rollback points to `0ee87a7`; backup `lightning-20260820T190648Z.dump` is retained. Production Wallet Center, operator login, HTTP, capability and read-only SUN.io/LI.FI acceptance pass without wallet access, signing or broadcasting.
 - Earlier code candidate `c670e31` passed Production CI run `32294819780`: secret scan, type check, 113 API tests, 199 Web tests, production build, high/critical dependency gate and both Docker image builds.
 - Compatibility fix `111d279` passed Production CI run `32295696283`: credential scan, type check, 117 API tests, 199 Web tests, production build, production dependency gate and both Docker image builds.
 - Candidate commit `184c5ea` passed 113 API tests, 192 Web tests, type checking, production build, CI, secret scanning, dependency gating and both Docker image builds.

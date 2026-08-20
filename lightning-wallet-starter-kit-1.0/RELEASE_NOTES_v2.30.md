@@ -30,6 +30,10 @@ Version 2.30 restores the missing everyday Wallet Center without replacing the v
 - Production dependency audit: 0 critical, 0 high and 6 moderate transitive advisories with no compatible fix currently available.
 - Local browser acceptance: Wallet Center route, provider tab, refresh and Wallet Center-to-Batch Transfer handoff PASS with zero console errors and no white screen.
 - No wallet connection, signature or transaction broadcast was requested during automated acceptance.
+- Production CI: run `32406199136` PASS for head `416a3d9`.
+- Vercel Production: `dpl_AWnDMQiHDcn6LyaGnopUwMNiyPoP` READY at `https://lightning-wallet-doqbm8xxd-sjxs999999-archs-projects.vercel.app` and aliased to both production domains.
+- GCE current release: `/opt/lightning-wallet/releases/a5c2b60`; rollback: `/opt/lightning-wallet/releases/0ee87a7`; backup: `lightning-20260820T190648Z.dump`.
+- Post-rollout live read-only acceptance returned three verified SUN.io routes in 0.512999 seconds and one verified LI.FI route in 0.825325 seconds without wallet access, signing or broadcasting.
 
 ## Remaining final gates
 
