@@ -52,9 +52,12 @@ All notable stable Lightning Wallet releases are recorded here.
 - Guarded rollback candidate `175caff` passed Production CI run `32351059019`: rollback-planner tests, environment-gate tests, credential scan, type check, 117 API tests, 200 Web tests, production build, dependency gate and both Docker image builds; the production `5258b12` → `184c5ea` Dry Run passed without state changes.
 - MFA QR candidate `94c2b99` passed Production CI run `32372450835`: environment gate, rollback tests, credential scan, type check, 117 API tests, 202 Web tests, production build, dependency gate and both Docker image builds.
 - SUN.io candidate `91397dd` passed local verification: 122 API tests, 209 Web tests, type check, default and mainnet-enabled web builds, production dependency gate, secret scan and both Docker image builds. A live read-only TRX/USDT quote returned three verified routes and the selected no-hook V4 route produced calldata without wallet access or broadcast.
-- Version `2.20.0` web candidate `94c2b99` is deployed to Vercel Production deployment `Dg4UXgYYkYfexSgPRgaonTm7yx25`; the API remains on exact GCE release `5258b12` because this change is browser-only.
-- Release `184c5ea` remains the server rollback point; database backup `lightning-20260820T081545Z.dump` was created before the deployment.
-- Production HTTP acceptance, API/PostgreSQL/Redis readiness, metrics authorization, host routing, CORS and zero-console-error browser checks pass on v2.20.0; the deployed Security Center resource contains the local Authenticator QR implementation.
+- SUN.io candidate `91397dd` passed Production CI run `32376052339`; deployment-readiness fix `6bb8ddb` passed Production CI run `32377723421`, each including credential scanning, type checking, 122 API tests, 209 Web tests, production build, dependency gating and both Docker image builds.
+- Version `2.21.0` candidate `6bb8ddb` is deployed to Vercel Production deployment `bbMhTpsFoAHHrcX7MwqMLRQr8BC7` and GCE release `/opt/lightning-wallet/releases/6bb8ddb`.
+- Release `46c91aa` is the current server rollback point; database backup `lightning-20260820T135139Z.dump` was created before the v2.21 rollout.
+- A production read-only TRX/USDT request returned HTTP 200 with three strictly validated SUN.io mainnet routes; no wallet, signature or broadcast was requested.
+- Production HTTP acceptance, API/PostgreSQL/Redis readiness, host routing, CORS, zero-console-error browser checks and the `6bb8ddb` to `46c91aa` rollback Dry Run pass on v2.21.0.
+- The initial v2.21 guarded rollout exposed a normal-startup readiness race in the acceptance step. No data was lost; `6bb8ddb` adds a bounded Docker health wait before external verification or rollback decisions.
 - The production MFA encryption key and database schema are configured, while enrollment remains intentionally inactive until the operator confirms a live Authenticator code.
 
 ### Release gate
