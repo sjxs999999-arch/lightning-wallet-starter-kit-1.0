@@ -5,11 +5,11 @@ Updated: 2026-08-21
 ## Candidate baseline
 
 - Development branch: `codex/final-production`
-- Latest deployed web candidate commit: `f731e3f`
-- Current GCE API release commit: `f731e3f`
-- Current code candidate version: `2.28.0`
-- Current code candidate commit: `f731e3f`
-- Latest deployed application version: `2.28.0`
+- Latest deployed web candidate commit: `0ee87a7`
+- Current GCE API release commit: `0ee87a7`
+- Current code candidate version: `2.29.0`
+- Current code candidate commit: `0ee87a7`
+- Latest deployed application version: `2.29.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -22,7 +22,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 | Module | Implementation | Current production gate |
 |---|---|---|
-| Client/operator domain split | Complete | Web candidate `72e3a05` is deployed; host routing and no-white-screen browser checks pass |
+| Client/operator domain split | Complete | Web candidate `0ee87a7` is deployed; host routing and no-white-screen browser checks pass |
 | Wallet providers | MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare, TronLink | Exact testnet/network/account and confirmed-receipt gates are deployed; final manual extension signing acceptance remains |
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
 | Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, retry, matching authorized-provider sender grouping and wallet signing | Exact Solana genesis/TRON host gates and per-call EIP-5792 receipts are deployed; mainnet feature flag is off pending chain-specific acceptance |
@@ -57,8 +57,8 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 ## Current verification baseline
 
-- API tests: 156 passing across 32 files.
-- Web tests: 259 passing across 62 files for the current code candidate.
+- API tests: 159 passing across 33 files.
+- Web tests: 262 passing across 64 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
 - CI for candidate `184c5ea` (run `32289956843`): passing, including secret scan, type check, tests, production build, dependency gate and both Docker images.
@@ -98,6 +98,9 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Batch Trade/GasFree hardening candidate `f731e3f` passed Production CI run `32399958061`, including credential, environment, rollback and provider gates, type checking, 156 API tests, 259 Web tests, production build, dependency gating and both Docker image builds.
 - Vercel Production deployment `dpl_oFwjke4cDrrV97dcMvVd5YJwynDD` (`https://lightning-wallet-3z0t8cdt0-sjxs999999-archs-projects.vercel.app`) and GCE immutable release `f731e3f` serve v2.28.0. GCE rollback points to `72e3a05`, and backup `lightning-20260820T180113Z.dump` is retained.
 - Production Batch Trade/GasFree browser acceptance verified v2.28.0, mainnet-off/Dry-Run state, refresh without a white screen and zero console errors. Post-rollout verification returned three SUN.io routes in 0.597616 seconds and one LI.FI route in 0.736660 seconds without wallet access, signing or broadcast.
+- Fail-closed readiness candidate `0ee87a7` passed Production CI run `32402823270`, including credential, environment, rollback and provider gates, type checking, 159 API tests, 262 Web tests, production build, high/critical dependency gating and both Docker image builds.
+- Vercel Production deployment `dpl_HCMLSg91z8aiFV8MrchtzdrRHMQR` (`https://lightning-wallet-dwkryvccb-sjxs999999-archs-projects.vercel.app`) and GCE immutable release `0ee87a7` serve v2.29.0. GCE rollback points to `f731e3f`, and backup `lightning-20260820T183054Z.dump` is retained.
+- Production capability, browser route/reload, HTTP and read-only SUN.io/LI.FI acceptance pass. Final approval remains closed on exactly five external-provider blockers, authorized wallet acceptance and disabled mainnet gates.
 - The first guarded v2.21 rollout exposed an API-startup readiness race in external acceptance. No data was lost; containers became healthy, the production links were corrected, and `6bb8ddb` now waits for Docker health before acceptance or rollback decisions.
 - Production HTTP acceptance: passing across client, operator, API, security headers, provider truthfulness and CORS.
 - The protected GCE environment passes the non-strict production preflight with mainnet execution, mainnet Swap, mainnet Launchpad and mainnet Bridge disabled. The strict gate correctly remains closed on exactly five external prerequisites: WalletConnect Project ID, Paymaster, holder-data provider, real Flash Loan application/API and Automation delivery configuration.

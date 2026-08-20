@@ -6,6 +6,10 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Added a truthful production-readiness contract shared by Fastify and the Vercel fallback, with exactly five external-provider blockers, a separate wallet-acceptance gate and explicit mainnet feature states.
+- Made the public capability route authentication-free and removed the stale fallback response that incorrectly marked Flash Loan, GasFree, Swap and other gated modules as ready.
+- Added visible final-readiness status to the client and operator settings plus an executable gate that fails until every provider, wallet acceptance and mainnet switch is complete.
+- Added `FINAL_WALLET_ACCEPTANCE_APPROVED` to production preflight; any mainnet switch now fails closed until the signed acceptance checklist has been explicitly approved.
 - Hardened Solana Batch Trade with the same double mainnet gate, sender-aware wallet selection, exact Mainnet genesis, transaction-payer validation and confirmed/submitted/failed receipt semantics used by the core execution modules.
 - Hardened GasFree Sepolia top-up with sender-aware EVM provider discovery, exact-chain/account revalidation, pre-signature Gas estimation and exact successful/submitted/failed receipt persistence.
 - Reused sender-aware wallet discovery in Swap, Bridge and Launchpad so an unrelated installed OKX/MetaMask/Phantom/TronLink provider is no longer selected ahead of the already-authorized public sender.
@@ -98,6 +102,8 @@ All notable stable Lightning Wallet releases are recorded here.
 - Vercel Production deployment `dpl_QgMnQ2qBZ9nPXadSeeh2h9v6zdXs` and GCE immutable release `72e3a05` now serve v2.27.0. GCE rollback points to `2f63ccd`; backup `lightning-20260820T173114Z.dump` is retained. Browser route/reload checks, HTTP acceptance and read-only SUN.io/LI.FI provider verification pass without wallet access, signing or broadcasting.
 - Batch Trade/GasFree hardening candidate `f731e3f` passed Production CI run `32399958061` with 156 API tests, 259 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build, dependency gating and both Docker image builds.
 - Vercel Production deployment `dpl_oFwjke4cDrrV97dcMvVd5YJwynDD` and GCE immutable release `f731e3f` now serve v2.28.0. GCE rollback points to `72e3a05`; backup `lightning-20260820T180113Z.dump` is retained. Batch Trade/GasFree route/reload checks, HTTP acceptance and read-only SUN.io/LI.FI provider verification pass without wallet access, signing or broadcasting.
+- Fail-closed readiness candidate `0ee87a7` passed Production CI run `32402823270` with 159 API tests, 262 Web tests, credential/environment/rollback/provider gates, type checking, production build, high/critical dependency gating and both Docker image builds.
+- Vercel Production deployment `dpl_HCMLSg91z8aiFV8MrchtzdrRHMQR` and GCE immutable release `0ee87a7` now serve v2.29.0. GCE rollback points to `f731e3f`; backup `lightning-20260820T183054Z.dump` is retained. HTTP, browser route/reload and read-only provider acceptance pass while the final gate truthfully remains closed.
 
 ### Release gate
 
