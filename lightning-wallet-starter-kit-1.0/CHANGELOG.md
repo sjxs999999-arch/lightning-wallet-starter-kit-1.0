@@ -9,6 +9,7 @@ All notable stable Lightning Wallet releases are recorded here.
 - Integrated the official SUN.io Smart Router for TRON mainnet quotes and client-only TronLink/OKX execution without a private-key or server-signing path.
 - Added exact TRC-20 Permit2 allowance handling, local typed-data signatures, verified no-hook V4 route support, strict route revalidation and confirmed transaction receipts.
 - Kept TRON Swap behind the existing mainnet feature flag until an authorized wallet acceptance transaction is completed.
+- Added a bounded post-start Docker health wait so guarded releases do not mistake normal API startup time for a failed deployment and trigger an unnecessary rollback.
 - Separated the public non-custodial client (`lightingwallet.com`) from the authenticated operator console (`admin.lightingwallet.com`).
 - Added durable browser-local public operation history and authenticated metadata-only operator history.
 - Added revocable HttpOnly operator sessions, optional TOTP, default-deny API authorization and stricter production CSP.

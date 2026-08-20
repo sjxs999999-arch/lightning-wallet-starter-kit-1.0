@@ -3,7 +3,13 @@ set -eu
 PRODUCTION_ENV_FILE=${PRODUCTION_ENV_FILE:-.env.production}
 COMPOSE_FILE=${COMPOSE_FILE:-docker-compose.production.yml}
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-lightning-wallet}
+DEPLOY_WAIT_SECONDS=${DEPLOY_WAIT_SECONDS:-150}
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+case "$DEPLOY_WAIT_SECONDS" in
+  ''|*[!0-9]*) echo 'DEPLOY_WAIT_SECONDS must be a positive integer.' >&2; exit 2 ;;
+esac
+test "$DEPLOY_WAIT_SECONDS" -gt 0 || { echo 'DEPLOY_WAIT_SECONDS must be greater than zero.' >&2; exit 2; }
 
 test -f "$PRODUCTION_ENV_FILE" || { echo "Missing $PRODUCTION_ENV_FILE. Copy .env.production.example and configure secrets first." >&2; exit 1; }
 
@@ -30,3 +36,27 @@ docker compose --env-file "$PRODUCTION_ENV_FILE" -p "$COMPOSE_PROJECT_NAME" -f "
 docker compose --env-file "$PRODUCTION_ENV_FILE" -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" build
 docker compose --env-file "$PRODUCTION_ENV_FILE" -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" up -d
 docker compose --env-file "$PRODUCTION_ENV_FILE" -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" ps
+
+started_at=$(date +%s)
+while :; do
+  all_healthy=true
+  for service in api web; do
+    container_id=$(docker compose --env-file "$PRODUCTION_ENV_FILE" -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" ps -q "$service")
+    if [ -z "$container_id" ]; then
+      all_healthy=false
+      continue
+    fi
+    health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id" 2>/dev/null || true)
+    [ "$health" = healthy ] || all_healthy=false
+  done
+  [ "$all_healthy" = true ] && break
+  elapsed=$(( $(date +%s) - started_at ))
+  if [ "$elapsed" -ge "$DEPLOY_WAIT_SECONDS" ]; then
+    echo "Deployment health wait timed out after ${elapsed}s." >&2
+    docker compose --env-file "$PRODUCTION_ENV_FILE" -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" ps >&2
+    exit 1
+  fi
+  sleep 2
+done
+
+echo 'Deployment containers are healthy.'

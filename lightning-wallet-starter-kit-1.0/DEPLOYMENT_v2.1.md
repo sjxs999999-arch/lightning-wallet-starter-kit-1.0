@@ -37,6 +37,8 @@ STRICT_EXTERNAL_PROVIDERS=true PRODUCTION_ENV_FILE=.env.production ./scripts/che
 
 The deploy command fails before Docker build when the target filesystem has less than 8 GiB available. If it stops on this preflight, inspect `docker system df` and remove only unused build cache or dangling images after confirming that running containers and volumes are not targeted. Override the threshold only with an explicit reviewed value such as `MIN_DEPLOY_DISK_KB=10485760`.
 
+After containers start, deployment waits up to 150 seconds for both API and Web Docker healthchecks before running external acceptance. `DEPLOY_WAIT_SECONDS` may be increased for a reviewed slow host, but must never be set to zero to bypass readiness.
+
 The deploy script uses the fixed `lightning-wallet` Compose project and stops before rebuilding if the production environment gate fails or if the configured TLS certificate is missing or does not cover `DOMAIN`.
 
 Verify `https://api.lightingwallet.com/health`, `/health/ready` and `/metrics`. The readiness endpoint must report PostgreSQL and Redis as `ok` before traffic is accepted.
