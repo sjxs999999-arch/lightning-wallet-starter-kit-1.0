@@ -6,6 +6,8 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Hardened Solana Batch Trade with the same double mainnet gate, sender-aware wallet selection, exact Mainnet genesis, transaction-payer validation and confirmed/submitted/failed receipt semantics used by the core execution modules.
+- Hardened GasFree Sepolia top-up with sender-aware EVM provider discovery, exact-chain/account revalidation, pre-signature Gas estimation and exact successful/submitted/failed receipt persistence.
 - Reused sender-aware wallet discovery in Swap, Bridge and Launchpad so an unrelated installed OKX/MetaMask/Phantom/TronLink provider is no longer selected ahead of the already-authorized public sender.
 - Added exact switched-chain revalidation, full Solana Mainnet genesis attestation and confirmed EVM/Solana receipt checks to Swap and Bridge execution; failed or ambiguous receipts cannot be reported as successful.
 - Added an independent `VITE_ENABLE_MAINNET_BRIDGE` gate and made Swap require both its feature gate and the global mainnet gate. Production preflight rejects every partially enabled mainnet feature combination.
@@ -94,6 +96,8 @@ All notable stable Lightning Wallet releases are recorded here.
 - Vercel Production deployment `4mh4js9UxuQuUTAY3ofFKqfethFY` and GCE immutable release `2f63ccd` now serve v2.26.0. GCE rollback points to `81fbe4f`; backup `lightning-20260820T165736Z.dump` is retained. Batch Transfer/Asset Collector rendering, default Dry Run, refresh and read-only provider verification pass without wallet access, signing or broadcast.
 - Swap/Bridge hardening candidate `72e3a05` passed Production CI run `32396930066` with 156 API tests, 245 Web tests, type checking, secret/environment/rollback/provider gates, production build, production dependency gating and both Docker image builds.
 - Vercel Production deployment `dpl_QgMnQ2qBZ9nPXadSeeh2h9v6zdXs` and GCE immutable release `72e3a05` now serve v2.27.0. GCE rollback points to `2f63ccd`; backup `lightning-20260820T173114Z.dump` is retained. Browser route/reload checks, HTTP acceptance and read-only SUN.io/LI.FI provider verification pass without wallet access, signing or broadcasting.
+- Batch Trade/GasFree hardening candidate `f731e3f` passed Production CI run `32399958061` with 156 API tests, 259 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build, dependency gating and both Docker image builds.
+- Vercel Production deployment `dpl_oFwjke4cDrrV97dcMvVd5YJwynDD` and GCE immutable release `f731e3f` now serve v2.28.0. GCE rollback points to `72e3a05`; backup `lightning-20260820T180113Z.dump` is retained. Batch Trade/GasFree route/reload checks, HTTP acceptance and read-only SUN.io/LI.FI provider verification pass without wallet access, signing or broadcasting.
 
 ### Release gate
 

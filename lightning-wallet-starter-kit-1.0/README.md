@@ -18,10 +18,11 @@ This branch is a production candidate, not a final mainnet approval. The truthfu
 - Wallet Center exposes MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink across the applicable testnet adapters, with exact network/account revalidation and confirmed-receipt checks before recording success.
 - Batch Transfer and Asset Collector have wallet-signed execution paths but still require final wallet-by-wallet acceptance on each supported mainnet.
 - Batch Transfer and Asset Collector match the intended sender against already-authorized public accounts, attest Solana genesis and exact TRON RPC hosts before signing, and never promote incomplete EIP-5792 receipts to confirmed success.
+- Solana Batch Trade requires the global and Swap-specific mainnet gates, attests the exact Mainnet genesis, matches the injected wallet and serialized transaction payer, and distinguishes confirmed, submitted and failed broadcasts.
 - EVM Swap uses LI.FI same-chain aggregation by default, with optional 0x comparison; Solana uses Jupiter and TRON uses the official SUN.io Smart Router. Provider data, intended sender, exact network and confirmed receipt are revalidated, and every real transaction remains wallet-signed.
 - Bridge route comparison is read-only by default. Real EVM/Solana Bridge execution additionally requires both the global mainnet switch and the independent Bridge switch; both remain off.
 - Flash Loan currently provides only a safe Sepolia compatibility shell because the referenced historical repository does not contain a completed application.
-- GasFree requires an approved Paymaster provider for sponsored transactions.
+- GasFree top-up is Sepolia-only with sender-aware wallet selection and exact chain/account/Gas/receipt checks; sponsored transactions still require an approved Paymaster provider.
 - Launchpad builds fixed-supply deployments in the client for Sepolia, Ethereum, BSC, Polygon, Base, Arbitrum, Solana Devnet/Mainnet and TRON Nile/Shasta/Mainnet. Mainnet Launchpad requires both the global mainnet switch and its independent release switch; both remain off pending real-wallet acceptance.
 - Mainnet execution flags remain off by default.
 
