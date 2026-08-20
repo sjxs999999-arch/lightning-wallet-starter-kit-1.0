@@ -1,9 +1,10 @@
 import { Interface, parseEther, parseUnits } from 'ethers';
+import { resolveEvmProvider } from './executor';
 import { assertExecutionPolicy } from './execution-policy';
 import type { TransferTask } from './types';
 
 type Provider = { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
-export type EvmBatchResult = { index: number; hash: string; state: 'submitted' | 'confirmed' };
+export type EvmBatchResult = { index: number; hash: string; state: 'submitted' | 'confirmed' | 'failed'; error?: string };
 
 const sleep = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
 
@@ -16,17 +17,14 @@ export function buildEvmCalls(tasks: TransferTask[]) {
   } : { to: task.to, value: `0x${parseEther(task.amount).toString(16)}` });
 }
 
-function selectedProvider(): Provider | undefined {
-  return window.okxwallet ?? window.ethereum;
-}
-
 function unsupported(cause: unknown) {
   const value = cause as { code?: number; message?: string };
   return value?.code === 4200 || /unsupported|not supported|method not found/i.test(value?.message ?? '');
 }
 
-export async function executeEvmBatch(tasks: TransferTask[], provider: Provider | undefined = selectedProvider()): Promise<EvmBatchResult[] | null> {
-  if (!provider || !tasks.length || !tasks.every(task => task.chain === 'EVM')) return null;
+export async function executeEvmBatch(tasks: TransferTask[], provider?: Provider): Promise<EvmBatchResult[] | null> {
+  if (!tasks.length || !tasks.every(task => task.chain === 'EVM')) return null;
+  provider ??= (await resolveEvmProvider([tasks[0]!.from])).provider;
   const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
   const from = tasks[0]!.from;
   if (!accounts.some(address => address.toLowerCase() === from.toLowerCase())) throw new Error('当前钱包账户与 CSV 发送钱包不一致');
@@ -46,12 +44,18 @@ export async function executeEvmBatch(tasks: TransferTask[], provider: Provider 
   const fallback = tasks.map((_, index) => ({ index, hash: batchId, state: 'submitted' as const }));
   for (let attempt = 0; attempt < 30; attempt++) {
     await sleep(1000);
-    let status: { status?: number | string; receipts?: { transactionHash?: string; status?: string }[] };
+    let status: { status?: number | string; receipts?: { transactionHash?: string; status?: number | string }[] };
     try { status = await provider.request({ method: 'wallet_getCallsStatus', params: [batchId] }) as typeof status; }
     catch { return fallback; }
     const code = Number(status.status);
     if (code >= 400) throw new Error(`钱包批量调用失败：${batchId}`);
-    if (code >= 200 && code < 300) return tasks.map((_, index) => ({ index, hash: status.receipts?.[index]?.transactionHash ?? batchId, state: 'confirmed' }));
+    if (code >= 200 && code < 300) return tasks.map((_, index) => {
+      const receipt = status.receipts?.[index];
+      const hash = receipt?.transactionHash ?? batchId;
+      if (receipt?.status === 0 || receipt?.status === '0' || receipt?.status === '0x0') return { index, hash, state: 'failed', error: `EVM 交易执行失败：${hash}` };
+      if (receipt?.transactionHash && (receipt.status === 1 || receipt.status === '1' || receipt.status === '0x1')) return { index, hash, state: 'confirmed' };
+      return { index, hash, state: 'submitted' };
+    });
   }
   return fallback;
 }

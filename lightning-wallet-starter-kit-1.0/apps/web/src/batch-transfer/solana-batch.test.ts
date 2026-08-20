@@ -1,6 +1,6 @@
 import { Keypair, PublicKey, SystemProgram } from '@solana/web3.js';
 import { describe, expect, it, vi } from 'vitest';
-import { broadcastSigned, buildSolanaBatchTransactions } from './solana-batch';
+import { broadcastSigned, buildSolanaBatchTransactions, executeSolanaBatch } from './solana-batch';
 import type { TransferTask } from './types';
 
 function task(index: number): TransferTask {
@@ -30,5 +30,14 @@ describe('Solana batch transaction construction', () => {
     const signed = [{ serialize: () => new Uint8Array([1, 2, 3]) }];
     await expect(broadcastSigned(connection, signed, { shouldStop: () => true })).rejects.toThrow('剩余已签名交易未广播');
     expect(sendRawTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects a wrong RPC genesis before requesting a wallet signature', async () => {
+    const owner = Keypair.generate().publicKey;
+    const signAllTransactions = vi.fn();
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { solana: { publicKey: { toString: () => owner.toBase58() }, signAndSendTransaction: vi.fn(), signAllTransactions } } });
+    const connection = { getGenesisHash: vi.fn().mockResolvedValue('5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp') } as unknown as import('@solana/web3.js').Connection;
+    await expect(executeSolanaBatch([{ ...task(0), from: owner.toBase58() }], { connection })).rejects.toThrow(/Genesis/);
+    expect(signAllTransactions).not.toHaveBeenCalled();
   });
 });

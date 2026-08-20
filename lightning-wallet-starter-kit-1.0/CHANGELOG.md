@@ -6,6 +6,9 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Replaced fixed OKX-first transaction execution with public-account matching across injected EVM and Solana providers; multi-sender Batch Transfer and Asset Collector now resolve the wallet that is already authorized for the intended sender and refuse ambiguous mismatches.
+- Added complete Solana genesis attestation before batch signing and exact official TRON RPC hostname checks in the shared Batch Transfer/Asset Collector execution policy.
+- Made EIP-5792 batch receipts task-specific: successful, failed and missing receipts are recorded as confirmed, failed and submitted respectively instead of treating an incomplete batch as fully successful.
 - Hardened Wallet Center provider acceptance: EVM now re-reads Sepolia after a requested switch and revalidates the active account before signing; Solana validates the complete Devnet genesis; TRON accepts only exact official testnet hosts and Base58Check-valid addresses.
 - Added explicit OKX Wallet entry points for Solana and TRON, unique multi-chain provider identities, failure-state cleanup, and fail-closed Solana/TRON receipt handling so rejected or failed confirmations cannot be recorded as successful.
 - Extended the existing client-built Launchpad adapters to Ethereum, BSC, Polygon, Base, Arbitrum, Solana Mainnet, TRON Shasta and TRON Mainnet without adding a server signer.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertExecutionPolicy, isMainnet } from './execution-policy';
+import { assertExecutionPolicy, assertSolanaRpcNetwork, isMainnet } from './execution-policy';
 import type { TransferTask } from './types';
 
 const task: TransferTask = { id: '0x1', row: 2, chain: 'EVM', assetKind: 'native', from: '0x42BAe181b2Fbd5cc8F04762770942C719Dd4d30a', to: '0x1311897252Bd6D7E5705443D9e7c32eE22E73067', amount: '0.001', status: 'pending', attempts: 0, estimatedFee: '0.0001' };
@@ -22,5 +22,17 @@ describe('production execution policy', () => {
     expect(() => assertExecutionPolicy([task, { ...task, id: '0x2', row: 3, from: '0x0000000000000000000000000000000000000001' }], '0x1', enabled)).toThrow(/同一发送账户/);
     expect(() => assertExecutionPolicy([{ ...task, token: '0x0000000000000000000000000000000000000002', assetKind: 'token' }], '0x1', enabled)).toThrow(/decimals/);
     expect(() => assertExecutionPolicy([task, { ...task, id: '0x2', row: 3, to: '0x0000000000000000000000000000000000000002' }, { ...task, id: '0x3', row: 4, to: '0x0000000000000000000000000000000000000003' }], '0x1', enabled)).toThrow(/上限/);
+  });
+
+  it('accepts only exact official TRON RPC hostnames', () => {
+    const tronTask = { ...task, chain: 'TRON' as const, from: 'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA', to: 'TQxgyuuj43UrFhYtgkBGNTZtLY4iuvm7CL' };
+    expect(() => assertExecutionPolicy([tronTask], 'https://nile.trongrid.io', { mainnetEnabled: false, maxBatchCount: 1000 })).not.toThrow();
+    expect(() => assertExecutionPolicy([tronTask], 'https://nile.trongrid.io.attacker.test', { mainnetEnabled: true, maxBatchCount: 1000 })).toThrow(/官方网络/);
+    expect(() => assertExecutionPolicy([tronTask], 'https://api.trongrid.io', { mainnetEnabled: false, maxBatchCount: 1000 })).toThrow(/主网真实执行/);
+  });
+
+  it('attests the complete Solana genesis before signing', async () => {
+    await expect(assertSolanaRpcNetwork({ getGenesisHash: async () => 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG' }, 'devnet')).resolves.toBeUndefined();
+    await expect(assertSolanaRpcNetwork({ getGenesisHash: async () => '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' }, 'devnet')).rejects.toThrow(/Genesis/);
   });
 });

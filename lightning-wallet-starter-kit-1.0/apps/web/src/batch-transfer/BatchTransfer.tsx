@@ -138,7 +138,7 @@ export function BatchTransfer() {
     if (!dryRun && senderCount(tasks) > 1) {
       if (!window.confirm(`当前任务包含 ${senderCount(tasks)} 个发送账户。\n将连接当前钱包并只执行与活动账户匹配的任务，完成后切换钱包继续。`)) return;
       try {
-        const activeSender = await getActiveSender(plan.chain);
+        const activeSender = await getActiveSender(plan.chain, tasks.map(task => task.from));
         executionTasks = tasksForActiveSender(tasks, activeSender);
         if (!executionTasks.length) throw new Error(`当前钱包账户 ${activeSender} 不在待执行发送地址中`);
         log(`已选择当前钱包对应的 ${executionTasks.length} 笔任务；其他发送账户保持待处理`, 'success');
@@ -161,7 +161,7 @@ export function BatchTransfer() {
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
         const results = await executeEvmBatch(executionTasks);
         if (results) {
-          results.forEach((result, index) => { const task = executionTasks[index]!; task.txHash = result.hash; task.status = result.state; log(result.state === 'confirmed' ? 'EVM 批量调用已确认' : 'EVM 批量调用已提交', 'success', task.id); });
+          results.forEach((result, index) => { const task = executionTasks[index]!; task.txHash = result.hash; task.status = result.state; if (result.error) task.error = result.error; log(result.state === 'confirmed' ? 'EVM 批量调用已确认' : result.state === 'failed' ? result.error ?? 'EVM 批量调用失败' : 'EVM 批量调用已提交', result.state === 'failed' ? 'error' : 'success', task.id); });
           setProgress(tasksRef.current.filter(task => task.status === 'confirmed' || task.status === 'submitted' || task.status === 'failed').length);
           setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
           setRunning(false);

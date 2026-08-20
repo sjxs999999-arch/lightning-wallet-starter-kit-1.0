@@ -1,7 +1,8 @@
 import { Buffer } from 'buffer';
-import { Interface, parseEther, parseUnits } from 'ethers';
+import { Interface, isAddress, parseEther, parseUnits } from 'ethers';
 import { api } from '../api';
-import { assertExecutionPolicy } from './execution-policy';
+import { discoverEvmProviders } from '../wallet-providers/providers';
+import { assertExecutionPolicy, assertSolanaRpcNetwork } from './execution-policy';
 import type { TransferChain, TransferTask } from './types';
 
 type EvmProvider = { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
@@ -16,36 +17,99 @@ export type SolanaProvider = { publicKey?: { toString(): string }; connect?(): P
 type OkxWallet = EvmProvider & { tronLink?: { request(args: { method: string; params?: unknown[] }): Promise<{ code?: number } | unknown>; tronWeb?: TronWeb }; solana?: SolanaProvider };
 export type ExecutionResult = { hash: string; state: 'submitted' | 'confirmed' };
 
-declare global { interface Window { ethereum?: EvmProvider; okxwallet?: OkxWallet; tronWeb?: TronWeb; solana?: SolanaProvider } }
+type TronExtension = { request(args: { method: string; params?: unknown[] }): Promise<{ code?: number } | unknown>; tronWeb?: TronWeb };
+declare global { interface Window { ethereum?: EvmProvider; okxwallet?: OkxWallet; rabby?: EvmProvider; tronWeb?: TronWeb; tron?: TronExtension; tronLink?: TronExtension; solana?: SolanaProvider; phantom?: { solana?: SolanaProvider }; backpack?: SolanaProvider; xnft?: { solana?: SolanaProvider }; solflare?: SolanaProvider } }
 
 const sleep = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
-export function getSolanaProvider() { return window.okxwallet?.solana ?? window.solana; }
+const unique = <T extends object>(values: (T | undefined)[]) => values.filter((value, index, all): value is T => Boolean(value) && all.indexOf(value) === index);
+const normalized = (addresses: string[]) => new Set(addresses.map(address => address.toLowerCase()));
+const evmProviderCache = new Map<string, { provider: EvmProvider; root: Window }>();
 
-export async function getActiveSender(chain: TransferChain): Promise<string> {
+async function authorizedAccounts(provider: EvmProvider): Promise<string[]> {
+  const response = await provider.request({ method: 'eth_accounts' }).catch(() => []);
+  return Array.isArray(response) ? response.filter((value): value is string => typeof value === 'string' && isAddress(value)) : [];
+}
+
+export async function resolveEvmProvider(expectedAddresses: string[] = []): Promise<{ provider: EvmProvider; address: string }> {
+  const expected = normalized(expectedAddresses);
+  if (expected.size === 1) {
+    const key = [...expected][0]!;
+    const cached = evmProviderCache.get(key);
+    if (cached?.root === window) {
+      const match = (await authorizedAccounts(cached.provider)).find(address => address.toLowerCase() === key);
+      if (match) return { provider: cached.provider, address: match };
+      evmProviderCache.delete(key);
+    }
+  }
+  const discovered = typeof window.addEventListener === 'function' ? await discoverEvmProviders(120) : [];
+  const providers = unique<EvmProvider>([...discovered.map(item => item.provider), window.ethereum, window.okxwallet, window.rabby]);
+  if (!providers.length) throw new Error('未检测到 MetaMask、OKX、Rabby 或其他 EVM 钱包');
+  let firstAuthorized: { provider: EvmProvider; address: string } | undefined;
+  for (const provider of providers) {
+    const accounts = await authorizedAccounts(provider);
+    const valid = accounts[0];
+    if (valid && !firstAuthorized) firstAuthorized = { provider, address: valid };
+    const match = accounts.find(address => expected.has(address.toLowerCase()));
+    if (match) { evmProviderCache.set(match.toLowerCase(), { provider, root: window }); return { provider, address: match }; }
+  }
+  if (!expected.size && firstAuthorized) return firstAuthorized;
+  const promptProvider = providers.length === 1 ? providers[0]! : window.ethereum;
+  if (!promptProvider) throw new Error('存在多个 EVM 钱包，但没有已授权且匹配的账户；请先在钱包中心连接发送钱包');
+  const response = await promptProvider.request({ method: 'eth_requestAccounts' });
+  const accounts = Array.isArray(response) ? response.filter((value): value is string => typeof value === 'string') : [];
+  const address = accounts.find(value => isAddress(value) && (!expected.size || expected.has(value.toLowerCase())));
+  if (!address) throw new Error('当前 EVM 钱包账户与待执行发送地址不匹配；请切换账户或先在钱包中心连接');
+  evmProviderCache.set(address.toLowerCase(), { provider: promptProvider, root: window });
+  return { provider: promptProvider, address };
+}
+
+export function getSolanaProvider(expectedAddresses: string[] = []) {
+  const candidates = unique<SolanaProvider>([window.okxwallet?.solana, window.phantom?.solana, window.backpack, window.xnft?.solana, window.solflare, window.solana]);
+  const expected = new Set(expectedAddresses);
+  const match = candidates.find(provider => provider.publicKey && expected.has(provider.publicKey.toString()));
+  if (match) return match;
+  const connected = candidates.find(provider => provider.publicKey);
+  if (!expected.size) return connected ?? candidates[0];
+  return candidates.length === 1 ? candidates[0] : undefined;
+}
+
+function getTronWallet(expectedAddresses: string[] = []) {
+  const candidates = [
+    window.okxwallet?.tronLink ? { extension: window.okxwallet.tronLink, tronWeb: window.okxwallet.tronLink.tronWeb, method: 'tron_requestAccounts' } : undefined,
+    window.tron ? { extension: window.tron, tronWeb: window.tron.tronWeb, method: 'eth_requestAccounts' } : undefined,
+    window.tronLink ? { extension: window.tronLink, tronWeb: window.tronLink.tronWeb, method: 'eth_requestAccounts' } : undefined,
+    window.tronWeb ? { extension: undefined, tronWeb: window.tronWeb, method: '' } : undefined,
+  ].filter((value, index, all): value is { extension: TronExtension | undefined; tronWeb: TronWeb; method: string } => Boolean(value?.tronWeb) && all.findIndex(item => item?.tronWeb === value?.tronWeb) === index);
+  const expected = new Set(expectedAddresses);
+  const match = candidates.find(item => item.tronWeb.defaultAddress?.base58 && expected.has(item.tronWeb.defaultAddress.base58));
+  if (match) return match;
+  if (!expected.size) return candidates.find(item => item.tronWeb.defaultAddress?.base58) ?? candidates[0];
+  return candidates.length === 1 ? candidates[0] : undefined;
+}
+
+export async function getActiveSender(chain: TransferChain, expectedAddresses: string[] = []): Promise<string> {
   if (chain === 'EVM') {
-    const provider = window.okxwallet ?? window.ethereum;
-    if (!provider) throw new Error('未检测到 OKX、MetaMask、Rabby 或其他 EVM 钱包');
-    const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
-    if (!accounts[0]) throw new Error('EVM 钱包未返回活动账户');
-    return accounts[0];
+    return (await resolveEvmProvider(expectedAddresses)).address;
   }
   if (chain === 'SOL') {
-    const provider = getSolanaProvider();
-    if (!provider) throw new Error('未检测到 OKX、Phantom、Backpack 或 Solflare 钱包');
+    const provider = getSolanaProvider(expectedAddresses);
+    if (!provider) throw new Error('存在多个 Solana 钱包，但没有已连接且匹配的账户；请先在钱包中心连接发送钱包');
     const connected = provider.connect ? await provider.connect() : undefined;
     const address = connected?.publicKey?.toString() ?? provider.publicKey?.toString();
     if (!address) throw new Error('Solana 钱包未返回活动账户');
+    if (expectedAddresses.length && !expectedAddresses.includes(address)) throw new Error(`当前 Solana 账户 ${address} 与待执行发送地址不匹配`);
     return address;
   }
-  const tronLink = window.okxwallet?.tronLink;
-  if (tronLink) {
-    const connection = await tronLink.request({ method: 'tron_requestAccounts' }) as { code?: number };
+  const selected = getTronWallet(expectedAddresses);
+  if (!selected) throw new Error('存在多个 TRON 钱包，但没有已连接且匹配的账户；请先在钱包中心连接发送钱包');
+  if (selected.extension && selected.method) {
+    const connection = await selected.extension.request({ method: selected.method }) as { code?: number };
     if (connection?.code === 4001) throw new Error('用户拒绝连接 OKX Wallet');
-    if (connection?.code && connection.code !== 200) throw new Error('OKX Wallet TRON 连接失败');
+    if (connection?.code && connection.code !== 200) throw new Error('TRON 钱包连接失败');
   }
-  const tronWeb = tronLink?.tronWeb ?? window.tronWeb;
-  const address = tronWeb?.defaultAddress?.base58;
+  const address = selected.tronWeb.defaultAddress?.base58;
   if (!address) throw new Error('TRON 钱包未返回活动账户');
+  if (expectedAddresses.length && !expectedAddresses.includes(address)) throw new Error(`当前 TRON 账户 ${address} 与待执行发送地址不匹配`);
   return address;
 }
 
@@ -62,10 +126,7 @@ async function waitForEvmReceipt(provider: EvmProvider, hash: string): Promise<'
 }
 
 async function executeEvm(task: TransferTask): Promise<ExecutionResult> {
-  const provider = window.okxwallet ?? window.ethereum;
-  if (!provider) throw new Error('未检测到 OKX、MetaMask、Rabby 或其他 EVM 钱包');
-  const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
-  if (!accounts.some(address => address.toLowerCase() === task.from.toLowerCase())) throw new Error('当前钱包账户与 CSV 发送钱包不一致');
+  const { provider } = await resolveEvmProvider([task.from]);
   const chainId = String(await provider.request({ method: 'eth_chainId' }));
   assertExecutionPolicy([task], chainId);
   let data: string | undefined;
@@ -77,14 +138,14 @@ async function executeEvm(task: TransferTask): Promise<ExecutionResult> {
 }
 
 async function executeTron(task: TransferTask): Promise<ExecutionResult> {
-  const tronLink = window.okxwallet?.tronLink;
-  if (tronLink) {
-    const connection = await tronLink.request({ method: 'tron_requestAccounts' }) as { code?: number };
+  const selected = getTronWallet([task.from]);
+  if (!selected) throw new Error('没有找到已连接且与发送地址匹配的 OKX Wallet 或 TronLink');
+  if (selected.extension && selected.method) {
+    const connection = await selected.extension.request({ method: selected.method }) as { code?: number };
     if (connection?.code === 4001) throw new Error('用户拒绝连接 OKX Wallet');
-    if (connection?.code && connection.code !== 200) throw new Error('OKX Wallet TRON 连接失败');
+    if (connection?.code && connection.code !== 200) throw new Error('TRON 钱包连接失败');
   }
-  const tronWeb = tronLink?.tronWeb ?? window.tronWeb;
-  if (!tronWeb) throw new Error('未检测到 OKX Wallet 或 TronLink TRON Provider');
+  const tronWeb = selected.tronWeb;
   if (tronWeb.defaultAddress?.base58 !== task.from) throw new Error('当前 TRON 账户与 CSV 发送钱包不一致');
   const host = String(tronWeb.fullNode?.host ?? '');
   assertExecutionPolicy([task], host);
@@ -120,16 +181,17 @@ async function latestSolanaBlockhash(connection: import('@solana/web3.js').Conne
 }
 
 async function executeSolana(task: TransferTask): Promise<ExecutionResult> {
-  const solana = getSolanaProvider();
-  if (!solana) throw new Error('未检测到 OKX、Phantom、Backpack 或 Solflare 钱包');
-  const connected = solana.connect ? await solana.connect() : undefined;
-  const solanaAddress = connected?.publicKey?.toString() ?? solana.publicKey?.toString();
-  if (!solanaAddress) throw new Error('Solana 钱包未返回活动账户');
-  if (solanaAddress !== task.from) throw new Error(`当前 Solana 账户 ${solanaAddress} 与 CSV 发送钱包不一致`);
   const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } = await import('@solana/web3.js');
   const network = import.meta.env.VITE_SOLANA_NETWORK || 'devnet';
   assertExecutionPolicy([task], network);
   const connection = new Connection(import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
+  await assertSolanaRpcNetwork(connection, network);
+  const solana = getSolanaProvider([task.from]);
+  if (!solana) throw new Error('没有找到已连接且与发送地址匹配的 OKX、Phantom、Backpack 或 Solflare 钱包');
+  const connected = solana.connect ? await solana.connect() : undefined;
+  const solanaAddress = connected?.publicKey?.toString() ?? solana.publicKey?.toString();
+  if (!solanaAddress) throw new Error('Solana 钱包未返回活动账户');
+  if (solanaAddress !== task.from) throw new Error(`当前 Solana 账户 ${solanaAddress} 与 CSV 发送钱包不一致`);
   const owner = new PublicKey(task.from);
   const recipient = new PublicKey(task.to);
   const transaction = new Transaction();

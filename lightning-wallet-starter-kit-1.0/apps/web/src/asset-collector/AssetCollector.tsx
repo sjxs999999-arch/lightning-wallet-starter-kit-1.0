@@ -173,7 +173,7 @@ export function AssetCollector() {
     if (!dryRun && collectorSenderCount(list) > 1) {
       if (!window.confirm(`当前归集计划包含 ${collectorSenderCount(list)} 个发送账户。\n将连接当前钱包并只归集该活动账户的资产，完成后切换钱包继续。`)) return;
       try {
-        const activeSender = await getActiveSender(chain);
+        const activeSender = await getActiveSender(chain, list.map(task => task.address));
         executionList = collectorTasksForActiveSender(list, activeSender);
         if (!executionList.length) throw new Error(`当前钱包账户 ${activeSender} 不在待归集地址中`);
         log(`已选择当前钱包的 ${executionList.length} 项资产；其他钱包保持待处理`, 'success');
@@ -200,7 +200,8 @@ export function AssetCollector() {
             const task = executionList[index]!;
             task.txHash = result.hash;
             task.executionStatus = result.state;
-            log(result.state === 'confirmed' ? 'EVM 批量归集已确认' : 'EVM 批量归集已提交', 'success', task.id);
+            if (result.error) task.error = result.error;
+            log(result.state === 'confirmed' ? 'EVM 批量归集已确认' : result.state === 'failed' ? result.error ?? 'EVM 批量归集失败' : 'EVM 批量归集已提交', result.state === 'failed' ? 'error' : 'success', task.id);
           });
           setProgress(tasksRef.current.filter(item => isPositiveDecimal(item.collectAmount) && (item.executionStatus === 'confirmed' || item.executionStatus === 'submitted' || item.executionStatus === 'failed')).length);
           setTasks([...tasksRef.current]);

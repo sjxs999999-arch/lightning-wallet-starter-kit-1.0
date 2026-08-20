@@ -36,4 +36,21 @@ describe('EIP-5792 batch calls', () => {
     await expect(executeEvmBatch([task], { request })).rejects.toThrow('wallet_sendCalls rejected');
     await expect(executeEvmBatch([task, { ...task, id: '0x2', row: 3, from: '0x0000000000000000000000000000000000000001' }], { request })).rejects.toThrow('同一发送账户');
   });
+
+  it('uses each receipt status instead of marking an incomplete batch as confirmed', async () => {
+    const tasks = [task, { ...task, id: '0x2', row: 3, to: '0x0000000000000000000000000000000000000002' }, { ...task, id: '0x3', row: 4, to: '0x0000000000000000000000000000000000000003' }];
+    const request = async ({ method }: { method: string }) => {
+      if (method === 'eth_requestAccounts') return [task.from];
+      if (method === 'eth_chainId') return '0xaa36a7';
+      if (method === 'wallet_getCapabilities') return {};
+      if (method === 'wallet_sendCalls') return 'batch-receipts';
+      if (method === 'wallet_getCallsStatus') return { status: 200, receipts: [{ transactionHash: '0xsuccess', status: '0x1' }, { transactionHash: '0xfailure', status: '0x0' }] };
+      return null;
+    };
+    await expect(executeEvmBatch(tasks, { request })).resolves.toEqual([
+      { index: 0, hash: '0xsuccess', state: 'confirmed' },
+      { index: 1, hash: '0xfailure', state: 'failed', error: 'EVM 交易执行失败：0xfailure' },
+      { index: 2, hash: 'batch-receipts', state: 'submitted' },
+    ]);
+  });
 });

@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 import { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { parseUnits } from 'ethers';
 import { api } from '../api';
-import { assertExecutionPolicy } from './execution-policy';
+import { assertExecutionPolicy, assertSolanaRpcNetwork } from './execution-policy';
 import { getSolanaProvider } from './executor';
 import type { TransferTask } from './types';
 
@@ -10,7 +10,7 @@ const ASSOCIATED = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL')
 type SignedTransaction = { serialize(): Uint8Array };
 type BatchProvider = ReturnType<typeof getSolanaProvider> & { signAllTransactions?(transactions: Transaction[]): Promise<SignedTransaction[]> };
 export type SolanaBatchResult = { index: number; signature?: string; state: 'submitted' | 'confirmed' | 'failed'; error?: string };
-export type SolanaBatchOptions = { waitUntilResumed?: () => Promise<void>; shouldStop?: () => boolean; onBroadcast?: (result: SolanaBatchResult) => void };
+export type SolanaBatchOptions = { connection?: Connection; waitUntilResumed?: () => Promise<void>; shouldStop?: () => boolean; onBroadcast?: (result: SolanaBatchResult) => void };
 
 const sleep = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
 const ata = (wallet: PublicKey, mint: PublicKey, tokenProgram: PublicKey) => PublicKey.findProgramAddressSync([wallet.toBuffer(), tokenProgram.toBuffer(), mint.toBuffer()], ASSOCIATED)[0];
@@ -97,12 +97,13 @@ export async function executeSolanaBatch(tasks: TransferTask[], options: SolanaB
   const network = import.meta.env.VITE_SOLANA_NETWORK || 'devnet';
   assertExecutionPolicy(tasks, network);
   if (!tasks.every(task => task.chain === 'SOL')) throw new Error('Solana 批量签名不能混合其他链任务');
-  const provider = getSolanaProvider() as BatchProvider;
+  const connection = options.connection ?? new Connection(import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
+  await assertSolanaRpcNetwork(connection, network);
+  const provider = getSolanaProvider([tasks[0]!.from]) as BatchProvider;
   if (!provider?.signAllTransactions) throw new Error('当前 Solana 钱包不支持 signAllTransactions，请更新扩展或改用逐笔签名');
   const connected = provider.connect ? await provider.connect() : undefined;
   const address = connected?.publicKey?.toString() ?? provider.publicKey?.toString();
   if (address !== tasks[0]!.from) throw new Error(`当前 Solana 账户 ${address ?? '未知'} 与 CSV 发送钱包不一致`);
-  const connection = new Connection(import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
   const latest = await latestBlockhash(connection, network);
   const owner = new PublicKey(tasks[0]!.from);
   const mintPrograms = new Map<string, PublicKey>();
