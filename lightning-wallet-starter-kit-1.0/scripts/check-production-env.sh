@@ -125,7 +125,6 @@ else
 fi
 
 optional_provider VITE_WALLETCONNECT_PROJECT_ID 'WalletConnect Project ID'
-optional_provider ZEROX_API_KEY '0x Swap provider'
 optional_provider GASFREE_PROVIDER_URL 'GasFree Paymaster provider'
 optional_provider MARKET_HOLDER_PROVIDER_URL 'Market holder-data provider'
 
@@ -135,6 +134,16 @@ for key in GASFREE_PROVIDER_URL MARKET_HOLDER_PROVIDER_URL; do
   provider_url=$(value "$key")
   [ -z "$provider_url" ] || case "$provider_url" in https://*) : ;; *) fail "$key must use HTTPS" ;; esac
 done
+
+swap_provider_urls=$(value SWAP_PROVIDER_URLS)
+if [ -n "$swap_provider_urls" ]; then
+  old_ifs=$IFS
+  IFS=,
+  for provider_url in $swap_provider_urls; do
+    case "$provider_url" in https://*) : ;; *) fail 'Every SWAP_PROVIDER_URLS entry must use HTTPS' ;; esac
+  done
+  IFS=$old_ifs
+fi
 
 flash_app=$(value FLASH_LOAN_URL)
 flash_api=$(value FLASH_LOAN_API_URL)

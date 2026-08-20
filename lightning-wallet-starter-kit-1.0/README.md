@@ -16,7 +16,7 @@ This branch is a production candidate, not a final mainnet approval. The truthfu
 
 - Wallet generation, encrypted export, address verification and read-only centers are implemented.
 - Batch Transfer and Asset Collector have wallet-signed execution paths but still require final wallet-by-wallet acceptance on each supported mainnet.
-- Solana Swap uses Jupiter. TRON Swap uses the official SUN.io Smart Router with verified-route validation and local TronLink/OKX signing. EVM Swap requires a server-side 0x API key.
+- EVM Swap uses LI.FI same-chain aggregation by default, with optional 0x comparison; Solana uses Jupiter and TRON uses the official SUN.io Smart Router. Provider data is strictly matched to the public request and every real transaction remains wallet-signed.
 - Flash Loan currently provides only a safe Sepolia compatibility shell because the referenced historical repository does not contain a completed application.
 - GasFree requires an approved Paymaster provider for sponsored transactions.
 - Launchpad builds fixed-supply testnet deployments in the client for Sepolia, Solana Devnet and TRON Nile; real-wallet acceptance is still required before approval.

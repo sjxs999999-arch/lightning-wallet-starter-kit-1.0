@@ -59,7 +59,7 @@ Run the optional live-provider gate separately after a release:
 ./scripts/verify-live-providers.sh
 ```
 
-This sends one read-only TRX/USDT quote request with the same Origin and CSRF headers as the client, then rejects empty, malformed, unverified-hook or secret-bearing responses. It never connects a wallet, signs or broadcasts. It is deliberately separate from `deploy.sh` so a transient third-party outage cannot trigger a production rollback.
+This sends one read-only TRX/USDT request to SUN.io and one same-chain Ethereum USDC/WETH request to LI.FI with the same Origin and CSRF headers as the client. It rejects empty, mismatched, non-executable, secret-bearing or undisclosed-cost responses. It never connects a wallet, signs or broadcasts. It is deliberately separate from `deploy.sh` so a transient third-party outage cannot trigger a production rollback.
 
 ## Testnet acceptance
 

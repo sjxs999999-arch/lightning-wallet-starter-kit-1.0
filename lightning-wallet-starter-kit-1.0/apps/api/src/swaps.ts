@@ -5,6 +5,8 @@ import type { TransferStore } from './transfers.js';
 const publicIdentifier = z.string().trim().min(20).max(128).regex(/^[A-Za-z0-9:_-]+$/);
 const rawAmount = z.string().regex(/^\d{1,100}$/).refine(value => BigInt(value) > 0n);
 const provider = z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9 ._:/-]+$/);
+const supportedEvmSwapChains = new Set([1, 56, 137, 8453, 42161]);
+const evmAddress = (value: string) => /^0x[0-9a-fA-F]{40}$/.test(value);
 
 export const swapQuoteInputSchema = z.object({
   chain: z.enum(['EVM', 'SOL', 'TRON']),
@@ -16,8 +18,12 @@ export const swapQuoteInputSchema = z.object({
   slippageBps: z.number().int().min(1).max(500),
 }).strict().superRefine((value, context) => {
   if (value.chain === 'EVM' && !value.chainId) context.addIssue({ code: 'custom', path: ['chainId'], message: 'EVM quote requires a chain ID' });
+  if (value.chain === 'EVM' && value.chainId && !supportedEvmSwapChains.has(value.chainId)) context.addIssue({ code: 'custom', path: ['chainId'], message: 'EVM chain is not supported' });
+  if (value.chain === 'EVM' && !evmAddress(value.taker)) context.addIssue({ code: 'custom', path: ['taker'], message: 'EVM taker must be a valid address' });
+  if (value.chain === 'EVM' && !evmAddress(value.sellToken)) context.addIssue({ code: 'custom', path: ['sellToken'], message: 'EVM sell token must be a valid address' });
+  if (value.chain === 'EVM' && !evmAddress(value.buyToken)) context.addIssue({ code: 'custom', path: ['buyToken'], message: 'EVM buy token must be a valid address' });
   if (value.chain !== 'EVM' && value.chainId) context.addIssue({ code: 'custom', path: ['chainId'], message: 'Only EVM quotes use a chain ID' });
-  if (value.sellToken === value.buyToken) context.addIssue({ code: 'custom', path: ['buyToken'], message: 'Swap tokens must differ' });
+  if (value.chain === 'EVM' ? value.sellToken.toLowerCase() === value.buyToken.toLowerCase() : value.sellToken === value.buyToken) context.addIssue({ code: 'custom', path: ['buyToken'], message: 'Swap tokens must differ' });
 });
 
 export const swapPlanSchema = z.object({

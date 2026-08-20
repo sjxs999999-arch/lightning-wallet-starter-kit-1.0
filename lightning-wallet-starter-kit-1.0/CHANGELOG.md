@@ -6,6 +6,10 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Added LI.FI as the default no-key EVM same-chain Swap provider for Ethereum, BSC, Polygon, Base and Arbitrum, while retaining 0x as an optional independently validated comparison source.
+- Made public Swap status and metadata-only quote routes consistent across Fastify and Vercel, with a 30-request-per-minute anonymous Serverless limiter.
+- Added strict wallet, chain, Token, amount, minimum-output, allowance and transaction-data matching; EVM quotes are refreshed immediately before confirmation and signing.
+- Added explicit LI.FI Provider fee, estimated Gas and quote-expiry disclosure in the client, plus live read-only LI.FI acceptance coverage.
 - Integrated the official SUN.io Smart Router for TRON mainnet quotes and client-only TronLink/OKX execution without a private-key or server-signing path.
 - Added exact TRC-20 Permit2 allowance handling, local typed-data signatures, verified no-hook V4 route support, strict route revalidation and confirmed transaction receipts.
 - Kept TRON Swap behind the existing mainnet feature flag until an authorized wallet acceptance transaction is completed.
@@ -69,7 +73,7 @@ All notable stable Lightning Wallet releases are recorded here.
 ### Release gate
 
 - This section is not a stable release and has no final mainnet approval.
-- EVM Swap, sponsored GasFree and real Flash Loan logic remain provider/adapter gated; TRON Swap is implemented but remains mainnet-flag and wallet-acceptance gated; Launchpad still requires real-wallet testnet acceptance.
+- EVM, Solana and TRON Swap providers are implemented; all real Swap execution remains mainnet-flag and authorized-wallet acceptance gated. Sponsored GasFree and real Flash Loan logic remain provider/adapter gated; Launchpad still requires real-wallet testnet acceptance.
 - Mainnet transaction flags remain disabled until chain-specific acceptance is complete.
 
 ## stable-v2.0-lightning-wallet

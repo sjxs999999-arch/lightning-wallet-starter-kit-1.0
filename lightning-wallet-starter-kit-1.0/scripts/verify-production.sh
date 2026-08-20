@@ -70,7 +70,7 @@ if fetch capabilities "$API_ORIGIN/api/v1/system/capabilities"; then
   jq -e '.data.security.privateKeysUploaded == false and .data.security.serverSigning == false and .data.operator == "separate-admin-surface"' "$VERIFY_DIR/capabilities.body" >/dev/null || fail 'capability safety boundary is invalid' || true
 fi
 if fetch swap "$API_ORIGIN/api/v1/swap/status"; then
-  jq -e '.data.privateKeyAccepted == false and .data.serverSigning == false and (.data.providers | length == 3)' "$VERIFY_DIR/swap.body" >/dev/null || fail 'Swap provider status is invalid' || true
+  jq -e '.data.privateKeyAccepted == false and .data.serverSigning == false and (.data.providers | length == 3) and any(.data.providers[]; .chain == "EVM" and .available == true and (.provider | contains("LI.FI")))' "$VERIFY_DIR/swap.body" >/dev/null || fail 'Swap provider status is invalid' || true
 fi
 
 diagnostic_status=$(curl --silent --show-error --max-time 20 --output "$VERIFY_DIR/diagnostic.body" --write-out '%{http_code}' \
@@ -78,7 +78,7 @@ diagnostic_status=$(curl --silent --show-error --max-time 20 --output "$VERIFY_D
   -H "Origin: $CLIENT_ORIGIN" \
   -H 'Content-Type: application/json' \
   -H 'x-lightning-csrf: 1' \
-  --data '{"name":"AcceptanceProbe","code":"RENDER_FAILURE","route":"/health-acceptance","fingerprint":"222222222222222222222222","release":"2.22.0"}') || diagnostic_status=000
+  --data '{"name":"AcceptanceProbe","code":"RENDER_FAILURE","route":"/health-acceptance","fingerprint":"222222222222222222222222","release":"2.23.0"}') || diagnostic_status=000
 if [ "$diagnostic_status" = 202 ] && jq -e '.data.accepted == true' "$VERIFY_DIR/diagnostic.body" >/dev/null; then
   pass 'anonymous metadata-only client diagnostic is accepted'
 else

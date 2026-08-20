@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, History, RefreshCw, ShieldCheck } from 'lucide-react';
-import { parseUnits } from 'ethers';
+import { getAddress, isAddress, parseUnits } from 'ethers';
 import { ApiError, api } from '../api';
 import { executeSwap } from './executor';
 import { validateImpact, validateSlippage } from './guard';
@@ -44,21 +44,25 @@ export function Swap() {
     void loadHistory();
     void api<{ data: { providers: SwapProviderAvailability[] } }>('/swap/status')
       .then(response => setProviders(response.data.providers))
-      .catch(() => { setProviders(fallbackSwapProviderAvailability()); setRecordError('服务状态接口暂时不可用；仅保留公共 Jupiter 与 SUN.io 报价，EVM 已锁定'); });
+      .catch(() => { setProviders(fallbackSwapProviderAvailability()); setRecordError('服务状态接口暂时不可用；报价请求仍会独立校验，任何失败都不会请求钱包签名'); });
     return () => workerRef.current?.terminate();
   }, [loadHistory]);
 
   const currentProvider = providers.find(item => item.chain === chain);
 
-  const request = useCallback((): SwapRequest => ({
-    chain,
-    ...(chain === 'EVM' ? { chainId: evmChainId } : {}),
-    sellToken,
-    buyToken,
-    sellAmount: parseUnits(amount, decimals).toString(),
-    taker,
-    slippageBps: validateSlippage(slippage),
-  }), [amount, buyToken, chain, decimals, evmChainId, sellToken, slippage, taker]);
+  const request = useCallback((): SwapRequest => {
+    if (chain === 'EVM' && (!isAddress(taker) || !isAddress(sellToken) || !isAddress(buyToken))) throw new Error('EVM 钱包和 Token 必须填写有效的 0x 地址');
+    if (chain === 'EVM' && sellToken.toLowerCase() === buyToken.toLowerCase()) throw new Error('卖出和买入 Token 不能相同');
+    return {
+      chain,
+      ...(chain === 'EVM' ? { chainId: evmChainId } : {}),
+      sellToken: chain === 'EVM' ? getAddress(sellToken) : sellToken,
+      buyToken: chain === 'EVM' ? getAddress(buyToken) : buyToken,
+      sellAmount: parseUnits(amount, decimals).toString(),
+      taker: chain === 'EVM' ? getAddress(taker) : taker,
+      slippageBps: validateSlippage(slippage),
+    };
+  }, [amount, buyToken, chain, decimals, evmChainId, sellToken, slippage, taker]);
 
   function invalidateQuotes() {
     setQuotes([]);
@@ -169,13 +173,13 @@ export function Swap() {
         <label>滑点：{slippage}%<input type="range" min="0.1" max="5" step="0.1" value={slippage} disabled={busy || executing} onChange={event => { setSlippage(Number(event.target.value)); invalidateQuotes(); }}/></label>
         <label className="dry-run"><input type="checkbox" checked={dryRun} disabled={busy || executing} onChange={event => setDryRun(event.target.checked)}/> Dry Run（默认开启）</label>
         <label className="dry-run"><input type="checkbox" checked={autoRefresh} disabled={executing} onChange={event => setAutoRefresh(event.target.checked)}/> 每 30 秒自动刷新报价 · 最后更新 {lastUpdated || '尚未报价'}</label>
-        <div className="notice"><ShieldCheck size={18}/>不接收私钥；Approve 使用精确卖出量。TRON 通过官方 SUN.io Smart Router 在签名前重新取路由，并由 TronLink/OKX Wallet 本地签名。</div>
+        <div className="notice"><ShieldCheck size={18}/>不接收私钥；Approve 使用精确卖出量。EVM 使用 LI.FI 同链聚合并公开显示 Provider 费用和预计 Gas；TRON 通过官方 SUN.io Smart Router 重新取路由。全部交易仅由浏览器钱包签名。</div>
         {error && <div className="batch-error">{error}</div>}{recordError && <div className="batch-error">{recordError}</div>}
         <button onClick={quote} disabled={busy || executing || !currentProvider?.available || !taker || !sellToken || !buyToken || !amount}>{busy ? '聚合报价中…' : '获取最优报价'}</button>
       </section>
       <section className="panel">
         <div className="panel-head"><h3>聚合报价</h3><span>{quotes.length} 条 · {elapsed} ms</span></div>
-        {selected ? <><div className="best-route"><small>BEST ROUTE · {selected.provider}</small><strong>{selected.amountOut}</strong><p>最低收到 {selected.minReceived}</p><p>价格影响 {selected.priceImpactPct.toFixed(4)}%</p><code>{selected.route.join(' → ') || 'Direct'}</code></div><div className="quote-list">{quotes.map((item, index) => <button className={item === selected ? 'selected' : ''} key={`${item.provider}-${index}`} onClick={() => { try { validateImpact(item.priceImpactPct); setSelected(item); } catch (cause) { setError(cause instanceof Error ? cause.message : '高风险报价'); } }}><b>{item.provider}</b><span>{item.amountOut}</span><small>{item.priceImpactPct.toFixed(3)}%</small></button>)}</div><button className="swap-submit" onClick={() => void run()} disabled={executing}>{executing ? '正在保存审计结果…' : dryRun ? '保存并运行 Dry Run' : '保存后 Approve 并 Swap'}</button></> : <div className="mini-empty"><ArrowLeftRight/><p>输入 Token 和数量获取实时聚合报价</p></div>}
+        {selected ? <><div className="best-route"><small>BEST ROUTE · {selected.provider}</small><strong>{selected.amountOut}</strong><p>最低收到 {selected.minReceived}</p><p>价格影响 {selected.priceImpactPct.toFixed(4)}%</p>{selected.feeUsd ? <p>Provider 费用约 ${selected.feeUsd}</p> : null}{selected.gasCostUsd ? <p>预计网络 Gas 约 ${selected.gasCostUsd}</p> : null}{selected.expiresAt ? <p>报价有效至 {new Date(selected.expiresAt).toLocaleTimeString()}</p> : null}<code>{selected.route.join(' → ') || 'Direct'}</code></div><div className="quote-list">{quotes.map((item, index) => <button className={item === selected ? 'selected' : ''} key={`${item.provider}-${index}`} onClick={() => { try { validateImpact(item.priceImpactPct); setSelected(item); } catch (cause) { setError(cause instanceof Error ? cause.message : '高风险报价'); } }}><b>{item.provider}</b><span>{item.amountOut}</span><small>{item.priceImpactPct.toFixed(3)}%</small></button>)}</div><button className="swap-submit" onClick={() => void run()} disabled={executing}>{executing ? '正在保存审计结果…' : dryRun ? '保存并运行 Dry Run' : '保存后 Approve 并 Swap'}</button></> : <div className="mini-empty"><ArrowLeftRight/><p>输入 Token 和数量获取实时聚合报价</p></div>}
       </section>
     </div>
     <section className="panel transfer-history swap-history"><div className="panel-head"><div><p className="eyebrow">AUDIT TRAIL</p><h3><History size={16}/>最近兑换历史</h3></div><button onClick={() => void loadHistory()} title="刷新兑换历史"><RefreshCw size={15}/></button></div><div className="transfer-history-table"><div><b>创建时间</b><b>网络 / 路由</b><b>卖出</b><b>买入</b><b>状态</b></div>{history.map(job => <div key={job.id}><span>{new Date(job.created_at).toLocaleString()}</span><span>{job.payload.chain} · {job.payload.provider}</span><span>{job.payload.amountIn}</span><span>{job.payload.amountOut}</span><em className={job.status}>{job.result.status}</em></div>)}</div>{!history.length && <p className="transfer-history-empty">尚无已保存的闪电兑换任务。</p>}</section>

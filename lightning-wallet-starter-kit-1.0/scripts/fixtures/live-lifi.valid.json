@@ -1,0 +1,27 @@
+{
+  "data": [
+    {
+      "provider": "LI.FI / SushiSwap Aggregator",
+      "amountIn": "1000000",
+      "amountOut": "436232556501834",
+      "minReceived": "434051393719324",
+      "priceImpactPct": 0.3302,
+      "route": ["sushiswap"],
+      "allowanceTarget": "0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE",
+      "transaction": {
+        "to": "0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE",
+        "data": "0x1234",
+        "value": "0x0",
+        "gas": "0x9eff5"
+      },
+      "feeUsd": "0.0035",
+      "gasCostUsd": "0.7592",
+      "expiresAt": "2027-01-01T00:00:00.000Z",
+      "raw": {
+        "source": "LI.FI",
+        "chainId": 1,
+        "sameChain": true
+      }
+    }
+  ]
+}

@@ -19,6 +19,9 @@ export interface SwapCandidate {
   route: string[];
   allowanceTarget?: string;
   transaction?: unknown;
+  feeUsd?: string;
+  gasCostUsd?: string;
+  expiresAt?: string;
   raw: unknown;
 }
 
@@ -33,12 +36,14 @@ type JsonRecord = Record<string, unknown>;
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 const SUNSWAP_ROUTER_API = 'https://rot.endjgfsv.link';
+const LIFI_API = 'https://li.quest/v1';
+const SUPPORTED_EVM_CHAIN_IDS = new Set([1, 56, 137, 8453, 42161]);
 const SUNSWAP_POOL_VERSIONS = new Set(['v1', 'v2', 'v3', 'v4', 'usdd202pool', '2pool', '2pooltusdusdt', 'old3pool', 'oldusdcpool', 'usdc2pooltusdusdt', 'usdj2pooltusdusdt', 'usdd2pooltusdusdt', 'usdt20psm', 'htxsun', 'wtrx']);
 const TRON_ZERO_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 
 export function swapProviderAvailability(env: NodeJS.ProcessEnv = process.env): SwapProviderAvailability[] {
   return [
-    { chain: 'EVM', available: Boolean(env.ZEROX_API_KEY), provider: '0x', ...(env.ZEROX_API_KEY ? {} : { reason: 'EVM 聚合报价服务尚未配置' }) },
+    { chain: 'EVM', available: true, provider: env.ZEROX_API_KEY ? 'LI.FI + 0x' : 'LI.FI' },
     { chain: 'SOL', available: true, provider: 'Jupiter' },
     { chain: 'TRON', available: true, provider: 'SUN.io Smart Router' },
   ];
@@ -52,6 +57,22 @@ const safeLabels = (value: unknown) => Array.isArray(value)
   : [];
 const safeDecimal = (value: unknown) => typeof value === 'string' && /^-?\d+(?:\.\d+)?$/.test(value) && value.length <= 100 ? value : null;
 const tronAddress = (value: unknown) => typeof value === 'string' && /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(value) ? value : null;
+const evmAddress = (value: unknown) => typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value) ? value : null;
+const hexData = (value: unknown) => typeof value === 'string' && /^0x(?:[0-9a-fA-F]{2})*$/.test(value) && value.length <= 200_002 ? value : null;
+const hexQuantity = (value: unknown) => {
+  if (typeof value !== 'string' || !/^(?:0x[0-9a-fA-F]+|\d+)$/.test(value)) return null;
+  try { return `0x${BigInt(value).toString(16)}`; }
+  catch { return null; }
+};
+const sameAddress = (left: unknown, right: string) => typeof left === 'string' && left.toLowerCase() === right.toLowerCase();
+const tokenMatches = (token: JsonRecord, requested: string) => requested.startsWith('0x')
+  ? sameAddress(token.address, requested)
+  : typeof token.symbol === 'string' && token.symbol.toUpperCase() === requested.toUpperCase();
+const usdTotal = (value: unknown) => Array.isArray(value) ? value.reduce((total, item) => {
+  const amount = Number(record(item).amountUSD);
+  return total + (Number.isFinite(amount) && amount > 0 ? amount : 0);
+}, 0) : 0;
+const usdString = (value: number) => value > 0 ? value.toFixed(4) : undefined;
 
 function executableSunRoute(item: JsonRecord) {
   if (!Array.isArray(item.tokens) || !Array.isArray(item.symbols) || !Array.isArray(item.poolFees) || !Array.isArray(item.poolVersions) || !Array.isArray(item.poolKeys) || !Array.isArray(item.stepAmountsOut)) return null;
@@ -146,22 +167,106 @@ export async function fetchSunSwapCandidates(input: SwapQuoteInput, fetchImpl: F
   return candidates;
 }
 
+export function normalizeLiFiEvmQuote(input: SwapQuoteInput, payload: unknown, now = Date.now()): SwapCandidate {
+  if (input.chain !== 'EVM' || !input.chainId || !SUPPORTED_EVM_CHAIN_IDS.has(input.chainId) || !evmAddress(input.taker)) throw new Error('LI.FI EVM request is invalid');
+  const raw = record(payload), action = record(raw.action), estimate = record(raw.estimate), transaction = record(raw.transactionRequest);
+  const fromToken = record(action.fromToken), toToken = record(action.toToken);
+  const amountIn = positiveInteger(estimate.fromAmount), amountOut = positiveInteger(estimate.toAmount), minReceived = positiveInteger(estimate.toAmountMin);
+  const to = evmAddress(transaction.to), data = hexData(transaction.data), value = hexQuantity(transaction.value ?? '0'), gas = hexQuantity(transaction.gasLimit ?? transaction.gas), gasPrice = hexQuantity(transaction.gasPrice);
+  const responseChainId = Number(transaction.chainId ?? action.fromChainId), toChainId = Number(action.toChainId);
+  if (
+    Number(action.fromChainId) !== input.chainId
+    || toChainId !== input.chainId
+    || responseChainId !== input.chainId
+    || !sameAddress(action.fromAddress, input.taker)
+    || !sameAddress(action.toAddress, input.taker)
+    || (transaction.from !== undefined && !sameAddress(transaction.from, input.taker))
+    || action.fromAmount !== input.sellAmount
+    || amountIn !== input.sellAmount
+    || !tokenMatches(fromToken, input.sellToken)
+    || !tokenMatches(toToken, input.buyToken)
+    || !amountOut
+    || !minReceived
+    || BigInt(minReceived) > BigInt(amountOut)
+    || !to
+    || !data
+    || !value
+  ) throw new Error('LI.FI returned a mismatched or non-executable route');
+
+  const fromUsd = Number(estimate.fromAmountUSD), toUsd = Number(estimate.toAmountUSD);
+  if (!Number.isFinite(fromUsd) || fromUsd <= 0 || !Number.isFinite(toUsd) || toUsd < 0) throw new Error('LI.FI route is missing price-impact data');
+  const priceImpactPct = Math.max(0, (1 - toUsd / fromUsd) * 100);
+  if (!Number.isFinite(priceImpactPct) || priceImpactPct > 100) throw new Error('LI.FI price impact is invalid');
+
+  const tool = typeof raw.tool === 'string' && /^[A-Za-z0-9 ._:/-]{1,80}$/.test(raw.tool) ? raw.tool : 'lifi';
+  const toolName = typeof record(raw.toolDetails).name === 'string' && /^[A-Za-z0-9 ._:/-]{1,60}$/.test(String(record(raw.toolDetails).name)) ? String(record(raw.toolDetails).name) : tool;
+  const route = safeLabels([tool, ...(Array.isArray(raw.includedSteps) ? raw.includedSteps.map(step => record(step).tool) : [])]).filter((item, index, values) => values.indexOf(item) === index);
+  const allowanceTarget = estimate.approvalAddress === undefined ? undefined : evmAddress(estimate.approvalAddress) ?? undefined;
+  if (estimate.approvalAddress !== undefined && !allowanceTarget) throw new Error('LI.FI approval target is invalid');
+
+  return {
+    provider: `LI.FI / ${toolName}`,
+    amountIn,
+    amountOut,
+    minReceived,
+    priceImpactPct,
+    route,
+    allowanceTarget,
+    transaction: { to, data, value, ...(gas ? { gas } : {}), ...(gasPrice ? { gasPrice } : {}) },
+    feeUsd: usdString(usdTotal(estimate.feeCosts)),
+    gasCostUsd: usdString(usdTotal(estimate.gasCosts)),
+    expiresAt: new Date(now + 55_000).toISOString(),
+    raw: { source: 'LI.FI', quoteId: typeof raw.id === 'string' ? raw.id.slice(0, 120) : undefined, tool, chainId: input.chainId, sameChain: true },
+  };
+}
+
+export async function fetchLiFiEvmCandidate(input: SwapQuoteInput, fetchImpl: FetchLike = fetch) {
+  if (input.chain !== 'EVM' || !input.chainId || !SUPPORTED_EVM_CHAIN_IDS.has(input.chainId)) throw new Error('Unsupported LI.FI EVM chain');
+  const query = new URLSearchParams({
+    fromChain: String(input.chainId), toChain: String(input.chainId), fromToken: input.sellToken, toToken: input.buyToken,
+    fromAmount: input.sellAmount, fromAddress: input.taker, toAddress: input.taker,
+    slippage: String(input.slippageBps / 10_000), order: 'CHEAPEST', integrator: 'lightning-wallet',
+  });
+  const response = await fetchImpl(`${LIFI_API}/quote?${query}`, {
+    headers: { accept: 'application/json', ...(process.env.LIFI_API_KEY ? { 'x-lifi-api-key': process.env.LIFI_API_KEY } : {}) },
+    signal: AbortSignal.timeout(12_000),
+  });
+  return normalizeLiFiEvmQuote(input, await read(response));
+}
+
+async function fetchZeroXCandidate(input: SwapQuoteInput): Promise<SwapCandidate> {
+  const key = process.env.ZEROX_API_KEY;
+  if (!key) throw new Error('ZEROX_API_KEY is not configured');
+  const query = new URLSearchParams({ chainId: String(input.chainId ?? 1), sellToken: input.sellToken, buyToken: input.buyToken, sellAmount: input.sellAmount, taker: input.taker, slippageBps: String(input.slippageBps) });
+  const raw = await read(await fetch(`https://api.0x.org/swap/allowance-holder/quote?${query}`, { headers: { '0x-api-key': key, '0x-version': 'v2' }, signal: AbortSignal.timeout(12_000) }));
+  const route = record(raw.route), amountIn = positiveInteger(raw.sellAmount), amountOut = positiveInteger(raw.buyAmount), minReceived = positiveInteger(raw.minBuyAmount ?? raw.buyAmount);
+  const tx = record(raw.transaction), to = evmAddress(tx.to), data = hexData(tx.data), value = hexQuantity(tx.value ?? '0'), gas = hexQuantity(tx.gas), gasPrice = hexQuantity(tx.gasPrice);
+  const allowance = record(record(raw.issues).allowance).spender ?? raw.allowanceTarget;
+  const allowanceTarget = allowance === undefined ? undefined : evmAddress(allowance) ?? undefined;
+  const impact = Number(raw.estimatedPriceImpact) * 100;
+  if (amountIn !== input.sellAmount || !amountOut || !minReceived || BigInt(minReceived) > BigInt(amountOut) || !to || !data || !value || !Number.isFinite(impact) || impact < 0 || impact > 100 || (allowance !== undefined && !allowanceTarget)) throw new Error('0x returned a mismatched or non-executable route');
+  return {
+    provider: '0x', amountIn, amountOut, minReceived, priceImpactPct: impact,
+    route: Array.isArray(route.fills) ? safeLabels(route.fills.map(fill => record(fill).source)) : [],
+    allowanceTarget, transaction: { to, data, value, ...(gas ? { gas } : {}), ...(gasPrice ? { gasPrice } : {}) }, raw: { source: '0x', chainId: input.chainId },
+  };
+}
+
+export function normalizeExternalEvmCandidate(input: SwapQuoteInput, value: unknown, endpoint: string): SwapCandidate {
+  if (new URL(endpoint).protocol !== 'https:') throw new Error('External EVM provider must use HTTPS');
+  const item = record(value), provider = typeof item.provider === 'string' && /^[A-Za-z0-9 ._:/-]{1,80}$/.test(item.provider) ? item.provider : new URL(endpoint).hostname;
+  const amountIn = positiveInteger(item.amountIn), amountOut = positiveInteger(item.amountOut), minReceived = positiveInteger(item.minReceived ?? item.amountOut), impact = number(item.priceImpactPct);
+  const rawTransaction = record(item.transaction), to = evmAddress(rawTransaction.to), data = hexData(rawTransaction.data), txValue = hexQuantity(rawTransaction.value ?? '0'), gas = hexQuantity(rawTransaction.gas), gasPrice = hexQuantity(rawTransaction.gasPrice);
+  const allowanceTarget = item.allowanceTarget === undefined ? undefined : evmAddress(item.allowanceTarget) ?? undefined;
+  if (input.chain !== 'EVM' || amountIn !== input.sellAmount || !amountOut || !minReceived || BigInt(minReceived) > BigInt(amountOut) || !Number.isFinite(impact) || impact < 0 || impact > 100 || !to || !data || !txValue || (rawTransaction.from !== undefined && !sameAddress(rawTransaction.from, input.taker)) || (rawTransaction.chainId !== undefined && Number(rawTransaction.chainId) !== input.chainId) || (item.allowanceTarget !== undefined && !allowanceTarget)) throw new Error('External EVM provider returned an invalid route');
+  return { provider, amountIn, amountOut, minReceived, priceImpactPct: impact, route: safeLabels(item.route), allowanceTarget, transaction: { to, data, value: txValue, ...(gas ? { gas } : {}), ...(gasPrice ? { gasPrice } : {}) }, raw: { source: new URL(endpoint).hostname, chainId: input.chainId } };
+}
+
 export async function fetchSwapCandidates(input: SwapQuoteInput) {
   const candidates: SwapCandidate[] = [];
   if (input.chain === 'EVM') {
-    const key = process.env.ZEROX_API_KEY;
-    if (!key) throw new Error('ZEROX_API_KEY 未配置');
-    const query = new URLSearchParams({ chainId: String(input.chainId ?? 1), sellToken: input.sellToken, buyToken: input.buyToken, sellAmount: input.sellAmount, taker: input.taker, slippageBps: String(input.slippageBps) });
-    const raw = await read(await fetch(`https://api.0x.org/swap/allowance-holder/quote?${query}`, { headers: { '0x-api-key': key, '0x-version': 'v2' } }));
-    const route = record(raw.route);
-    candidates.push({
-      provider: '0x', amountIn: String(raw.sellAmount), amountOut: String(raw.buyAmount), minReceived: String(raw.minBuyAmount ?? raw.buyAmount),
-      priceImpactPct: number(raw.estimatedPriceImpact) * 100,
-      route: Array.isArray(route.fills) ? route.fills.map(fill => record(fill).source).filter((source): source is string => typeof source === 'string') : [],
-      allowanceTarget: String(record(raw.issues).allowance ? record(record(raw.issues).allowance).spender : raw.allowanceTarget ?? '') || undefined,
-      transaction: raw.transaction,
-      raw,
-    });
+    const settled = await Promise.allSettled([fetchLiFiEvmCandidate(input), ...(process.env.ZEROX_API_KEY ? [fetchZeroXCandidate(input)] : [])]);
+    candidates.push(...settled.filter((item): item is PromiseFulfilledResult<SwapCandidate> => item.status === 'fulfilled').map(item => item.value));
   } else if (input.chain === 'SOL') {
     const query = new URLSearchParams({ inputMint: input.sellToken, outputMint: input.buyToken, amount: input.sellAmount, slippageBps: String(input.slippageBps), restrictIntermediateTokens: 'true' });
     const raw = await read(await fetch(`https://lite-api.jup.ag/swap/v1/quote?${query}`));
@@ -175,17 +280,15 @@ export async function fetchSwapCandidates(input: SwapQuoteInput) {
     candidates.push(...await fetchSunSwapCandidates(input));
   }
 
-  const extra = (process.env.SWAP_PROVIDER_URLS ?? '').split(',').map(value => value.trim()).filter(Boolean);
+  const extra = input.chain === 'EVM' ? (process.env.SWAP_PROVIDER_URLS ?? '').split(',').map(value => value.trim()).filter(Boolean) : [];
   for (const endpoint of extra) {
     try {
-      const raw = await read(await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) }));
+      if (new URL(endpoint).protocol !== 'https:') continue;
+      const raw = await read(await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input), signal: AbortSignal.timeout(12_000) }));
       const values = Array.isArray(raw.candidates) ? raw.candidates : [raw];
       for (const value of values) {
-        const item = record(value);
-        candidates.push({
-          provider: String(item.provider ?? new URL(endpoint).hostname), amountIn: String(item.amountIn ?? input.sellAmount), amountOut: String(item.amountOut), minReceived: String(item.minReceived ?? item.amountOut),
-          priceImpactPct: number(item.priceImpactPct), route: safeLabels(item.route), allowanceTarget: typeof item.allowanceTarget === 'string' ? item.allowanceTarget : undefined, transaction: item.transaction, raw: item,
-        });
+        try { candidates.push(normalizeExternalEvmCandidate(input, value, endpoint)); }
+        catch { continue; }
       }
     } catch { continue; }
   }
