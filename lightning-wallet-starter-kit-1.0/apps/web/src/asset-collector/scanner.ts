@@ -5,6 +5,16 @@ import type { ScanInput, ScannedAsset } from './types';
 
 export type ScanProfile = 'configured' | 'local-testnet';
 type RpcSet = Record<TransferChain, string[]>;
+export interface DirectScanNetwork {
+  rpcUrls: string[];
+  evmChainId?: string;
+  solanaGenesis?: string;
+  tronHosts?: string[];
+}
+export interface AttestedAssetScanner {
+  scanAsset(input: ScanInput, index: number): Promise<ScannedAsset>;
+  scanWalletAssets(input: ScanInput, index: number): Promise<ScannedAsset[]>;
+}
 
 const DEVNET_GENESIS = 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG';
 const TRON_TESTNET_HOSTS = new Set(['nile.trongrid.io', 'api.nileex.io', 'api.shasta.trongrid.io']);
@@ -45,6 +55,33 @@ async function json(urls: string[], body: unknown) {
   throw new Error(lastError);
 }
 
+function directRpc(network: DirectScanNetwork) {
+  const urls = endpoints(network.rpcUrls[0] ?? '', network.rpcUrls.slice(1).join(','));
+  if (!urls.length) throw new Error('只读资产 RPC 未配置');
+  return urls;
+}
+
+export async function assertDirectScanNetwork(chain: TransferChain, network: DirectScanNetwork) {
+  const urls = directRpc(network);
+  if (chain === 'EVM') {
+    if (!/^0x[0-9a-f]+$/i.test(network.evmChainId ?? '')) throw new Error('EVM 只读资产网络缺少预期 Chain ID');
+    const result = await json(urls, { jsonrpc: '2.0', id: 91_001, method: 'eth_chainId', params: [] });
+    if (String(result.result).toLowerCase() !== network.evmChainId!.toLowerCase()) throw new Error(`EVM 只读 RPC Chain ID 不匹配；预期 ${network.evmChainId}`);
+    return;
+  }
+  if (chain === 'SOL') {
+    if (!network.solanaGenesis) throw new Error('Solana 只读资产网络缺少预期 Genesis');
+    const result = await json(urls, { jsonrpc: '2.0', id: 91_002, method: 'getGenesisHash', params: [] });
+    if (result.result !== network.solanaGenesis) throw new Error('Solana 只读 RPC Genesis 不匹配');
+    return;
+  }
+  const allowed = new Set((network.tronHosts ?? []).map(value => value.toLowerCase()));
+  if (!allowed.size || !urls.every(value => {
+    try { return allowed.has(new URL(value).hostname.toLowerCase()); }
+    catch { return false; }
+  })) throw new Error('TRON 只读 RPC 主机不在当前网络允许列表');
+}
+
 export async function assertLocalTestnetScanProfile(chain: TransferChain) {
   if (chain === 'EVM') {
     const result = await json(localTestnetRpc.EVM, { jsonrpc: '2.0', id: 90_001, method: 'eth_chainId', params: [] });
@@ -77,58 +114,60 @@ function tokenDecimals(detected: number, provided?: number) {
   return detected;
 }
 
-export async function scanAsset(chain: TransferChain, input: ScanInput, index: number, profile: ScanProfile = 'configured'): Promise<ScannedAsset> {
+async function scanAssetWithRpc(chain: TransferChain, input: ScanInput, index: number, rpc: string[]): Promise<ScannedAsset> {
   const id = `${chain}-${index}-${input.address}`;
   const asset = input.token ? 'token' : 'native';
-  const rpc = profileRpc(profile);
   try {
     if (chain === 'EVM') {
       const data = input.token ? `0x70a08231000000000000000000000000${input.address.slice(2).toLowerCase()}` : undefined;
       const [balanceResult, decimalsResult] = await Promise.all([
-        json(rpc.EVM, { jsonrpc: '2.0', id: index, method: input.token ? 'eth_call' : 'eth_getBalance', params: input.token ? [{ to: input.token, data }, 'latest'] : [input.address, 'latest'] }),
-        input.token ? json(rpc.EVM, { jsonrpc: '2.0', id: index + 30_000, method: 'eth_call', params: [{ to: input.token, data: '0x313ce567' }, 'latest'] }) : Promise.resolve(undefined),
+        json(rpc, { jsonrpc: '2.0', id: index, method: input.token ? 'eth_call' : 'eth_getBalance', params: input.token ? [{ to: input.token, data }, 'latest'] : [input.address, 'latest'] }),
+        input.token ? json(rpc, { jsonrpc: '2.0', id: index + 30_000, method: 'eth_call', params: [{ to: input.token, data: '0x313ce567' }, 'latest'] }) : Promise.resolve(undefined),
       ]);
       const decimals = input.token ? tokenDecimals(Number(BigInt(decimalsResult.result)), input.decimals) : 18;
-      const fee = (await evmGasPrice(index, rpc.EVM)) * BigInt(input.token ? 65000 : 21000);
+      const fee = (await evmGasPrice(index, rpc)) * BigInt(input.token ? 65000 : 21000);
       return { ...input, id, chain, asset, symbol: input.token ? 'ERC-20' : 'ETH', decimals, balance: formatAtomic(BigInt(balanceResult.result), decimals), estimatedFee: formatAtomic(fee, 18), status: 'ready' };
     }
     if (chain === 'SOL') {
       if (input.token) {
         const [result, supply] = await Promise.all([
-          json(rpc.SOL, { jsonrpc: '2.0', id: index, method: 'getTokenAccountsByOwner', params: [input.address, { mint: input.token }, { encoding: 'jsonParsed' }] }),
-          json(rpc.SOL, { jsonrpc: '2.0', id: index + 30_000, method: 'getTokenSupply', params: [input.token] }),
+          json(rpc, { jsonrpc: '2.0', id: index, method: 'getTokenAccountsByOwner', params: [input.address, { mint: input.token }, { encoding: 'jsonParsed' }] }),
+          json(rpc, { jsonrpc: '2.0', id: index + 30_000, method: 'getTokenSupply', params: [input.token] }),
         ]);
         const accounts = result.result.value as { account: { data: { parsed: { info: { tokenAmount: { amount: string } } } } } }[];
         const decimals = tokenDecimals(Number(supply.result.value.decimals), input.decimals);
         const amount = accounts.reduce((sum, item) => sum + BigInt(item.account.data.parsed.info.tokenAmount.amount), 0n);
         return { ...input, id, chain, asset, symbol: 'SPL', decimals, balance: formatAtomic(amount, decimals), estimatedFee: '0.00001', status: 'ready' };
       }
-      const result = await json(rpc.SOL, { jsonrpc: '2.0', id: index, method: 'getBalance', params: [input.address] });
+      const result = await json(rpc, { jsonrpc: '2.0', id: index, method: 'getBalance', params: [input.address] });
       return { ...input, id, chain, asset, symbol: 'SOL', balance: formatAtomic(BigInt(result.result.value), 9), estimatedFee: '0.000005', status: 'ready' };
     }
     const addressHex = Array.from(bs58.decode(input.address).slice(0, 21), byte => byte.toString(16).padStart(2, '0')).join('');
     if (input.token) {
       const parameter = addressHex.padStart(64, '0');
       const [balanceResult, decimalsResult] = await Promise.all([
-        json(tron(rpc.TRON, '/wallet/triggerconstantcontract'), { owner_address: input.address, contract_address: input.token, function_selector: 'balanceOf(address)', parameter, visible: true }),
-        json(tron(rpc.TRON, '/wallet/triggerconstantcontract'), { owner_address: input.address, contract_address: input.token, function_selector: 'decimals()', parameter: '', visible: true }),
+        json(tron(rpc, '/wallet/triggerconstantcontract'), { owner_address: input.address, contract_address: input.token, function_selector: 'balanceOf(address)', parameter, visible: true }),
+        json(tron(rpc, '/wallet/triggerconstantcontract'), { owner_address: input.address, contract_address: input.token, function_selector: 'decimals()', parameter: '', visible: true }),
       ]);
       const raw = BigInt(`0x${balanceResult.constant_result?.[0] ?? '0'}`);
       const decimals = tokenDecimals(Number(BigInt(`0x${decimalsResult.constant_result?.[0] ?? '0'}`)), input.decimals);
       return { ...input, id, chain, asset, symbol: 'TRC-20', decimals, balance: formatAtomic(raw, decimals), estimatedFee: '15', status: 'ready' };
     }
-    const result = await json(tron(rpc.TRON, '/wallet/getaccount'), { address: input.address, visible: true });
+    const result = await json(tron(rpc, '/wallet/getaccount'), { address: input.address, visible: true });
     return { ...input, id, chain, asset, symbol: 'TRX', balance: formatAtomic(BigInt(result.balance ?? 0), 6), estimatedFee: '1.1', status: 'ready' };
   } catch (error) {
     return { ...input, id, chain, asset, symbol: input.token ? 'Token' : 'Native', balance: '0', estimatedFee: '0', status: 'failed', error: error instanceof Error ? error.message : 'RPC 扫描失败' };
   }
 }
 
+export async function scanAsset(chain: TransferChain, input: ScanInput, index: number, profile: ScanProfile = 'configured'): Promise<ScannedAsset> {
+  return scanAssetWithRpc(chain, input, index, profileRpc(profile)[chain]);
+}
+
 type ParsedSolanaAccount = { account: { data: { parsed: { info: { mint: string; tokenAmount: { amount: string; decimals: number } } } } } };
-async function discoverSolanaTokens(input: ScanInput, index: number, profile: ScanProfile): Promise<ScannedAsset[]> {
+async function discoverSolanaTokens(input: ScanInput, index: number, rpc: string[]): Promise<ScannedAsset[]> {
   const programs = ['TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'];
-  const rpc = profileRpc(profile);
-  const responses = await Promise.all(programs.map((program, offset) => json(rpc.SOL, { jsonrpc: '2.0', id: index + 20_000 + offset, method: 'getTokenAccountsByOwner', params: [input.address, { programId: program }, { encoding: 'jsonParsed' }] })));
+  const responses = await Promise.all(programs.map((program, offset) => json(rpc, { jsonrpc: '2.0', id: index + 20_000 + offset, method: 'getTokenAccountsByOwner', params: [input.address, { programId: program }, { encoding: 'jsonParsed' }] })));
   const balances = new Map<string, { raw: bigint; decimals: number }>();
   for (const response of responses) for (const item of response.result.value as ParsedSolanaAccount[]) {
     const info = item.account.data.parsed.info;
@@ -138,10 +177,23 @@ async function discoverSolanaTokens(input: ScanInput, index: number, profile: Sc
   return [...balances.entries()].filter(([, value]) => value.raw > 0n).map(([token, value], offset) => ({ id: `SOL-${index}-token-${offset}-${input.address}`, chain: 'SOL', asset: 'token', symbol: `SPL·${token.slice(0, 4)}`, address: input.address, token, decimals: value.decimals, balance: formatAtomic(value.raw, value.decimals), estimatedFee: '0.00001', status: 'ready' }));
 }
 
-export async function scanWalletAssets(chain: TransferChain, input: ScanInput, index: number, profile: ScanProfile = 'configured'): Promise<ScannedAsset[]> {
-  if (input.token) return [await scanAsset(chain, input, index, profile)];
-  const native = await scanAsset(chain, input, index, profile);
+async function scanWalletAssetsWithRpc(chain: TransferChain, input: ScanInput, index: number, rpc: string[]): Promise<ScannedAsset[]> {
+  if (input.token) return [await scanAssetWithRpc(chain, input, index, rpc)];
+  const native = await scanAssetWithRpc(chain, input, index, rpc);
   if (chain !== 'SOL' || native.status === 'failed') return [native];
-  try { return [native, ...await discoverSolanaTokens(input, index, profile)]; }
+  try { return [native, ...await discoverSolanaTokens(input, index, rpc)]; }
   catch (error) { return [native, { id: `SOL-${index}-tokens-${input.address}`, chain: 'SOL', asset: 'token', symbol: 'SPL', address: input.address, balance: '0', estimatedFee: '0', status: 'failed', error: error instanceof Error ? `Token 扫描失败：${error.message}` : 'Token 扫描失败' }]; }
+}
+
+export async function scanWalletAssets(chain: TransferChain, input: ScanInput, index: number, profile: ScanProfile = 'configured'): Promise<ScannedAsset[]> {
+  return scanWalletAssetsWithRpc(chain, input, index, profileRpc(profile)[chain]);
+}
+
+export async function createAttestedAssetScanner(chain: TransferChain, network: DirectScanNetwork): Promise<AttestedAssetScanner> {
+  await assertDirectScanNetwork(chain, network);
+  const rpc = directRpc(network);
+  return {
+    scanAsset: (input, index) => scanAssetWithRpc(chain, input, index, rpc),
+    scanWalletAssets: (input, index) => scanWalletAssetsWithRpc(chain, input, index, rpc),
+  };
 }

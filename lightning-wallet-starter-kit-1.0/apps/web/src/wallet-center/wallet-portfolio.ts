@@ -1,7 +1,8 @@
-import { scanAsset, assertLocalTestnetScanProfile, scanWalletAssets } from '../asset-collector/scanner';
+import { createAttestedAssetScanner, type AttestedAssetScanner } from '../asset-collector/scanner';
 import type { ScannedAsset } from '../asset-collector/types';
 import { validateAddress } from '../batch-transfer/validation';
 import type { CustomToken } from './public-metadata';
+import { defaultPortfolioNetwork, type PortfolioNetwork } from './portfolio-networks';
 import type { VaultWallet } from './vault';
 
 const MAX_CUSTOM_TOKENS = 50;
@@ -41,33 +42,37 @@ function safeCustomTokens(wallet: Pick<VaultWallet, 'chain' | 'id'>, tokens: Cus
   return { valid, skipped };
 }
 
-async function scanCustomTokens(wallet: Pick<VaultWallet, 'chain' | 'address'>, tokens: CustomToken[], offset: number) {
+async function scanCustomTokens(wallet: Pick<VaultWallet, 'address'>, tokens: CustomToken[], offset: number, scanner: AttestedAssetScanner) {
   const assets: ScannedAsset[] = [];
   for (let index = 0; index < tokens.length; index += 3) {
     const batch = tokens.slice(index, index + 3);
-    assets.push(...await Promise.all(batch.map((token, batchIndex) => scanAsset(wallet.chain, {
+    assets.push(...await Promise.all(batch.map((token, batchIndex) => scanner.scanAsset({
       address: wallet.address,
       token: token.address,
       decimals: token.decimals,
-    }, offset + index + batchIndex, 'local-testnet'))));
+    }, offset + index + batchIndex))));
     if (index + 3 < tokens.length) await new Promise(resolve => setTimeout(resolve, 120));
   }
   return assets;
 }
 
-function applyCustomSymbols(assets: ScannedAsset[], tokens: CustomToken[]) {
+function applySymbols(assets: ScannedAsset[], tokens: CustomToken[], network: PortfolioNetwork) {
   const symbols = new Map(tokens.map(token => [normalizedToken(token.address), token.symbol]));
-  return assets.map(asset => asset.token && symbols.has(normalizedToken(asset.token))
-    ? { ...asset, symbol: symbols.get(normalizedToken(asset.token))! }
-    : asset);
+  return assets.map(asset => {
+    if (asset.asset === 'native') return { ...asset, symbol: network.nativeSymbol };
+    return asset.token && symbols.has(normalizedToken(asset.token)) ? { ...asset, symbol: symbols.get(normalizedToken(asset.token))! } : asset;
+  });
 }
 
-export async function scanLocalWalletPortfolio(wallet: Pick<VaultWallet, 'id' | 'chain' | 'address'>, tokens: CustomToken[]): Promise<WalletPortfolioResult> {
-  await assertLocalTestnetScanProfile(wallet.chain);
+export async function scanWalletPortfolio(wallet: Pick<VaultWallet, 'id' | 'chain' | 'address'>, tokens: CustomToken[], network: PortfolioNetwork = defaultPortfolioNetwork(wallet.chain)): Promise<WalletPortfolioResult> {
+  if (network.chain !== wallet.chain) throw new Error('只读资产网络与钱包链类型不匹配');
+  const scanner = await createAttestedAssetScanner(wallet.chain, network);
   const { valid, skipped } = safeCustomTokens(wallet, tokens);
-  const discovered = await scanWalletAssets(wallet.chain, { address: wallet.address }, 0, 'local-testnet');
+  const discovered = await scanner.scanWalletAssets({ address: wallet.address }, 0);
   const discoveredTokens = new Set(discovered.flatMap(asset => asset.token ? [normalizedToken(asset.token)] : []));
   const missingCustomTokens = valid.filter(token => !discoveredTokens.has(normalizedToken(token.address)));
-  const customAssets = missingCustomTokens.length ? await scanCustomTokens(wallet, missingCustomTokens, discovered.length + 1) : [];
-  return { assets: applyCustomSymbols([...discovered, ...customAssets], valid), skipped };
+  const customAssets = missingCustomTokens.length ? await scanCustomTokens(wallet, missingCustomTokens, discovered.length + 1, scanner) : [];
+  return { assets: applySymbols([...discovered, ...customAssets], valid, network), skipped };
 }
+
+export const scanLocalWalletPortfolio = scanWalletPortfolio;
