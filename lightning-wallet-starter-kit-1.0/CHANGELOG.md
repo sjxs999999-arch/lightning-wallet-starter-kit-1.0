@@ -46,9 +46,10 @@ All notable stable Lightning Wallet releases are recorded here.
 - Operations-hardening candidate `5be4e2e` passed Production CI run `32349813299`: production environment-gate tests, credential scan, type check, 117 API tests, 200 Web tests, production build, production dependency gate and both Docker image builds.
 - Provider-approval preflight fix `01a7dc1` passed Production CI run `32350485348`: environment-gate tests, credential scan, type check, 117 API tests, 200 Web tests, production build, production dependency gate and both Docker image builds.
 - Guarded rollback candidate `175caff` passed Production CI run `32351059019`: rollback-planner tests, environment-gate tests, credential scan, type check, 117 API tests, 200 Web tests, production build, dependency gate and both Docker image builds; the production `5258b12` → `184c5ea` Dry Run passed without state changes.
-- Version `2.20.0` from exact candidate `5258b12` is deployed to GCE API release `5258b12` and Vercel Production deployment `HRZfYMQyjxDNjEdB3VWh1cKAvnGf`.
+- MFA QR candidate `94c2b99` passed Production CI run `32372450835`: environment gate, rollback tests, credential scan, type check, 117 API tests, 202 Web tests, production build, dependency gate and both Docker image builds.
+- Version `2.20.0` web candidate `94c2b99` is deployed to Vercel Production deployment `Dg4UXgYYkYfexSgPRgaonTm7yx25`; the API remains on exact GCE release `5258b12` because this change is browser-only.
 - Release `184c5ea` remains the server rollback point; database backup `lightning-20260820T081545Z.dump` was created before the deployment.
-- Production HTTP acceptance, API/PostgreSQL/Redis readiness, metrics authorization, host routing, CORS and zero-console-error browser checks pass on v2.20.0.
+- Production HTTP acceptance, API/PostgreSQL/Redis readiness, metrics authorization, host routing, CORS and zero-console-error browser checks pass on v2.20.0; the deployed Security Center resource contains the local Authenticator QR implementation.
 - The production MFA encryption key and database schema are configured, while enrollment remains intentionally inactive until the operator confirms a live Authenticator code.
 
 ### Release gate
