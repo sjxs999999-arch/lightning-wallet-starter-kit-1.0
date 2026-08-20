@@ -21,4 +21,17 @@ Version 2.33 adds a read-only, testnet-first asset view to the encrypted local W
 
 ## Verification status
 
-- Runtime, CI, browser, Preview and production deployment results will be recorded after candidate validation.
+- Runtime commit: `e58173a`.
+- API: 159 tests passing across 33 files.
+- Web: 293 tests passing across 75 files, including testnet attestation, custom-Token sanitization, discovered-Token de-duplication and actionable error-copy coverage.
+- Type checking, lint, production build, credential scan, environment/rollback/provider gates and both local Docker image builds: passing.
+- Production dependency gate: zero high or critical advisories; six moderate transitive advisories remain without a compatible upstream fix.
+- Production CI run `32415927314`: passing, including verification and Docker jobs.
+- Vercel Preview `dpl_EPVFRUUoVnduYgi3nvk1coYbPVbR`: ready.
+- Vercel Production `dpl_HLK51wFAx3gqcv2x4gUEnEhmEMXa`: ready on `lightingwallet.com` and `admin.lightingwallet.com`.
+- GCE immutable release: `/opt/lightning-wallet/releases/e58173a`; rollback: `/opt/lightning-wallet/releases/11c252f`; retained pre-deploy backup: `lightning-20260820T205300Z.dump`.
+- Local browser acceptance created an isolated temporary EVM vault, rendered the lazy asset panel and confirmed that a blocked public Sepolia RPC produces a panel-local error instead of a white screen. No secret was inspected or transmitted.
+- Production browser checks pass for the v2.33 client Wallet Center, operator/client separation and zero console errors. Vercel reported no error-level deployment logs.
+- Production HTTP, CORS, security-header, API/PostgreSQL/Redis and read-only Provider acceptance pass. SUN.io returned three routes in 0.409085 seconds; LI.FI returned one route in 0.732777 seconds.
+- No automated acceptance connected a wallet, requested a signature or broadcast a transaction. Authorized real-wallet acceptance remains required.
+- Final approval remains fail-closed on exactly five external-provider prerequisites, wallet acceptance and four disabled mainnet gates.
