@@ -7,8 +7,8 @@ Updated: 2026-08-24
 - Development branch: `codex/final-production`
 - Latest deployed web candidate commit: `3883c04`
 - Current GCE API release commit: `3883c04`
-- Current code candidate version: `2.34.0`
-- Current code candidate commit: `3883c04`
+- Current code candidate version: `2.35.0`
+- Current code candidate commit: pending v2.35 security-hardening commit
 - Latest deployed web version: `2.34.0`
 - Latest deployed API version: `2.34.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
@@ -46,6 +46,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Private keys and mnemonics remain in the browser/extension; API schemas do not accept them.
 - Encrypted wallet export uses AES-256-GCM with PBKDF2-SHA-256.
 - Real transactions require the user wallet; the server does not sign or broadcast.
+- The retired Solana signed-transaction relay returns permanent HTTP 410 in both Fastify and Vercel; signed transaction payloads are never accepted or forwarded by the server.
 - Error boundaries isolate route, Worker, RPC and provider failures to prevent blank pages.
 - Client crash diagnostics are self-hosted, accept only anonymous metadata under a strict schema, aggregate duplicate fingerprints, expire after 90 inactive days and expose reads only to authenticated operators.
 - Operator sessions are revocable HttpOnly cookies with default-deny API authorization, CSRF checks and rate limits.
@@ -58,11 +59,12 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 ## Current verification baseline
 
-- API tests: 159 passing across 33 files.
+- API tests: 161 passing across 34 files.
 - Web tests: 301 passing across 77 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
 - Local API and Web Docker images: passing for candidate `3883c04`.
+- Security-hardening candidate v2.35.0 passes 161 API tests, 301 Web tests, type checking, lint, production build, secret/environment/rollback/provider gates and both Docker image builds. The public capability contract now explicitly reports `serverBroadcast: false`; the former authenticated Solana relay is permanently retired with HTTP 410. Production remains on v2.34.0 until this candidate passes CI and rollout acceptance.
 - Multi-mainnet read-only candidate `3883c04` passes 159 API tests, 301 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build, high/critical production dependency gating and both Docker image builds. All 11 configured EVM/Solana/TRON profiles returned the expected network identity. Production CI run `32418571919` passed.
 - Vercel Preview `dpl_4tshoKFSS8D5KzHY1TbMgomb6aQy` and Vercel Production `dpl_42jCZ5YMxnqJXE9JTYzfe2m5zyxK` serve web v2.34.0. Local and production browser acceptance verified the Wallet Center, EVM network selector, BSC Mainnet read-only state, reload-safe rendering and zero console errors without signature or broadcast access.
 - GCE immutable release `3883c04` and API v2.34.0 are deployed. Rollback points to `e58173a`, and the pre-deploy PostgreSQL backup `/opt/lightning-wallet/backups/lightning-20260823T183613Z.dump` is retained. API, Web, PostgreSQL and Redis containers are healthy.

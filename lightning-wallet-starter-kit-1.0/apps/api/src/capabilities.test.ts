@@ -11,6 +11,7 @@ describe('production capability contract',()=>{
     expect(value.readiness).toMatchObject({finalApproval:false,walletAcceptanceRequired:true,mainnet:{execution:false,swap:false,launchpad:false,bridge:false}});
     expect(value.features.find(item=>item.name==='闪电贷款')?.status).toBe('real-app-required');
     expect(value.features.find(item=>item.name==='GasFree')?.status).toBe('provider-required');
+    expect(value.security).toMatchObject({privateKeysUploaded:false,serverSigning:false,serverBroadcast:false});
   });
 
   it('requires providers, wallet acceptance and every mainnet gate for final approval',()=>{

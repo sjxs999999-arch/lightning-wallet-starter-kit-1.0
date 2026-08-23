@@ -2,7 +2,7 @@
 set -eu
 
 API_ORIGIN=${API_ORIGIN:-https://api.lightingwallet.com}
-EXPECTED_RELEASE=${EXPECTED_RELEASE:-2.34.0}
+EXPECTED_RELEASE=${EXPECTED_RELEASE:-2.35.0}
 payload=$(mktemp)
 trap 'rm -f "$payload"' EXIT HUP INT TERM
 

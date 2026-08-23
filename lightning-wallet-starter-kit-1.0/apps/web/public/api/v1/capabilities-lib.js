@@ -1,4 +1,4 @@
-export const RELEASE_VERSION='2.34.0';
+export const RELEASE_VERSION='2.35.0';
 
 const enabled=value=>String(value??'').toLowerCase()==='true';
 const present=value=>typeof value==='string'&&value.trim().length>0;
@@ -32,5 +32,5 @@ export function buildServerlessCapabilities(env=process.env){
     {name:'Token Studio',mode:'client-wallet-deployment-with-mainnet-double-gate',status:walletReady&&mainnet.launchpad?'ready':'acceptance-required'},
     {name:'项目与市场中心',mode:'public-read',status:marketHolderConfigured?'ready':'partial-provider-configuration'},
     {name:'自动化中心',mode:'read-only-monitoring-and-configured-delivery',status:automationDeliveryConfigured?'ready':'delivery-provider-required'},
-  ],readiness:{finalApproval:externalBlockers.length===0&&walletReady&&mainnet.swap&&mainnet.launchpad&&mainnet.bridge,walletAcceptanceRequired:!walletAcceptanceApproved,externalBlockers,mainnet},security:{privateKeysUploaded:false,serverSigning:false,analytics:false,sessionRevocation:true,httpOnlySession:true,csrfProtection:true,defaultDenyApi:true,contentSecurityPolicy:true,metadataOnlyDiagnostics:true,automaticSessionRecovery:true,workerOnlyExportValidation:true,zeroizedKeyBuffers:true}};
+  ],readiness:{finalApproval:externalBlockers.length===0&&walletReady&&mainnet.swap&&mainnet.launchpad&&mainnet.bridge,walletAcceptanceRequired:!walletAcceptanceApproved,externalBlockers,mainnet},security:{privateKeysUploaded:false,serverSigning:false,serverBroadcast:false,analytics:false,sessionRevocation:true,httpOnlySession:true,csrfProtection:true,defaultDenyApi:true,contentSecurityPolicy:true,metadataOnlyDiagnostics:true,automaticSessionRecovery:true,workerOnlyExportValidation:true,zeroizedKeyBuffers:true}};
 }

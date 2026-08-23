@@ -122,8 +122,7 @@ export default async function handler(req,res){
       const result=await solanaRpc('getLatestBlockhash',[{commitment:'confirmed'}]);return send(res,200,{data:result.value});
     }
     if(method==='POST'&&route==='solana/send-signed-batch'){
-      if(!await requireAuth(req,res))return;const transactions=bodyOf(req).transactions;if(!Array.isArray(transactions)||transactions.length<1||transactions.length>1000)return send(res,400,{error:'INVALID_BATCH'});
-      const data=[];for(let index=0;index<transactions.length;index++){try{data.push({index,signature:await solanaRpc('sendTransaction',[transactions[index],{encoding:'base64',skipPreflight:false,preflightCommitment:'confirmed',maxRetries:3}])})}catch(error){data.push({index,error:error instanceof Error?error.message:'RPC failed'})}}return send(res,data.some(x=>x.signature)?200:503,{data});
+      if(!await requireAuth(req,res))return;return send(res,410,{error:'CLIENT_ONLY_BROADCAST',message:'Signed transactions must be broadcast directly by the non-custodial client',serverSigning:false,serverBroadcast:false});
     }
     if(method==='GET'&&route==='gasfree/status')return send(res,200,{data:{configured:false,network:'sepolia',chainId:11155111,mainnetEnabled:false,status:'dry-run-only'}});
     if(method==='POST'&&route==='gasfree/estimate'){

@@ -1,4 +1,4 @@
-export const RELEASE_VERSION='2.34.0';
+export const RELEASE_VERSION='2.35.0';
 
 export type ExternalBlockerCode='WALLETCONNECT_PROJECT_ID'|'GASFREE_PAYMASTER'|'MARKET_HOLDER_PROVIDER'|'FLASH_LOAN_APPLICATION'|'AUTOMATION_DELIVERY_PROVIDER';
 export type CapabilityInput={
@@ -57,6 +57,6 @@ export function buildCapabilities(input:CapabilityInput){
       {name:'自动化中心',mode:'read-only-monitoring-and-configured-delivery',status:automationReady},
     ],
     readiness:{finalApproval,walletAcceptanceRequired:!input.walletAcceptanceApproved,externalBlockers,mainnet},
-    security:{privateKeysUploaded:false,serverSigning:false,analytics:false,sessionRevocation:true,httpOnlySession:true,csrfProtection:true,defaultDenyApi:true,contentSecurityPolicy:true,metadataOnlyDiagnostics:true,automaticSessionRecovery:true,workerOnlyExportValidation:true,zeroizedKeyBuffers:true},
+    security:{privateKeysUploaded:false,serverSigning:false,serverBroadcast:false,analytics:false,sessionRevocation:true,httpOnlySession:true,csrfProtection:true,defaultDenyApi:true,contentSecurityPolicy:true,metadataOnlyDiagnostics:true,automaticSessionRecovery:true,workerOnlyExportValidation:true,zeroizedKeyBuffers:true},
   };
 }
