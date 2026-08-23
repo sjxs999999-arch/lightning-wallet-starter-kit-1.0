@@ -1,16 +1,16 @@
 # Lightning Wallet production status
 
-Updated: 2026-08-21
+Updated: 2026-08-24
 
 ## Candidate baseline
 
 - Development branch: `codex/final-production`
 - Latest deployed web candidate commit: `3883c04`
-- Current GCE API release commit: `e58173a`
+- Current GCE API release commit: `3883c04`
 - Current code candidate version: `2.34.0`
 - Current code candidate commit: `3883c04`
 - Latest deployed web version: `2.34.0`
-- Latest deployed API version: `2.33.0` (GCE rollout pending local Google Cloud credential permission)
+- Latest deployed API version: `2.34.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -65,7 +65,9 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Local API and Web Docker images: passing for candidate `3883c04`.
 - Multi-mainnet read-only candidate `3883c04` passes 159 API tests, 301 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build, high/critical production dependency gating and both Docker image builds. All 11 configured EVM/Solana/TRON profiles returned the expected network identity. Production CI run `32418571919` passed.
 - Vercel Preview `dpl_4tshoKFSS8D5KzHY1TbMgomb6aQy` and Vercel Production `dpl_42jCZ5YMxnqJXE9JTYzfe2m5zyxK` serve web v2.34.0. Local and production browser acceptance verified the Wallet Center, EVM network selector, BSC Mainnet read-only state, reload-safe rendering and zero console errors without signature or broadcast access.
-- GCE remains safely on immutable release `e58173a` / API v2.33.0 because this run was not granted access to the local Google Cloud credential directory. No server symlink, container or database state was changed; the v2.34 GCE rollout and post-rollout API acceptance remain pending.
+- GCE immutable release `3883c04` and API v2.34.0 are deployed. Rollback points to `e58173a`, and the pre-deploy PostgreSQL backup `/opt/lightning-wallet/backups/lightning-20260823T183613Z.dump` is retained. API, Web, PostgreSQL and Redis containers are healthy.
+- Post-rollout client/operator routing, forced refresh, zero-console-error checks, security headers, CORS, API/PostgreSQL/Redis readiness and read-only provider acceptance pass. SUN.io returned three verified routes in 0.427969 seconds and LI.FI returned one verified same-chain EVM route in 0.728238 seconds without wallet access, signing or broadcast. Vercel reported no error-level logs for production deployment `dpl_42jCZ5YMxnqJXE9JTYzfe2m5zyxK` during the acceptance window.
+- Final readiness remains fail-closed on exactly five external providers, authorized-wallet signing acceptance and all four disabled mainnet gates.
 - Wallet Center browser acceptance: route render, provider tab, refresh and sender-prefilled Batch Transfer handoff pass with zero console errors and no wallet/signature/broadcast access.
 - Read-only portfolio candidate `e58173a` passes 159 API tests, 293 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build, high/critical dependency gating and both Docker image builds. Local browser acceptance verified temporary-wallet rendering, lazy portfolio loading and RPC-failure isolation without a white screen or secret access.
 - Production CI run `32415927314` passed. Vercel Preview `dpl_EPVFRUUoVnduYgi3nvk1coYbPVbR`, Vercel Production `dpl_HLK51wFAx3gqcv2x4gUEnEhmEMXa` and GCE immutable release `e58173a` serve v2.33.0. GCE rollback points to `11c252f`; backup `lightning-20260820T205300Z.dump` is retained.
