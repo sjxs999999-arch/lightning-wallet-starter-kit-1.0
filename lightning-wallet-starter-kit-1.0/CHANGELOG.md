@@ -6,6 +6,11 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Deployed web/API v2.37.0 from `de1ba48` and replaced the bare wallet-acceptance boolean with a fail-closed, auditable evidence contract.
+- Added a production wallet-acceptance verifier covering the ten required provider/network paths, EVM/Solana/TRON negative tests, transaction-reference uniqueness and the non-custodial security invariants.
+- Required the production acceptance report path and exact SHA-256 digest to be configured together; missing, stale, modified, test-only or pending evidence is rejected before any mainnet gate can open.
+- Added positive and negative wallet-evidence fixtures to Production CI without bundling or fabricating any real wallet acceptance result.
+- Vercel Preview `8nCWVkjFbqXKLzgnFzJaswVDky8w`, Vercel Production `G2zXk4vbGaw4qePrYtsVEaWTdyFr`, GCE immutable release `de1ba48` and Production CI run `32666992683` pass the v2.37 release checks.
 - Added route-level error isolation around every lazy client and operator page so a route crash preserves the shell, navigation, reload action and safe-entry recovery instead of producing a full-page failure.
 - Raised the production disk preflight from 8 GiB to 20 GiB after a fail-safe v2.36 build exposed insufficient temporary image space; production deploys now remove only unused BuildKit cache before measuring capacity.
 - Added a confirmation-gated forward-promotion tool that backs up PostgreSQL, keeps the verified release at `current` during target build/health verification and switches links only after production acceptance passes.
