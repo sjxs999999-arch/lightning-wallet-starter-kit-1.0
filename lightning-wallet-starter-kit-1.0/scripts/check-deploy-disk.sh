@@ -2,7 +2,10 @@
 set -eu
 
 TARGET=${1:-.}
-MIN_DEPLOY_DISK_KB=${MIN_DEPLOY_DISK_KB:-8388608}
+# A clean production build currently needs room for both the API and Web images,
+# their temporary BuildKit layers and the existing rollback images. Eight GiB
+# proved insufficient on the production host, so fail closed below 20 GiB.
+MIN_DEPLOY_DISK_KB=${MIN_DEPLOY_DISK_KB:-20971520}
 
 case "$MIN_DEPLOY_DISK_KB" in
   ''|*[!0-9]*) echo "MIN_DEPLOY_DISK_KB must be a positive integer." >&2; exit 2 ;;

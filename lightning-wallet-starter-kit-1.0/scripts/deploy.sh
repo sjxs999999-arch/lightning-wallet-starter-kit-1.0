@@ -4,12 +4,17 @@ PRODUCTION_ENV_FILE=${PRODUCTION_ENV_FILE:-.env.production}
 COMPOSE_FILE=${COMPOSE_FILE:-docker-compose.production.yml}
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-lightning-wallet}
 DEPLOY_WAIT_SECONDS=${DEPLOY_WAIT_SECONDS:-150}
+DEPLOY_PRUNE_BUILD_CACHE=${DEPLOY_PRUNE_BUILD_CACHE:-true}
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 case "$DEPLOY_WAIT_SECONDS" in
   ''|*[!0-9]*) echo 'DEPLOY_WAIT_SECONDS must be a positive integer.' >&2; exit 2 ;;
 esac
 test "$DEPLOY_WAIT_SECONDS" -gt 0 || { echo 'DEPLOY_WAIT_SECONDS must be greater than zero.' >&2; exit 2; }
+case "$DEPLOY_PRUNE_BUILD_CACHE" in
+  true|false) : ;;
+  *) echo 'DEPLOY_PRUNE_BUILD_CACHE must be true or false.' >&2; exit 2 ;;
+esac
 
 test -f "$PRODUCTION_ENV_FILE" || { echo "Missing $PRODUCTION_ENV_FILE. Copy .env.production.example and configure secrets first." >&2; exit 1; }
 
@@ -28,6 +33,11 @@ if command -v openssl >/dev/null 2>&1; then
     echo "TLS certificate does not cover DOMAIN=$DOMAIN_VALUE." >&2
     exit 1
   }
+fi
+
+if [ "$DEPLOY_PRUNE_BUILD_CACHE" = true ]; then
+  echo 'Removing unused Docker build cache before production disk preflight.'
+  docker builder prune --all --force
 fi
 
 "$SCRIPT_DIR/check-deploy-disk.sh" "$(dirname "$COMPOSE_FILE")"

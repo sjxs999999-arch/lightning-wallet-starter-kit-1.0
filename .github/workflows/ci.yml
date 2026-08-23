@@ -30,7 +30,9 @@ jobs:
           cache-dependency-path: lightning-wallet-starter-kit-1.0/package-lock.json
       - run: npm ci --ignore-scripts --registry=https://registry.npmjs.org
       - run: ./scripts/check-secrets.sh
+      - run: ./scripts/test-deploy-disk.sh
       - run: ./scripts/test-production-env.sh
+      - run: ./scripts/test-promote-release.sh
       - run: ./scripts/test-verification-gates.sh
       - run: ./scripts/test-rollback-release.sh
       - run: ./scripts/test-live-providers.sh
