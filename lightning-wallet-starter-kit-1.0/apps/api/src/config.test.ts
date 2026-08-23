@@ -28,5 +28,7 @@ describe('production optional provider configuration', () => {
     expect(value.FINAL_WALLET_ACCEPTANCE_APPROVED).toBe(false);
     expect(value.VITE_MAINNET_EXECUTION_ENABLED).toBe(false);
     expect(configSchema.safeParse({NODE_ENV:'test',FINAL_WALLET_ACCEPTANCE_APPROVED:'yes'}).success).toBe(false);
+    expect(configSchema.safeParse({NODE_ENV:'test',FINAL_WALLET_ACCEPTANCE_APPROVED:'true'}).success).toBe(false);
+    expect(configSchema.safeParse({NODE_ENV:'test',FINAL_WALLET_ACCEPTANCE_APPROVED:'true',FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256:'a'.repeat(64)}).success).toBe(true);
   });
 });

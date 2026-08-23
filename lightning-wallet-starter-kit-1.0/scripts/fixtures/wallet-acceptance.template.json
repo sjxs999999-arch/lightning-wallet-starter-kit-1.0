@@ -1,0 +1,30 @@
+{
+  "format": "lightning-wallet-wallet-acceptance-v1",
+  "release": "2.37.0",
+  "environment": "production",
+  "approvedAt": "",
+  "approvedBy": "",
+  "security": {
+    "privateKeyUploaded": false,
+    "mnemonicUploaded": false,
+    "serverSigning": false,
+    "serverBroadcast": false
+  },
+  "providers": [
+    { "provider": "MetaMask", "chain": "EVM", "network": "Sepolia", "connect": "pending", "sign": "pending", "broadcast": "pending", "confirm": "pending", "historyReload": "pending", "reference": "" },
+    { "provider": "WalletConnect", "chain": "EVM", "network": "Sepolia", "connect": "pending", "sign": "pending", "broadcast": "pending", "confirm": "pending", "historyReload": "pending", "reference": "" },
+    { "provider": "OKX", "chain": "EVM", "network": "Sepolia", "connect": "pending", "sign": "pending", "broadcast": "pending", "confirm": "pending", "historyReload": "pending", "reference": "" },
+    { "provider": "OKX", "chain": "SOL", "network": "Solana Devnet", "connect": "pending", "sign": "pending", "broadcast": "pending", "confirm": "pending", "historyReload": "pending", "reference": "" },
+    { "provider": "OKX", "chain": "TRON", "network": "TRON Nile", "connect": "pending", "sign": "pending", "broadcast": "pending", "confirm": "pending", "historyReload": "pending", "reference": "" },
+    { "provider": "Rabby", "chain": "EVM", "network": "Sepolia", "connect": "pending", "sign": "pending", "broadcast": "pending", "confirm": "pending", "historyReload": "pending", "reference": "" },
+    { "provider": "Phantom", "chain": "SOL", "network": "Solana Devnet", "connect": "pending", "sign": "pending", "broadcast": "pending", "confirm": "pending", "historyReload": "pending", "reference": "" },
+    { "provider": "Backpack", "chain": "SOL", "network": "Solana Devnet", "connect": "pending", "sign": "pending", "broadcast": "pending", "confirm": "pending", "historyReload": "pending", "reference": "" },
+    { "provider": "Solflare", "chain": "SOL", "network": "Solana Devnet", "connect": "pending", "sign": "pending", "broadcast": "pending", "confirm": "pending", "historyReload": "pending", "reference": "" },
+    { "provider": "TronLink", "chain": "TRON", "network": "TRON Nile", "connect": "pending", "sign": "pending", "broadcast": "pending", "confirm": "pending", "historyReload": "pending", "reference": "" }
+  ],
+  "negativeTests": [
+    { "chain": "EVM", "network": "Sepolia", "walletRejectNoBroadcast": "pending", "rpcFailureNoWhiteScreen": "pending", "routeFailureNoWhiteScreen": "pending" },
+    { "chain": "SOL", "network": "Solana Devnet", "walletRejectNoBroadcast": "pending", "rpcFailureNoWhiteScreen": "pending", "routeFailureNoWhiteScreen": "pending" },
+    { "chain": "TRON", "network": "TRON Nile", "walletRejectNoBroadcast": "pending", "rpcFailureNoWhiteScreen": "pending", "routeFailureNoWhiteScreen": "pending" }
+  ]
+}

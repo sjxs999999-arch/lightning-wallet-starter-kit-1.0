@@ -1,0 +1,30 @@
+{
+  "format": "lightning-wallet-wallet-acceptance-v1",
+  "release": "2.37.0",
+  "environment": "test",
+  "approvedAt": "2026-08-24T00:00:00Z",
+  "approvedBy": "operator@test.invalid",
+  "security": {
+    "privateKeyUploaded": false,
+    "mnemonicUploaded": false,
+    "serverSigning": false,
+    "serverBroadcast": false
+  },
+  "providers": [
+    { "provider": "MetaMask", "chain": "EVM", "network": "Sepolia", "connect": "pass", "sign": "pass", "broadcast": "pass", "confirm": "pass", "historyReload": "pass", "reference": "0x1111111111111111111111111111111111111111111111111111111111111111" },
+    { "provider": "WalletConnect", "chain": "EVM", "network": "Sepolia", "connect": "pass", "sign": "pass", "broadcast": "pass", "confirm": "pass", "historyReload": "pass", "reference": "0x2222222222222222222222222222222222222222222222222222222222222222" },
+    { "provider": "OKX", "chain": "EVM", "network": "Sepolia", "connect": "pass", "sign": "pass", "broadcast": "pass", "confirm": "pass", "historyReload": "pass", "reference": "0x3333333333333333333333333333333333333333333333333333333333333333" },
+    { "provider": "OKX", "chain": "SOL", "network": "Solana Devnet", "connect": "pass", "sign": "pass", "broadcast": "pass", "confirm": "pass", "historyReload": "pass", "reference": "2222222222222222222222222222222222222222222222222222222222222222" },
+    { "provider": "OKX", "chain": "TRON", "network": "TRON Nile", "connect": "pass", "sign": "pass", "broadcast": "pass", "confirm": "pass", "historyReload": "pass", "reference": "4444444444444444444444444444444444444444444444444444444444444444" },
+    { "provider": "Rabby", "chain": "EVM", "network": "Sepolia", "connect": "pass", "sign": "pass", "broadcast": "pass", "confirm": "pass", "historyReload": "pass", "reference": "0x5555555555555555555555555555555555555555555555555555555555555555" },
+    { "provider": "Phantom", "chain": "SOL", "network": "Solana Devnet", "connect": "pass", "sign": "pass", "broadcast": "pass", "confirm": "pass", "historyReload": "pass", "reference": "3333333333333333333333333333333333333333333333333333333333333333" },
+    { "provider": "Backpack", "chain": "SOL", "network": "Solana Devnet", "connect": "pass", "sign": "pass", "broadcast": "pass", "confirm": "pass", "historyReload": "pass", "reference": "4444444444444444444444444444444444444444444444444444444444444444" },
+    { "provider": "Solflare", "chain": "SOL", "network": "Solana Devnet", "connect": "pass", "sign": "pass", "broadcast": "pass", "confirm": "pass", "historyReload": "pass", "reference": "5555555555555555555555555555555555555555555555555555555555555555" },
+    { "provider": "TronLink", "chain": "TRON", "network": "TRON Nile", "connect": "pass", "sign": "pass", "broadcast": "pass", "confirm": "pass", "historyReload": "pass", "reference": "6666666666666666666666666666666666666666666666666666666666666666" }
+  ],
+  "negativeTests": [
+    { "chain": "EVM", "network": "Sepolia", "walletRejectNoBroadcast": "pass", "rpcFailureNoWhiteScreen": "pass", "routeFailureNoWhiteScreen": "pass" },
+    { "chain": "SOL", "network": "Solana Devnet", "walletRejectNoBroadcast": "pass", "rpcFailureNoWhiteScreen": "pass", "routeFailureNoWhiteScreen": "pass" },
+    { "chain": "TRON", "network": "TRON Nile", "walletRejectNoBroadcast": "pass", "rpcFailureNoWhiteScreen": "pass", "routeFailureNoWhiteScreen": "pass" }
+  ]
+}

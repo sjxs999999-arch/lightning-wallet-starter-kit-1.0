@@ -33,7 +33,7 @@ export function ClientHome() {
     <div className="page-head"><div><p className="eyebrow">NON-CUSTODIAL CLIENT</p><h1>闪电钱包首页</h1><p>连接钱包、本地生成密钥，并从同一个客户端进入多链资产工具。</p></div></div>
     <div className="client-home-safety"><ShieldCheck size={18}/><div><b>私钥始终留在本机</b><span>服务端签名：关闭 · 服务端广播：关闭 · 私钥上传：0 · 真实交易必须由钱包确认</span></div></div>
     <div className="client-home-stats">
-      <section className="panel"><span>客户端版本</span><strong>{capabilities?.version ?? '2.36.0'}</strong><small>生产候选</small></section>
+      <section className="panel"><span>客户端版本</span><strong>{capabilities?.version ?? '2.37.0'}</strong><small>生产候选</small></section>
       <section className="panel"><span>支持网络</span><strong>{capabilities?.chains.length ?? 9}</strong><small>EVM · Solana · TRON</small></section>
       <section className="panel"><span>本地公开记录</span><strong>{activity.length}</strong><small>不包含私钥或签名内容</small></section>
       <section className="panel"><span>已就绪模块</span><strong>{capabilities ? ready : '—'}</strong><small>{statusError ? '状态服务暂时不可用' : '其余模块按准入状态显示'}</small></section>

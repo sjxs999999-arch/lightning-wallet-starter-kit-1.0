@@ -14,7 +14,7 @@ describe('serverless capability fallback',()=>{
   });
 
   it('requires all providers, acceptance and mainnet gates for approval',()=>{
-    const env={VITE_WALLETCONNECT_PROJECT_ID:'a'.repeat(32),GASFREE_PROVIDER_URL:'https://paymaster.provider.test',MARKET_HOLDER_PROVIDER_URL:'https://market.provider.test',FLASH_LOAN_PROVIDER_APPROVED:'true',FLASH_LOAN_URL:'https://flash.provider.test',FLASH_LOAN_API_URL:'https://flash.provider.test/api',AUTOMATION_ENABLE_DELIVERY:'true',WEBHOOK_SIGNING_SECRET:'s'.repeat(32),FINAL_WALLET_ACCEPTANCE_APPROVED:'true',VITE_MAINNET_EXECUTION_ENABLED:'true',VITE_ENABLE_MAINNET_SWAP:'true',VITE_ENABLE_MAINNET_LAUNCHPAD:'true',VITE_ENABLE_MAINNET_BRIDGE:'true'};
+    const env={VITE_WALLETCONNECT_PROJECT_ID:'a'.repeat(32),GASFREE_PROVIDER_URL:'https://paymaster.provider.test',MARKET_HOLDER_PROVIDER_URL:'https://market.provider.test',FLASH_LOAN_PROVIDER_APPROVED:'true',FLASH_LOAN_URL:'https://flash.provider.test',FLASH_LOAN_API_URL:'https://flash.provider.test/api',AUTOMATION_ENABLE_DELIVERY:'true',WEBHOOK_SIGNING_SECRET:'s'.repeat(32),FINAL_WALLET_ACCEPTANCE_APPROVED:'true',FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256:'a'.repeat(64),VITE_MAINNET_EXECUTION_ENABLED:'true',VITE_ENABLE_MAINNET_SWAP:'true',VITE_ENABLE_MAINNET_LAUNCHPAD:'true',VITE_ENABLE_MAINNET_BRIDGE:'true'};
     expect(buildServerlessCapabilities(env).readiness).toMatchObject({finalApproval:true,walletAcceptanceRequired:false,externalBlockers:[]});
   });
 

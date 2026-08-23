@@ -17,7 +17,7 @@ export const configSchema = z.object({
   GASFREE_PROVIDER_URL: z.preprocess(value=>value===''?undefined:value,z.string().url().optional()), GASFREE_EVM_RPC_URL:z.string().url().default('https://ethereum-sepolia-rpc.publicnode.com'), LIFI_API_KEY:z.string().optional(), ZEROX_API_KEY: z.string().optional(), SWAP_PROVIDER_URLS: z.string().optional(),
   MARKET_DEXSCREENER_URL:z.string().url().default('https://api.dexscreener.com'), MARKET_GECKOTERMINAL_URL:z.string().url().default('https://api.geckoterminal.com/api/v2'), MARKET_HOLDER_PROVIDER_URL:z.preprocess(value=>value===''?undefined:value,z.string().url().optional()),
   AUTOMATION_ENABLE_DELIVERY:booleanFlag,TELEGRAM_BOT_TOKEN:z.string().optional(),EMAIL_PROVIDER_URL:z.preprocess(value=>value===''?undefined:value,z.string().url().optional()),EMAIL_API_KEY:z.string().optional(),WEBHOOK_SIGNING_SECRET:z.preprocess(value=>value===''?undefined:value,z.string().min(32).optional()),
-  VITE_WALLETCONNECT_PROJECT_ID:z.preprocess(value=>value===''?undefined:value,z.string().regex(/^[a-fA-F0-9]{32}$/).optional()),VITE_MAINNET_EXECUTION_ENABLED:booleanFlag,VITE_ENABLE_MAINNET_SWAP:booleanFlag,VITE_ENABLE_MAINNET_LAUNCHPAD:booleanFlag,VITE_ENABLE_MAINNET_BRIDGE:booleanFlag,FINAL_WALLET_ACCEPTANCE_APPROVED:booleanFlag,
+  VITE_WALLETCONNECT_PROJECT_ID:z.preprocess(value=>value===''?undefined:value,z.string().regex(/^[a-fA-F0-9]{32}$/).optional()),VITE_MAINNET_EXECUTION_ENABLED:booleanFlag,VITE_ENABLE_MAINNET_SWAP:booleanFlag,VITE_ENABLE_MAINNET_LAUNCHPAD:booleanFlag,VITE_ENABLE_MAINNET_BRIDGE:booleanFlag,FINAL_WALLET_ACCEPTANCE_APPROVED:booleanFlag,FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256:z.preprocess(value=>value===''?undefined:value,z.string().regex(/^[a-fA-F0-9]{64}$/).optional()),
   EVM_RPC_FALLBACK_URLS:z.string().optional(),SOLANA_RPC_URL:z.string().url().default('https://solana-rpc.publicnode.com'),SOLANA_RPC_FALLBACK_URLS:z.string().default('https://solana.drpc.org,https://api.mainnet-beta.solana.com'),TRON_RPC_FALLBACK_URLS:z.string().optional(),RATE_LIMIT_MAX:z.coerce.number().int().positive().default(120),METRICS_TOKEN:z.preprocess(value=>value===''?undefined:value,z.string().min(32).max(256).optional())
 }).superRefine((value,ctx)=>{
   if(value.NODE_ENV==='production'&&!/^scrypt\$[a-f0-9]{32}\$[a-f0-9]{64}$/i.test(value.ADMIN_PASSWORD_HASH)){
@@ -28,6 +28,9 @@ export const configSchema = z.object({
   }
   if(!validMfaEncryptionKey(value.OPERATOR_MFA_ENCRYPTION_KEY)){
     ctx.addIssue({code:'custom',path:['OPERATOR_MFA_ENCRYPTION_KEY'],message:'Operator MFA encryption key must be exactly 32 bytes encoded as base64 or hex'});
+  }
+  if(value.FINAL_WALLET_ACCEPTANCE_APPROVED&&!value.FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256){
+    ctx.addIssue({code:'custom',path:['FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256'],message:'Wallet acceptance approval requires a verified evidence digest'});
   }
 });
 export const config = configSchema.parse(process.env);

@@ -35,7 +35,7 @@ STRICT_EXTERNAL_PROVIDERS=true PRODUCTION_ENV_FILE=.env.production ./scripts/che
 ./scripts/deploy.sh
 ```
 
-The deploy command fails before Docker build when the target filesystem has less than 8 GiB available. If it stops on this preflight, inspect `docker system df` and remove only unused build cache or dangling images after confirming that running containers and volumes are not targeted. Override the threshold only with an explicit reviewed value such as `MIN_DEPLOY_DISK_KB=10485760`.
+The deploy command removes only unused BuildKit cache, then fails before Docker build when the target filesystem has less than 20 GiB available. If it stops on this preflight, inspect `docker system df`; never prune running images or volumes. Override the threshold only with a larger explicitly reviewed value.
 
 After containers start, deployment waits up to 150 seconds for both API and Web Docker healthchecks before running external acceptance. `DEPLOY_WAIT_SECONDS` may be increased for a reviewed slow host, but must never be set to zero to bypass readiness.
 
@@ -69,6 +69,21 @@ This sends one read-only TRX/USDT request to SUN.io and one same-chain Ethereum 
 - Connect and sign a challenge first. The broadcast test is a zero-value or minimum self-transfer and always requires the wallet confirmation dialog.
 - Record the transaction hash/signature only after confirmation. Never import a private key into the application.
 
+Create the acceptance report outside the repository:
+
+```bash
+install -m 600 scripts/fixtures/wallet-acceptance.template.json /secure/acceptance/wallet-acceptance-v2.37.json
+```
+
+Complete every MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink row with the confirmed Sepolia, Solana Devnet or TRON Nile reference. Complete the EVM/Solana/TRON rejection and RPC-failure checks, then verify and lock the exact file:
+
+```bash
+./scripts/verify-wallet-acceptance.sh /secure/acceptance/wallet-acceptance-v2.37.json
+sha256sum /secure/acceptance/wallet-acceptance-v2.37.json
+```
+
+Set `FINAL_WALLET_ACCEPTANCE_REPORT` to that absolute path and `FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256` to the printed digest. Only then may `FINAL_WALLET_ACCEPTANCE_APPROVED=true` pass production preflight. Editing the report after approval invalidates the digest and blocks deployment.
+
 ## Backup and restore
 
 Run `BACKUP_DIR=/secure/backups ./scripts/backup.sh` from cron and copy encrypted backups off-host. The script explicitly uses `.env.production`, the `lightning-wallet` Compose project, private file permissions, an atomic temporary file, and verifies that every dump is non-empty. Retention defaults to 14 days.
@@ -96,6 +111,15 @@ sudo env ROLLBACK_EXECUTE=true ROLLBACK_CONFIRM=184c5ea ./scripts/rollback-relea
 ```
 
 Execution takes a PostgreSQL backup, atomically switches `current`, starts the target release and runs the full production HTTP gate. If deployment or verification fails, it atomically restores and redeploys the original release. Database restore is never automatic; use `restore.sh` only for an explicitly reviewed incompatible migration.
+
+For a forward immutable release, use the guarded promotion planner instead of changing `current` manually:
+
+```bash
+sudo ./scripts/promote-release.sh RELEASE_ID
+sudo env PROMOTE_EXECUTE=true PROMOTE_CONFIRM=RELEASE_ID ./scripts/promote-release.sh RELEASE_ID
+```
+
+The target builds and passes Docker health plus production HTTP acceptance while the verified release remains at `current`. Only a successful target is promoted; failure redeploys the unchanged current release.
 
 ## Monitoring
 

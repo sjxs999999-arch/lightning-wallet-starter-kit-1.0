@@ -29,6 +29,7 @@ jobs:
       - run: ./scripts/test-deploy-disk.sh
       - run: ./scripts/test-production-env.sh
       - run: ./scripts/test-promote-release.sh
+      - run: ./scripts/test-wallet-acceptance.sh
       - run: ./scripts/test-rollback-release.sh
       - run: ./scripts/test-live-providers.sh
       - run: npm run typecheck

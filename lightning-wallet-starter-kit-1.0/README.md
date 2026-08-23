@@ -42,7 +42,7 @@ npm run dev
 
 Launchpad contract artifacts are reproducible with `npm run contract:compile` (upstream Solidity for EVM) and `npm run contract:compile:tron` (checksum-pinned official TRON Solidity compiler). Artifacts are committed; production web builds never compile contracts at runtime.
 
-Swap, Launchpad and Bridge mainnet execution are fail-closed. Each requires `VITE_MAINNET_EXECUTION_ENABLED=true` plus its own `VITE_ENABLE_MAINNET_*` switch at web build time, the protected production preflight must run with `STRICT_EXTERNAL_PROVIDERS=true`, and `FINAL_WALLET_ACCEPTANCE_APPROVED=true` must record completion of the signed acceptance checklist. Selecting a mainnet in Dry Run never connects a wallet.
+Swap, Launchpad and Bridge mainnet execution are fail-closed. Each requires `VITE_MAINNET_EXECUTION_ENABLED=true` plus its own `VITE_ENABLE_MAINNET_*` switch at web build time, the protected production preflight must run with `STRICT_EXTERNAL_PROVIDERS=true`, and `FINAL_WALLET_ACCEPTANCE_APPROVED=true` is accepted only with a verified, SHA-256-locked wallet acceptance report. Copy `scripts/fixtures/wallet-acceptance.template.json` outside Git, complete it with real testnet references, and verify it with `scripts/verify-wallet-acceptance.sh`. Selecting a mainnet in Dry Run never connects a wallet.
 
 - Web: `http://localhost:5173`
 - API: `http://localhost:3001`

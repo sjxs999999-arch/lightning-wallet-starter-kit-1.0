@@ -1,4 +1,4 @@
-export const RELEASE_VERSION='2.36.0';
+export const RELEASE_VERSION='2.37.0';
 
 const enabled=value=>String(value??'').toLowerCase()==='true';
 const present=value=>typeof value==='string'&&value.trim().length>0;
@@ -12,7 +12,7 @@ export function buildServerlessCapabilities(env=process.env){
   const flashTargets=`${env.FLASH_LOAN_URL??''},${env.FLASH_LOAN_API_URL??''}`;
   const flashLoanConfigured=enabled(env.FLASH_LOAN_PROVIDER_APPROVED)&&secureProvider(env.FLASH_LOAN_URL)&&secureProvider(env.FLASH_LOAN_API_URL)&&!/example|localhost|lightingwallet\.com|flash-loan:32104/i.test(flashTargets);
   const automationDeliveryConfigured=enabled(env.AUTOMATION_ENABLE_DELIVERY)&&Boolean(present(env.TELEGRAM_BOT_TOKEN)||(present(env.EMAIL_PROVIDER_URL)&&present(env.EMAIL_API_KEY))||present(env.WEBHOOK_SIGNING_SECRET));
-  const walletAcceptanceApproved=enabled(env.FINAL_WALLET_ACCEPTANCE_APPROVED);
+  const walletAcceptanceApproved=enabled(env.FINAL_WALLET_ACCEPTANCE_APPROVED)&&/^[a-fA-F0-9]{64}$/.test(env.FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256??'');
   const mainnet={execution:enabled(env.VITE_MAINNET_EXECUTION_ENABLED),swap:enabled(env.VITE_ENABLE_MAINNET_SWAP),launchpad:enabled(env.VITE_ENABLE_MAINNET_LAUNCHPAD),bridge:enabled(env.VITE_ENABLE_MAINNET_BRIDGE)};
   const externalBlockers=[
     ...(!walletConnectConfigured?[blocker('WALLETCONNECT_PROJECT_ID','WalletConnect Project ID')]:[]),

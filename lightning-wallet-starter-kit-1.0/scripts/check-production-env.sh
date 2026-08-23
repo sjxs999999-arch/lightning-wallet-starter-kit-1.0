@@ -3,6 +3,7 @@ set -eu
 
 PRODUCTION_ENV_FILE=${PRODUCTION_ENV_FILE:-.env.production}
 STRICT_EXTERNAL_PROVIDERS=${STRICT_EXTERNAL_PROVIDERS:-false}
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 failure_count=0
 
 fail() {
@@ -110,11 +111,36 @@ mainnet_swap=$(value VITE_ENABLE_MAINNET_SWAP)
 mainnet_launchpad=$(value VITE_ENABLE_MAINNET_LAUNCHPAD)
 mainnet_bridge=$(value VITE_ENABLE_MAINNET_BRIDGE)
 wallet_acceptance=$(value FINAL_WALLET_ACCEPTANCE_APPROVED)
+wallet_acceptance_report=$(value FINAL_WALLET_ACCEPTANCE_REPORT)
+wallet_acceptance_sha=$(value FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256)
 case "$mainnet" in ''|false|true) : ;; *) fail 'VITE_MAINNET_EXECUTION_ENABLED must be true or false' ;; esac
 case "$mainnet_swap" in ''|false|true) : ;; *) fail 'VITE_ENABLE_MAINNET_SWAP must be true or false' ;; esac
 case "$mainnet_launchpad" in ''|false|true) : ;; *) fail 'VITE_ENABLE_MAINNET_LAUNCHPAD must be true or false' ;; esac
 case "$mainnet_bridge" in ''|false|true) : ;; *) fail 'VITE_ENABLE_MAINNET_BRIDGE must be true or false' ;; esac
 case "$wallet_acceptance" in ''|false|true) : ;; *) fail 'FINAL_WALLET_ACCEPTANCE_APPROVED must be true or false' ;; esac
+if [ -n "$wallet_acceptance_report" ]; then
+  case "$wallet_acceptance_report" in
+    /*) : ;;
+    *) fail 'FINAL_WALLET_ACCEPTANCE_REPORT must be an absolute path' ;;
+  esac
+  case "$wallet_acceptance_report" in
+    *'/../'*|*'/..') fail 'FINAL_WALLET_ACCEPTANCE_REPORT must not contain parent-directory traversal' ;;
+  esac
+fi
+if [ -n "$wallet_acceptance_sha" ]; then
+  printf '%s' "$wallet_acceptance_sha" | grep -Eq '^[a-fA-F0-9]{64}$' || fail 'FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256 must be 64 hexadecimal characters'
+fi
+if [ "$wallet_acceptance" = true ]; then
+  [ -n "$wallet_acceptance_report" ] || fail 'FINAL_WALLET_ACCEPTANCE_APPROVED=true requires FINAL_WALLET_ACCEPTANCE_REPORT'
+  [ -n "$wallet_acceptance_sha" ] || fail 'FINAL_WALLET_ACCEPTANCE_APPROVED=true requires FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256'
+fi
+if [ -n "$wallet_acceptance_report" ] || [ -n "$wallet_acceptance_sha" ]; then
+  if [ -z "$wallet_acceptance_report" ] || [ -z "$wallet_acceptance_sha" ]; then
+    fail 'Wallet acceptance report and SHA-256 must be configured together'
+  elif ! EXPECTED_RELEASE=2.37.0 FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256="$wallet_acceptance_sha" "$SCRIPT_DIR/verify-wallet-acceptance.sh" "$wallet_acceptance_report"; then
+    fail 'Wallet acceptance evidence verification failed'
+  fi
+fi
 if [ "$mainnet_swap" = true ] && [ "$mainnet" != true ]; then
   fail 'VITE_ENABLE_MAINNET_SWAP=true requires VITE_MAINNET_EXECUTION_ENABLED=true'
 fi
@@ -126,7 +152,7 @@ if [ "$mainnet_bridge" = true ] && [ "$mainnet" != true ]; then
 fi
 if [ "$mainnet" = true ] || [ "$mainnet_swap" = true ] || [ "$mainnet_launchpad" = true ] || [ "$mainnet_bridge" = true ]; then
   [ "$STRICT_EXTERNAL_PROVIDERS" = true ] || fail 'Mainnet flags require STRICT_EXTERNAL_PROVIDERS=true and the final acceptance gate'
-  [ "$wallet_acceptance" = true ] || fail 'Mainnet flags require FINAL_WALLET_ACCEPTANCE_APPROVED=true after the signed wallet acceptance checklist passes'
+  [ "$wallet_acceptance" = true ] || fail 'Mainnet flags require FINAL_WALLET_ACCEPTANCE_APPROVED=true after the SHA-256-locked wallet acceptance report passes'
 fi
 
 mfa_key=$(value OPERATOR_MFA_ENCRYPTION_KEY)

@@ -15,6 +15,7 @@
     "typecheck": "npm run build -w @lightning/core && npm run typecheck -w @lightning/api && npm run typecheck -w @lightning/web",
     "test": "npm run test --workspaces --if-present",
     "test:verification-gates": "./scripts/test-verification-gates.sh",
+    "test:wallet-acceptance": "./scripts/test-wallet-acceptance.sh",
     "test:live-provider-verifier": "./scripts/test-live-providers.sh",
     "verify:live-providers": "./scripts/verify-live-providers.sh",
     "contract:compile": "node scripts/compile-launchpad-contract.mjs",
