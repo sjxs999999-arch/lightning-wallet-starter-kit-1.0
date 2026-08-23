@@ -20,7 +20,8 @@ if ! jq -e --arg release "$EXPECTED_RELEASE" '
   .data.readiness.mainnet.bridge == true and
   all(.data.features[]; .status == "ready") and
   .data.security.privateKeysUploaded == false and
-  .data.security.serverSigning == false
+  .data.security.serverSigning == false and
+  .data.security.serverBroadcast == false
 ' "$payload" >/dev/null; then
   printf 'FINAL READINESS BLOCKED\n' >&2
   jq '{version:.data.version,readiness:.data.readiness,gatedFeatures:[.data.features[]|select(.status!="ready")|{name,status}]}' "$payload" >&2

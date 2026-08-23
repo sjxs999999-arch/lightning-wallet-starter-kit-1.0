@@ -1,0 +1,24 @@
+{
+  "data": {
+    "version": "2.35.0",
+    "readiness": {
+      "finalApproval": true,
+      "walletAcceptanceRequired": false,
+      "externalBlockers": [],
+      "mainnet": {
+        "execution": true,
+        "swap": true,
+        "launchpad": true,
+        "bridge": true
+      }
+    },
+    "features": [
+      { "name": "wallet", "status": "ready" }
+    ],
+    "security": {
+      "privateKeysUploaded": false,
+      "serverSigning": false,
+      "serverBroadcast": false
+    }
+  }
+}

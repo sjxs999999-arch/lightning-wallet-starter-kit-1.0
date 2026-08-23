@@ -72,6 +72,7 @@ if fetch capabilities "$API_ORIGIN/api/v1/system/capabilities"; then
     .data.version == $release and
     .data.security.privateKeysUploaded == false and
     .data.security.serverSigning == false and
+    .data.security.serverBroadcast == false and
     .data.operator == "separate-admin-surface" and
     (.data.readiness.finalApproval | type) == "boolean" and
     (.data.readiness.walletAcceptanceRequired | type) == "boolean" and
