@@ -1,4 +1,4 @@
-export const CLIENT_RELEASE='2.35.0';
+export const CLIENT_RELEASE='2.36.0';
 
 export type ClientCrashReport={name:string;code:'RENDER_FAILURE';route:string;fingerprint:string;release:string};
 
