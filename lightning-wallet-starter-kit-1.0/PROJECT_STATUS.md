@@ -6,9 +6,10 @@ Updated: 2026-08-24
 
 - Development branch: `codex/final-production`
 - Latest deployed web candidate commit: `be7739a`
-- Current GCE API release commit: `be7739a`
+- Current GCE operations release commit: `94d3b5e`
+- Current GCE API runtime commit: `be7739a`
 - Current code candidate version: `2.35.0`
-- Current code candidate commit: `be7739a`
+- Current code candidate commit: `94d3b5e`
 - Latest deployed web version: `2.35.0`
 - Latest deployed API version: `2.35.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
@@ -55,6 +56,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - PostgreSQL backup, guarded restore, readiness checks and rollback release layout are included.
 - Guarded rollback defaults to a non-mutating plan, requires exact release confirmation for execution, backs up PostgreSQL, atomically switches releases and automatically restores the original release when deployment verification fails.
 - Production deploys now run a fail-closed environment gate before Docker build; placeholder credentials, unsafe origins, invalid MFA/WalletConnect values and premature mainnet flags are rejected without printing secret values.
+- Production HTTP and final-readiness gates now require `serverBroadcast: false`; a behavioral regression test proves that enabling server-side transaction broadcasting blocks final approval.
 - CI runs the production environment gate, type checking, tests, production build and Docker image builds.
 
 ## Current verification baseline
@@ -63,7 +65,10 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Web tests: 301 passing across 77 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
-- Local API and Web Docker images: passing for candidate `be7739a`.
+- Local API and Web Docker images: passing for operations candidate `94d3b5e`.
+- Operations-hardening candidate `94d3b5e` passes the new server-broadcast verification regression, 161 API tests, 301 Web tests, type checking, lint, production build, secret/environment/rollback/provider gates, the high/critical production dependency gate and both Docker image builds. Production CI run `32663687608` passed.
+- GCE immutable operations release `94d3b5e` is current while the unchanged API/Web runtime remains v2.35.0 from `be7739a`. Rollback points to `be7739a`, and pre-switch PostgreSQL backup `/opt/lightning-wallet/backups/lightning-20260823T201541Z.dump` is retained. Strict production HTTP verification and container health checks pass.
+- The stricter final-readiness gate exits blocked as designed on exactly five external providers, authorized-wallet acceptance and all four disabled mainnet gates. Live read-only acceptance returned three SUN.io routes in 0.907704 seconds and one LI.FI route in 0.795366 seconds without wallet access, signing or broadcast.
 - Security-hardening candidate `be7739a` passes 161 API tests, 301 Web tests, type checking, lint, production build, secret/environment/rollback/provider gates and both Docker image builds. The public capability contract explicitly reports `serverBroadcast: false`; the former authenticated Solana relay is permanently retired with HTTP 410. Production CI run `32661563834` passed.
 - Vercel Preview `CEUX8cctop8DQvRrdmfPMNGfsdva` and Vercel Production `43YipHuZ1SU3VnepKt83Bnj78ia3` serve web v2.35.0. Production browser acceptance verified the client home and Wallet Center first load/reload, visible server-signing/server-broadcast closure, operator-login isolation and zero console errors without wallet access, signing or broadcast.
 - GCE immutable release `be7739a` and API v2.35.0 are deployed. Rollback points to `3883c04`, and pre-deploy PostgreSQL backup `/opt/lightning-wallet/backups/lightning-20260823T194024Z.dump` is retained. API, Web, PostgreSQL and Redis containers are healthy.
