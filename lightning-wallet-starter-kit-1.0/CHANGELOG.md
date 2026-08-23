@@ -6,6 +6,7 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Deployed v2.35.0 from commit `be7739a` to Vercel Production and the GCE immutable release layout after Production CI, Docker, HTTP, browser and read-only provider acceptance passed; v2.34 remains the rollback point.
 - Retired the legacy Fastify and Vercel Solana signed-transaction relay with permanent HTTP 410 responses; signed transactions now remain entirely within the non-custodial browser-to-RPC path.
 - Added explicit `serverBroadcast: false` capability reporting and regression coverage that prevents the retired route from accepting transaction payloads or calling an RPC broadcast method.
 - Extended the Wallet Center's read-only portfolio to Ethereum, BSC, Polygon, Base, Arbitrum, Solana Mainnet and TRON Mainnet while retaining Sepolia, Solana Devnet, TRON Nile and TRON Shasta.
