@@ -6,6 +6,12 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Added route-level error isolation around every lazy client and operator page so a route crash preserves the shell, navigation, reload action and safe-entry recovery instead of producing a full-page failure.
+- Raised the production disk preflight from 8 GiB to 20 GiB after a fail-safe v2.36 build exposed insufficient temporary image space; production deploys now remove only unused BuildKit cache before measuring capacity.
+- Added a confirmation-gated forward-promotion tool that backs up PostgreSQL, keeps the verified release at `current` during target build/health verification and switches links only after production acceptance passes.
+- Pre-allocated the rollback recovery symlink before changing `current`, so a disk-full target failure does not need to allocate a new recovery link.
+- Added disk-boundary and promotion-planner regression tests to Production CI and stable-release verification.
+- Deployed web/API v2.36.0 and immutable operations release `8606a31` after code CI `32664550487`, operations CI `32665450196`, browser route/reload acceptance, Docker health and production HTTP verification passed.
 - Made both production HTTP acceptance and final-readiness verification fail closed unless the public capability contract reports `serverBroadcast: false`.
 - Added an executable positive/negative regression fixture to prove final approval is rejected if server-side transaction broadcasting is enabled, and added the gate to Production CI.
 - Deployed immutable operations release `94d3b5e` after CI run `32663687608`, local API/Web Docker builds, a protected PostgreSQL backup and live production verification passed; the unchanged v2.35.0 runtime remains non-custodial and `be7739a` is the rollback point.
@@ -94,7 +100,7 @@ All notable stable Lightning Wallet releases are recorded here.
 ### Production verification
 
 - Operations-hardening candidate `94d3b5e` passes the server-broadcast verification regression, 161 API tests, 301 Web tests, type checking, lint, secret/environment/rollback/provider gates, production build, the high/critical dependency gate and both Docker image builds. Production CI run `32663687608` passed.
-- GCE immutable operations release `94d3b5e` is current, rollback points to `be7739a`, and backup `/opt/lightning-wallet/backups/lightning-20260823T201541Z.dump` is retained. Production HTTP verification and all container health checks pass; final readiness remains blocked on exactly five external providers, authorized-wallet acceptance and four disabled mainnet gates.
+- GCE immutable operations release `94d3b5e` previously served v2.35 and is now the verified v2.36 rollback point; backup `/opt/lightning-wallet/backups/lightning-20260823T201541Z.dump` is retained.
 - Live read-only provider acceptance returned three verified SUN.io routes in 0.907704 seconds and one verified LI.FI route in 0.795366 seconds without wallet access, signing or broadcast.
 - Multi-mainnet read-only candidate `3883c04` passes 159 API tests, 301 Web tests, type checking, lint, credential/environment/rollback/provider gates, production build, high/critical production dependency gating and both Docker image builds. Production CI run `32418571919` passed; all 11 default RPC profiles returned their expected network identity.
 - Vercel Preview `dpl_4tshoKFSS8D5KzHY1TbMgomb6aQy` and Vercel Production `dpl_42jCZ5YMxnqJXE9JTYzfe2m5zyxK` serve web v2.34.0. Browser acceptance verified the Wallet Center, BSC Mainnet read-only selection, reload-safe rendering and zero console errors without wallet signing or broadcast.

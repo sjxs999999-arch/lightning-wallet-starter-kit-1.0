@@ -5,13 +5,13 @@ Updated: 2026-08-24
 ## Candidate baseline
 
 - Development branch: `codex/final-production`
-- Latest deployed web candidate commit: `be7739a`
-- Current GCE operations release commit: `94d3b5e`
-- Current GCE API runtime commit: `be7739a`
-- Current code candidate version: `2.35.0`
-- Current code candidate commit: `94d3b5e`
-- Latest deployed web version: `2.35.0`
-- Latest deployed API version: `2.35.0`
+- Latest deployed web candidate commit: `17547ea`
+- Current GCE operations release commit: `8606a31`
+- Current GCE API runtime commit: `17547ea`
+- Current code candidate version: `2.36.0`
+- Current code candidate commit: `8606a31`
+- Latest deployed web version: `2.36.0`
+- Latest deployed API version: `2.36.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -24,7 +24,7 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 | Module | Implementation | Current production gate |
 |---|---|---|
-| Client/operator domain split | Complete | Web candidate `be7739a` is deployed; host routing and no-white-screen browser checks pass |
+| Client/operator domain split | Complete | Web candidate `17547ea` is deployed; route-level crash isolation preserves both shells, and route/reload no-white-screen checks pass |
 | Wallet Center | Local AES-256-GCM vault, EVM/Solana/TRON create/import, EVM Keystore, multi-account derivation, receive QR, address book, custom Token metadata, isolated testnet signing, multi-network read-only portfolio, plus MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink | v2.34 adds attested read-only Ethereum/BSC/Polygon/Base/Arbitrum, Solana Mainnet and TRON Mainnet views while retaining Sepolia/Devnet/Nile/Shasta; final authorized real-wallet acceptance and mainnet transaction approval remain pending |
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
 | Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, pause/resume/retry, matching extension-wallet sender grouping and local encrypted-wallet testnet signing | v2.32 adds one-confirmation, sequential one-shot Worker signing for Sepolia/Devnet/Nile-Shasta; all mainnet gates remain off |
@@ -49,25 +49,33 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Real transactions require the user wallet; the server does not sign or broadcast.
 - The retired Solana signed-transaction relay returns permanent HTTP 410 in both Fastify and Vercel; signed transaction payloads are never accepted or forwarded by the server.
 - Error boundaries isolate route, Worker, RPC and provider failures to prevent blank pages.
+- Every lazy client/operator route now has an inner error boundary: a failed page renders an in-shell recovery panel while navigation, reload and a safe-entry action remain available.
 - Client crash diagnostics are self-hosted, accept only anonymous metadata under a strict schema, aggregate duplicate fingerprints, expire after 90 inactive days and expose reads only to authenticated operators.
 - Operator sessions are revocable HttpOnly cookies with default-deny API authorization, CSRF checks and rate limits.
 - RFC 6238 TOTP enrollment, confirmation, one-time recovery codes and verified disable flow are implemented; the enrollment QR is generated locally in browser memory with a manual-key fallback, and activation still requires the operator to complete enrollment in the Security Center.
 - Structured logs redact credentials, tokens, cookies and wallet secret fields.
 - PostgreSQL backup, guarded restore, readiness checks and rollback release layout are included.
-- Guarded rollback defaults to a non-mutating plan, requires exact release confirmation for execution, backs up PostgreSQL, atomically switches releases and automatically restores the original release when deployment verification fails.
+- Guarded rollback defaults to a non-mutating plan, requires exact release confirmation for execution, backs up PostgreSQL, atomically switches releases and automatically restores a pre-created recovery link when deployment verification fails.
+- Guarded forward promotion keeps the verified release at `current` during build and health checks, requires exact release confirmation, backs up PostgreSQL and switches `current` only after the target passes production verification.
+- Production deploys remove only unused BuildKit cache before preflight and require at least 20 GiB available, preventing a repeat of the v2.36 low-disk image-unpack failure.
 - Production deploys now run a fail-closed environment gate before Docker build; placeholder credentials, unsafe origins, invalid MFA/WalletConnect values and premature mainnet flags are rejected without printing secret values.
 - Production HTTP and final-readiness gates now require `serverBroadcast: false`; a behavioral regression test proves that enabling server-side transaction broadcasting blocks final approval.
-- CI runs the production environment gate, type checking, tests, production build and Docker image builds.
+- CI runs the production environment, disk, promotion, rollback and verification gates, type checking, tests, production build and Docker image builds.
 
 ## Current verification baseline
 
 - API tests: 161 passing across 34 files.
-- Web tests: 301 passing across 77 files for the current code candidate.
+- Web tests: 303 passing across 78 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
-- Local API and Web Docker images: passing for operations candidate `94d3b5e`.
+- Local API and Web Docker images: passing for code candidate `17547ea`; CI Docker images pass again for operations candidate `8606a31`.
+- Route-isolation code candidate `17547ea` passes 161 API tests, 303 Web tests, type checking, lint, production build, verification gates, secret scan, the high/critical production dependency gate and both Docker images. Production CI run `32664550487` passed.
+- Vercel Preview `2xhnLKxsEVcG4pKXzv5yqZgBSnTc` and Vercel Production `85S7WEnKGfaZhKSVSSm9iusAqmbz` serve web v2.36.0 from `17547ea`. Production browser acceptance verified the Wallet Center first load/reload, persistent client navigation, operator-login isolation and zero console errors without wallet access, signing or broadcast.
+- Low-disk promotion hardening `8606a31` raises the fail-closed disk threshold from 8 GiB to 20 GiB, prunes only unused Docker build cache, pre-allocates rollback recovery and adds a guarded forward-promotion tool. Its disk/promotion regression tests and full Production CI run `32665450196` passed.
+- GCE immutable release `8606a31` serves API/Web v2.36.0. Rollback points to `94d3b5e`; pre-deploy PostgreSQL backup `/opt/lightning-wallet/backups/lightning-20260823T205044Z.dump` is retained. API, Web, PostgreSQL and Redis are healthy, production HTTP acceptance passes, and 21 GiB remains available after rollout.
+- Final readiness exits blocked as designed on exactly five external providers, authorized-wallet acceptance and all four disabled mainnet gates; the capability contract reports `serverBroadcast: false`.
 - Operations-hardening candidate `94d3b5e` passes the new server-broadcast verification regression, 161 API tests, 301 Web tests, type checking, lint, production build, secret/environment/rollback/provider gates, the high/critical production dependency gate and both Docker image builds. Production CI run `32663687608` passed.
-- GCE immutable operations release `94d3b5e` is current while the unchanged API/Web runtime remains v2.35.0 from `be7739a`. Rollback points to `be7739a`, and pre-switch PostgreSQL backup `/opt/lightning-wallet/backups/lightning-20260823T201541Z.dump` is retained. Strict production HTTP verification and container health checks pass.
+- GCE immutable operations release `94d3b5e` previously served the unchanged v2.35.0 API/Web runtime from `be7739a`; it is now the verified rollback point for v2.36. Its pre-switch PostgreSQL backup `/opt/lightning-wallet/backups/lightning-20260823T201541Z.dump` is retained.
 - The stricter final-readiness gate exits blocked as designed on exactly five external providers, authorized-wallet acceptance and all four disabled mainnet gates. Live read-only acceptance returned three SUN.io routes in 0.907704 seconds and one LI.FI route in 0.795366 seconds without wallet access, signing or broadcast.
 - Security-hardening candidate `be7739a` passes 161 API tests, 301 Web tests, type checking, lint, production build, secret/environment/rollback/provider gates and both Docker image builds. The public capability contract explicitly reports `serverBroadcast: false`; the former authenticated Solana relay is permanently retired with HTTP 410. Production CI run `32661563834` passed.
 - Vercel Preview `CEUX8cctop8DQvRrdmfPMNGfsdva` and Vercel Production `43YipHuZ1SU3VnepKt83Bnj78ia3` serve web v2.35.0. Production browser acceptance verified the client home and Wallet Center first load/reload, visible server-signing/server-broadcast closure, operator-login isolation and zero console errors without wallet access, signing or broadcast.
