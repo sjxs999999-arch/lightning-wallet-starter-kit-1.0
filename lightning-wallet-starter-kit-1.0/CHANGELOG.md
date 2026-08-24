@@ -6,6 +6,13 @@ All notable stable Lightning Wallet releases are recorded here.
 
 ### Changed
 
+- Deployed web/API v2.38.0 from `3f49830` and added live public-chain verification to the evidence-gated authorized-wallet acceptance contract.
+- The live verifier now checks the Sepolia Chain ID and every EVM receipt, the exact Solana Devnet genesis plus confirmed/finalized signatures, and official TRON Nile transactions with successful receipts and confirmed blocks.
+- Acceptance evidence older than 30 days or more than five minutes in the future is rejected, and production preflight reruns both the offline SHA-256 verifier and the live on-chain verifier whenever final wallet acceptance is requested.
+- Added isolated positive and negative regression coverage for wrong-chain, failed, unconfirmed, stale and future-dated acceptance evidence without bundling real wallet credentials or transaction evidence.
+- Production CI run `32677660667`, Vercel Preview `9RJa4S9takB99VaDQN4WMZBWmmpB`, Vercel Production `C83JvbNjFtmgqiwaZyViXfJHYycy` and GCE immutable release `3f49830` pass the v2.38 release checks.
+- The v2.38 GCE promotion retained `de1ba48` as the rollback point and created PostgreSQL backup `/opt/lightning-wallet/backups/lightning-20260824T115800Z.dump`; all containers and the public production HTTP acceptance suite pass.
+- Final approval remains fail-closed on the same five external providers plus evidence-backed authorized-wallet acceptance; mainnet execution, Swap, Launchpad and Bridge gates remain disabled.
 - Deployed web/API v2.37.0 from `de1ba48` and replaced the bare wallet-acceptance boolean with a fail-closed, auditable evidence contract.
 - Added a production wallet-acceptance verifier covering the ten required provider/network paths, EVM/Solana/TRON negative tests, transaction-reference uniqueness and the non-custodial security invariants.
 - Required the production acceptance report path and exact SHA-256 digest to be configured together; missing, stale, modified, test-only or pending evidence is rejected before any mainnet gate can open.

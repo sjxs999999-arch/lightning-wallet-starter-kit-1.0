@@ -5,13 +5,13 @@ Updated: 2026-08-24
 ## Candidate baseline
 
 - Development branch: `codex/final-production`
-- Latest deployed web candidate commit: `de1ba48`
-- Current GCE operations release commit: `de1ba48`
-- Current GCE API runtime commit: `de1ba48`
-- Current code candidate version: `2.37.0`
-- Current code candidate commit: `de1ba48`
-- Latest deployed web version: `2.37.0`
-- Latest deployed API version: `2.37.0`
+- Latest deployed web candidate commit: `3f49830`
+- Current GCE operations release commit: `3f49830`
+- Current GCE API runtime commit: `3f49830`
+- Current code candidate version: `2.38.0`
+- Current code candidate commit: `3f49830`
+- Latest deployed web version: `2.38.0`
+- Latest deployed API version: `2.38.0`
 - Last approved historical tag: `stable-v2.0-lightning-wallet`
 - Client domain: `https://lightingwallet.com`
 - Operator domain: `https://admin.lightingwallet.com`
@@ -24,8 +24,8 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 
 | Module | Implementation | Current production gate |
 |---|---|---|
-| Client/operator domain split | Complete | Web candidate `de1ba48` is deployed; route-level crash isolation preserves both shells, and route/reload no-white-screen checks pass |
-| Wallet Center | Local AES-256-GCM vault, EVM/Solana/TRON create/import, EVM Keystore, multi-account derivation, receive QR, address book, custom Token metadata, isolated testnet signing, multi-network read-only portfolio, plus MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink | v2.37 requires a production acceptance report and its exact SHA-256 digest before wallet acceptance can be approved; no real production evidence is bundled, and mainnet transaction approval remains pending |
+| Client/operator domain split | Complete | Web candidate `3f49830` is deployed; route-level crash isolation preserves both shells, and route/reload no-white-screen checks pass |
+| Wallet Center | Local AES-256-GCM vault, EVM/Solana/TRON create/import, EVM Keystore, multi-account derivation, receive QR, address book, custom Token metadata, isolated testnet signing, multi-network read-only portfolio, plus MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink | v2.38 requires a production acceptance report, exact SHA-256 digest and live on-chain verification before wallet acceptance can be approved; no real production evidence is bundled, and mainnet transaction approval remains pending |
 | Batch Wallet | Local EVM/Solana/TRON generation, Worker execution, encrypted JSON/CSV export, control verification | Implemented; never uploads secret material |
 | Batch Transfer | EVM/Solana/TRON planning, CSV validation, Dry Run, progress, pause/resume/retry, matching extension-wallet sender grouping and local encrypted-wallet testnet signing | v2.32 adds one-confirmation, sequential one-shot Worker signing for Sepolia/Devnet/Nile-Shasta; all mainnet gates remain off |
 | Asset Collector | EVM/Solana/TRON scanning/planning, reserve rules, Dry Run, pause/resume/retry, matching extension-wallet sender grouping and local encrypted-wallet testnet signing | v2.32 adds network-attested testnet scanning and one-confirmation, sequential one-shot Worker signing; all mainnet gates remain off |
@@ -69,7 +69,11 @@ The historical v2.0 tag is retained for rollback. It is not evidence that every 
 - Web tests: 303 passing across 78 files for the current code candidate.
 - Type check: passing.
 - Production build: passing.
-- Local API and Web Docker images: passing for code candidate `de1ba48`.
+- Local API and Web Docker images: passing for code candidate `3f49830`.
+- Live-evidence candidate `3f49830` passes 161 API tests and 303 Web tests (464 total), type checking, lint, production build, secret scan, production environment and verification gates, the offline and live wallet-acceptance positive/negative suites, and both local Docker images. Production CI run `32677660667` passed.
+- Vercel Preview `9RJa4S9takB99VaDQN4WMZBWmmpB` and Vercel Production `C83JvbNjFtmgqiwaZyViXfJHYycy` serve web v2.38.0 from `3f49830`. Browser acceptance verified `lightingwallet.com/wallets` first load and reload, visible v2.38.0 and zero console warnings/errors; `admin.lightingwallet.com/settings` redirects unauthenticated users to the isolated operator login with zero console warnings/errors.
+- GCE immutable release `3f49830` serves API/Web v2.38.0 after backup `/opt/lightning-wallet/backups/lightning-20260824T115800Z.dump`. Rollback points to `de1ba48`; API, Web, PostgreSQL, Redis and proxy containers are healthy, 21 GiB remains available, and the public production HTTP acceptance suite passes.
+- Final readiness remains blocked exactly as designed on WalletConnect Project ID, GasFree Paymaster, market holder-data provider, a real Flash Loan application/API, Automation delivery provider and evidence-backed authorized-wallet acceptance. Mainnet execution, Swap, Launchpad and Bridge gates remain disabled.
 - Wallet-acceptance evidence candidate `de1ba48` passes 161 API tests, 303 Web tests, type checking, lint, production build, secret scan, environment/disk/promotion/rollback/verification/provider gates, the new wallet-evidence positive/negative suite and both local Docker images. Production CI run `32666992683` passed.
 - Vercel Preview `8nCWVkjFbqXKLzgnFzJaswVDky8w` and Vercel Production `G2zXk4vbGaw4qePrYtsVEaWTdyFr` serve web v2.37.0. Production browser acceptance verified the Wallet Center first load/reload, visible v2.37.0, no route failure and zero console errors; the protected operator settings route redirects to the isolated login with zero console errors.
 - GCE immutable release `de1ba48` serves API/Web v2.37.0 after the guarded promotion created backup `/opt/lightning-wallet/backups/lightning-20260823T212058Z.dump`. The prior verified release is `8606a31`; public API/PostgreSQL/Redis readiness, HTTPS, security headers, CORS, capability truthfulness and metadata-only diagnostics pass.
