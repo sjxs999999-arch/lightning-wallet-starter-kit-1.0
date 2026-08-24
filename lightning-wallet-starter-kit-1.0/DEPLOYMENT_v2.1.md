@@ -72,17 +72,20 @@ This sends one read-only TRX/USDT request to SUN.io and one same-chain Ethereum 
 Create the acceptance report outside the repository:
 
 ```bash
-install -m 600 scripts/fixtures/wallet-acceptance.template.json /secure/acceptance/wallet-acceptance-v2.37.json
+install -m 600 scripts/fixtures/wallet-acceptance.template.json /secure/acceptance/wallet-acceptance-v2.38.json
 ```
 
 Complete every MetaMask, WalletConnect, OKX, Rabby, Phantom, Backpack, Solflare and TronLink row with the confirmed Sepolia, Solana Devnet or TRON Nile reference. Complete the EVM/Solana/TRON rejection and RPC-failure checks, then verify and lock the exact file:
 
 ```bash
-./scripts/verify-wallet-acceptance.sh /secure/acceptance/wallet-acceptance-v2.37.json
-sha256sum /secure/acceptance/wallet-acceptance-v2.37.json
+./scripts/verify-wallet-acceptance.sh /secure/acceptance/wallet-acceptance-v2.38.json
+./scripts/verify-wallet-acceptance-live.sh /secure/acceptance/wallet-acceptance-v2.38.json
+sha256sum /secure/acceptance/wallet-acceptance-v2.38.json
 ```
 
-Set `FINAL_WALLET_ACCEPTANCE_REPORT` to that absolute path and `FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256` to the printed digest. Only then may `FINAL_WALLET_ACCEPTANCE_APPROVED=true` pass production preflight. Editing the report after approval invalidates the digest and blocks deployment.
+The live verifier reads only public transaction references. It attests Sepolia Chain ID, the exact Solana Devnet genesis and the official TRON Nile endpoint, then requires every receipt/signature to be confirmed and successful. Evidence older than 30 days or more than five minutes in the future is rejected.
+
+Set `FINAL_WALLET_ACCEPTANCE_REPORT` to that absolute path and `FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256` to the printed digest. Only then may `FINAL_WALLET_ACCEPTANCE_APPROVED=true` pass production preflight. Production preflight reruns both the offline and public-chain checks; editing the report after approval invalidates the digest and blocks deployment.
 
 ## Backup and restore
 

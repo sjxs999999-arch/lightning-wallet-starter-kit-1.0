@@ -137,8 +137,20 @@ fi
 if [ -n "$wallet_acceptance_report" ] || [ -n "$wallet_acceptance_sha" ]; then
   if [ -z "$wallet_acceptance_report" ] || [ -z "$wallet_acceptance_sha" ]; then
     fail 'Wallet acceptance report and SHA-256 must be configured together'
-  elif ! EXPECTED_RELEASE=2.37.0 FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256="$wallet_acceptance_sha" "$SCRIPT_DIR/verify-wallet-acceptance.sh" "$wallet_acceptance_report"; then
+  elif ! EXPECTED_RELEASE=2.38.0 FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256="$wallet_acceptance_sha" "$SCRIPT_DIR/verify-wallet-acceptance.sh" "$wallet_acceptance_report"; then
     fail 'Wallet acceptance evidence verification failed'
+  fi
+fi
+if [ "$wallet_acceptance" = true ] && [ -n "$wallet_acceptance_report" ] && [ -n "$wallet_acceptance_sha" ]; then
+  acceptance_sepolia_rpc=$(value WALLET_ACCEPTANCE_SEPOLIA_RPC_URL)
+  acceptance_solana_rpc=$(value WALLET_ACCEPTANCE_SOLANA_DEVNET_RPC_URL)
+  acceptance_tron_rpc=$(value WALLET_ACCEPTANCE_TRON_NILE_RPC_URL)
+  if ! EXPECTED_RELEASE=2.38.0 FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256="$wallet_acceptance_sha" \
+    WALLET_ACCEPTANCE_SEPOLIA_RPC_URL="${acceptance_sepolia_rpc:-https://ethereum-sepolia-rpc.publicnode.com}" \
+    WALLET_ACCEPTANCE_SOLANA_DEVNET_RPC_URL="${acceptance_solana_rpc:-https://api.devnet.solana.com}" \
+    WALLET_ACCEPTANCE_TRON_NILE_RPC_URL="${acceptance_tron_rpc:-https://nile.trongrid.io}" \
+    "$SCRIPT_DIR/verify-wallet-acceptance-live.sh" "$wallet_acceptance_report"; then
+    fail 'Wallet acceptance public-chain evidence verification failed'
   fi
 fi
 if [ "$mainnet_swap" = true ] && [ "$mainnet" != true ]; then

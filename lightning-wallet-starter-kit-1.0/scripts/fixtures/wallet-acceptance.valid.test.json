@@ -1,6 +1,6 @@
 {
   "format": "lightning-wallet-wallet-acceptance-v1",
-  "release": "2.37.0",
+  "release": "2.38.0",
   "environment": "test",
   "approvedAt": "2026-08-24T00:00:00Z",
   "approvedBy": "operator@test.invalid",

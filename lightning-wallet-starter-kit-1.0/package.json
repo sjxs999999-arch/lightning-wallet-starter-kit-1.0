@@ -16,6 +16,7 @@
     "test": "npm run test --workspaces --if-present",
     "test:verification-gates": "./scripts/test-verification-gates.sh",
     "test:wallet-acceptance": "./scripts/test-wallet-acceptance.sh",
+    "verify:wallet-acceptance-live": "./scripts/verify-wallet-acceptance-live.sh",
     "test:live-provider-verifier": "./scripts/test-live-providers.sh",
     "verify:live-providers": "./scripts/verify-live-providers.sh",
     "contract:compile": "node scripts/compile-launchpad-contract.mjs",

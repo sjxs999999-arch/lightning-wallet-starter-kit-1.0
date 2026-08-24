@@ -4,8 +4,9 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 VALID_FIXTURE=$SCRIPT_DIR/fixtures/production-env.valid.test
 EXAMPLE_FILE=$SCRIPT_DIR/../.env.production.example
+LIVE_ACCEPTANCE_MOCK=$SCRIPT_DIR/fixtures/mock-wallet-acceptance-live-curl.sh
 
-sh -n "$SCRIPT_DIR/check-deploy-disk.sh" "$SCRIPT_DIR/check-production-env.sh" "$SCRIPT_DIR/deploy.sh" "$SCRIPT_DIR/promote-release.sh" "$SCRIPT_DIR/rollback-release.sh" "$SCRIPT_DIR/verify-production.sh" "$SCRIPT_DIR/verify-final-readiness.sh" "$SCRIPT_DIR/verify-live-providers.sh" "$SCRIPT_DIR/verify-wallet-acceptance.sh" "$SCRIPT_DIR/test-deploy-disk.sh" "$SCRIPT_DIR/test-promote-release.sh" "$SCRIPT_DIR/test-verification-gates.sh" "$SCRIPT_DIR/test-wallet-acceptance.sh"
+sh -n "$SCRIPT_DIR/check-deploy-disk.sh" "$SCRIPT_DIR/check-production-env.sh" "$SCRIPT_DIR/deploy.sh" "$SCRIPT_DIR/promote-release.sh" "$SCRIPT_DIR/rollback-release.sh" "$SCRIPT_DIR/verify-production.sh" "$SCRIPT_DIR/verify-final-readiness.sh" "$SCRIPT_DIR/verify-live-providers.sh" "$SCRIPT_DIR/verify-wallet-acceptance.sh" "$SCRIPT_DIR/verify-wallet-acceptance-live.sh" "$SCRIPT_DIR/test-deploy-disk.sh" "$SCRIPT_DIR/test-promote-release.sh" "$SCRIPT_DIR/test-verification-gates.sh" "$SCRIPT_DIR/test-wallet-acceptance.sh"
 PRODUCTION_ENV_FILE="$VALID_FIXTURE" "$SCRIPT_DIR/check-production-env.sh"
 
 mainnet_fixture=$(mktemp)
@@ -38,9 +39,11 @@ if STRICT_EXTERNAL_PROVIDERS=true PRODUCTION_ENV_FILE="$VALID_FIXTURE" "$SCRIPT_
   exit 1
 fi
 
-sed -e 's/"environment": "test"/"environment": "production"/' \
-  -e 's/"approvedBy": "operator@test.invalid"/"approvedBy": "release-operator@acceptance.invalid"/' \
-  "$SCRIPT_DIR/fixtures/wallet-acceptance.valid.test.json" > "$production_acceptance_report"
+jq --arg approvedAt "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" '
+  .environment = "production" |
+  .approvedBy = "release-operator@acceptance.invalid" |
+  .approvedAt = $approvedAt
+' "$SCRIPT_DIR/fixtures/wallet-acceptance.valid.test.json" > "$production_acceptance_report"
 ACCEPTANCE_REPORT=$production_acceptance_report
 if command -v sha256sum >/dev/null 2>&1; then
   ACCEPTANCE_SHA=$(sha256sum "$ACCEPTANCE_REPORT" | awk '{print $1}')
@@ -64,10 +67,10 @@ printf '%s\n' \
   'WEBHOOK_SIGNING_SECRET=test-webhook-signing-secret-with-32-characters' \
   "FINAL_WALLET_ACCEPTANCE_REPORT=$ACCEPTANCE_REPORT" \
   "FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256=$ACCEPTANCE_SHA" >> "$accepted_fixture"
-STRICT_EXTERNAL_PROVIDERS=true PRODUCTION_ENV_FILE="$accepted_fixture" "$SCRIPT_DIR/check-production-env.sh"
+CURL_BIN="$LIVE_ACCEPTANCE_MOCK" STRICT_EXTERNAL_PROVIDERS=true PRODUCTION_ENV_FILE="$accepted_fixture" "$SCRIPT_DIR/check-production-env.sh"
 
 sed "s/^FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256=.*/FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/" "$accepted_fixture" > "$bad_acceptance_fixture"
-if STRICT_EXTERNAL_PROVIDERS=true PRODUCTION_ENV_FILE="$bad_acceptance_fixture" "$SCRIPT_DIR/check-production-env.sh"; then
+if CURL_BIN="$LIVE_ACCEPTANCE_MOCK" STRICT_EXTERNAL_PROVIDERS=true PRODUCTION_ENV_FILE="$bad_acceptance_fixture" "$SCRIPT_DIR/check-production-env.sh"; then
   echo 'Production gate unexpectedly accepted mismatched wallet evidence.' >&2
   exit 1
 fi
