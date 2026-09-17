@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Keypair } from '@solana/web3.js';
-import { broadcastSelfTest, connectEvm, connectSol, connectTron, discoverEvmProviders } from './providers';
+import { broadcastSelfTest, connectEvm, connectSol, connectTron, discoverEvmProviders, subscribeWalletSession } from './providers';
 import type { ConnectedWallet, RequestProvider } from './types';
 
 class TestCustomEvent<T> extends Event {
@@ -56,6 +56,17 @@ describe('wallet provider discovery and fail-closed network validation', () => {
     await expect(connectEvm('MetaMask', undefined, 0)).rejects.toThrow('没有切换到 Sepolia');
   });
 
+  it('connects EVM mainnet in read-only mode and verifies chain id 1', async () => {
+    const request = vi.fn(async ({ method }: { method: string }) => method === 'eth_requestAccounts'
+      ? ['0x0000000000000000000000000000000000000001']
+      : method === 'eth_chainId' ? '0x1' : null);
+    announce('MetaMask', 'io.metamask', { request });
+    await expect(connectEvm('MetaMask', undefined, 0, 'mainnet')).resolves.toMatchObject({
+      family: 'EVM', network: 'Ethereum Mainnet', mode: 'mainnet', chainId: '0x1', readOnly: true,
+    });
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'wallet_switchEthereumChain' }));
+  });
+
   it('validates the full Devnet genesis before connecting OKX Solana', async () => {
     const address = Keypair.generate().publicKey.toBase58();
     const connect = vi.fn().mockResolvedValue({ publicKey: { toString: () => address } });
@@ -72,6 +83,16 @@ describe('wallet provider discovery and fail-closed network validation', () => {
     expect(connect).not.toHaveBeenCalled();
   });
 
+  it('validates the full Solana mainnet genesis before requesting the wallet', async () => {
+    const address = Keypair.generate().publicKey.toBase58();
+    const connect = vi.fn().mockResolvedValue({ publicKey: { toString: () => address } });
+    setWindow({ phantom: { solana: { connect } } });
+    const connection = { getGenesisHash: vi.fn().mockResolvedValue('5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp') };
+    await expect(connectSol('Phantom', connection, 'mainnet')).resolves.toMatchObject({
+      family: 'SOL', network: 'Solana Mainnet', mode: 'mainnet', readOnly: true,
+    });
+  });
+
   it('connects OKX TRON only on an exact official testnet hostname', async () => {
     const request = vi.fn().mockResolvedValue({ code: 200 });
     const tronWeb = { defaultAddress: { base58: 'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA' }, fullNode: { host: 'https://nile.trongrid.io' } };
@@ -86,6 +107,15 @@ describe('wallet provider discovery and fail-closed network validation', () => {
     await expect(connectTron()).rejects.toThrow('官方 Nile 或 Shasta');
   });
 
+  it('accepts only the exact official TRON mainnet hostname in mainnet mode', async () => {
+    const request = vi.fn(async ({ method }: { method: string }) => method === 'eth_chainId' ? '0x2b6653dc' : { code: 200 });
+    const tronWeb = { defaultAddress: { base58: 'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA' }, fullNode: { host: 'https://api.trongrid.io' } };
+    setWindow({ tron: { request, tronWeb } });
+    await expect(connectTron('TronLink', 'mainnet')).resolves.toMatchObject({
+      family: 'TRON', network: 'TRON Mainnet', mode: 'mainnet', chainId: '0x2b6653dc', readOnly: true,
+    });
+  });
+
   it('rejects a TRON address with a valid shape but an invalid Base58Check checksum', async () => {
     const tronWeb = { defaultAddress: { base58: 'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEB' }, fullNode: { host: 'https://nile.trongrid.io' } };
     setWindow({ tronLink: { request: vi.fn().mockResolvedValue({ code: 200 }), tronWeb } });
@@ -97,7 +127,7 @@ describe('wallet self-test receipt validation', () => {
   it('stops an EVM self-test before signing when the active account changes', async () => {
     const request = vi.fn(async ({ method }: { method: string }) => method === 'eth_chainId'
       ? '0xaa36a7' : method === 'eth_accounts' ? ['0x0000000000000000000000000000000000000002'] : null);
-    const wallet: ConnectedWallet = { name: 'MetaMask', family: 'EVM', address: '0x0000000000000000000000000000000000000001', network: 'Sepolia', provider: { request } };
+    const wallet: ConnectedWallet = { name: 'MetaMask', family: 'EVM', address: '0x0000000000000000000000000000000000000001', network: 'Sepolia', mode: 'testnet', chainId: '0xaa36a7', readOnly: false, provider: { request } };
     await expect(broadcastSelfTest(wallet)).rejects.toThrow('账户已变化');
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'eth_sendTransaction' }));
   });
@@ -105,7 +135,7 @@ describe('wallet self-test receipt validation', () => {
   it('does not record a failed Solana confirmation as successful', async () => {
     const address = Keypair.generate().publicKey.toBase58();
     const wallet: ConnectedWallet = {
-      name: 'Phantom', family: 'SOL', address, network: 'Solana Devnet',
+      name: 'Phantom', family: 'SOL', address, network: 'Solana Devnet', mode: 'testnet', chainId: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG', readOnly: false,
       provider: { signAndSendTransaction: vi.fn().mockResolvedValue({ signature: 'failed-solana-signature' }) },
     };
     const connection = {
@@ -127,8 +157,34 @@ describe('wallet self-test receipt validation', () => {
         getTransactionInfo: vi.fn().mockResolvedValue({ id: 'failed-tron-id', receipt: { result: 'FAILED' } }),
       },
     };
-    const wallet: ConnectedWallet = { name: 'TronLink', family: 'TRON', address, network: 'TRON Shasta', provider: tronWeb };
+    const wallet: ConnectedWallet = { name: 'TronLink', family: 'TRON', address, network: 'TRON Shasta', mode: 'testnet', chainId: '0x94a9059e', readOnly: false, provider: tronWeb };
     await expect(broadcastSelfTest(wallet)).rejects.toThrow('TRON 测试网交易执行失败');
     expect(JSON.stringify(tronWeb.trx.sign.mock.calls)).not.toMatch(/privateKey|mnemonic|seedPhrase/i);
+  });
+
+  it('blocks every mainnet self-test before requesting a transaction', async () => {
+    const request = vi.fn();
+    const wallet: ConnectedWallet = {
+      name: 'MetaMask', family: 'EVM', address: '0x0000000000000000000000000000000000000001',
+      network: 'Ethereum Mainnet', mode: 'mainnet', chainId: '0x1', readOnly: true, provider: { request },
+    };
+    await expect(broadcastSelfTest(wallet)).rejects.toThrow('主网连接仅支持只读验证');
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('invalidates a connected EVM session as soon as the chain changes', () => {
+    const source = new EventTarget();
+    const eventProvider = {
+      on: (event: string, listener: (...args: unknown[]) => void) => source.addEventListener(event, detail => listener((detail as CustomEvent).detail)),
+    };
+    const wallet: ConnectedWallet = {
+      name: 'MetaMask', family: 'EVM', address: '0x0000000000000000000000000000000000000001',
+      network: 'Ethereum Mainnet', mode: 'mainnet', chainId: '0x1', readOnly: true,
+      provider: { request: vi.fn() }, eventProvider,
+    };
+    const invalidated = vi.fn();
+    subscribeWalletSession(wallet, invalidated);
+    source.dispatchEvent(new CustomEvent('chainChanged', { detail: '0xaa36a7' }));
+    expect(invalidated).toHaveBeenCalledWith('EVM 钱包网络已变化，连接已安全断开');
   });
 });

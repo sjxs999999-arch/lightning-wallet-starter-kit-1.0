@@ -17,6 +17,6 @@ describe('local wallet client session isolation', () => {
 
   it('wraps only the public client surface with the wallet session provider', () => {
     const source = fs.readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
-    expect(source).toContain('if(client)return <LocalWalletSessionProvider><ClientShell/></LocalWalletSessionProvider>');
+    expect(source).toContain('if(client)return <LocalWalletSessionProvider><ExternalWalletSessionProvider><ClientShell/></ExternalWalletSessionProvider></LocalWalletSessionProvider>');
   });
 });

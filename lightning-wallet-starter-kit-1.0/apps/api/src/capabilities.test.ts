@@ -9,6 +9,8 @@ describe('production capability contract',()=>{
     expect(value.version).toBe(RELEASE_VERSION);
     expect(value.readiness.externalBlockers.map(item=>item.code)).toEqual(['WALLETCONNECT_PROJECT_ID','GASFREE_PAYMASTER','MARKET_HOLDER_PROVIDER','FLASH_LOAN_APPLICATION','AUTOMATION_DELIVERY_PROVIDER']);
     expect(value.readiness).toMatchObject({finalApproval:false,walletAcceptanceRequired:true,mainnet:{execution:false,swap:false,launchpad:false,bridge:false}});
+    expect(value.readiness.mainnet.readOnlyWalletConnection).toBe(true);
+    expect(value.features.find(item=>item.name==='多链钱包')?.status).toBe('ready');
     expect(value.features.find(item=>item.name==='闪电贷款')?.status).toBe('real-app-required');
     expect(value.features.find(item=>item.name==='GasFree')?.status).toBe('provider-required');
     expect(value.security).toMatchObject({privateKeysUploaded:false,serverSigning:false,serverBroadcast:false});

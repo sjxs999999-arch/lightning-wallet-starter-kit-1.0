@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, RefreshCw, ShieldCheck, WalletCards, Zap } from 'lucide-react';
 import { ApiError, api } from '../api';
-import { buildExternalUrl, containsSensitiveFields, integrationOrigin, sanitizeHistory } from './bridge';
+import { buildExternalUrl, connectSepoliaWallet, containsSensitiveFields, flashLoanHealthReady, flashLoanMessageOriginAllowed, flashLoanSessionActive, flashLoanSessionExpiry, integrationOrigin, postFlashLoanContext, type FlashLoanEthereumProvider, sanitizeHistory } from './bridge';
 import { flashLoanLocalJob, loadLocalFlashLoanHistory, saveLocalFlashLoanJob } from './local-history';
 import type { FlashLoanAuditJob, FlashLoanContext, FlashLoanSettings } from './types';
 
 type ServiceStatus = 'checking' | 'ready' | 'offline';
 type BridgeStatus = 'waiting' | 'connected' | 'legacy';
-type EthereumProvider = { request(args: {method: string; params?: unknown[]}): Promise<unknown> };
 const FLASH_LOAN_SETTINGS: FlashLoanSettings = {network: 'sepolia', theme: 'dark', dryRun: true};
 
-function provider(): EthereumProvider | undefined {
-  return (window as typeof window & {ethereum?: EthereumProvider}).ethereum;
+function provider(): FlashLoanEthereumProvider | undefined {
+  return (window as typeof window & {ethereum?: FlashLoanEthereumProvider}).ethereum;
 }
 
 export function FlashLoanIntegration() {
@@ -21,14 +20,15 @@ export function FlashLoanIntegration() {
   const [service, setService] = useState<ServiceStatus>('checking');
   const [bridge, setBridge] = useState<BridgeStatus>('waiting');
   const [sessionToken, setSessionToken] = useState('');
+  const [sessionExpiresAt, setSessionExpiresAt] = useState(0);
   const [walletAddress, setWalletAddress] = useState<string>();
   const [history, setHistory] = useState<FlashLoanAuditJob[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const context = useMemo<FlashLoanContext>(() => ({type: 'LIGHTNING_FLASH_LOAN_CONTEXT', version: 1, sessionToken, walletAddress, settings: FLASH_LOAN_SETTINGS}), [sessionToken, walletAddress]);
   const sendContext = useCallback(() => {
-    if (frame.current?.contentWindow && sessionToken) frame.current.contentWindow.postMessage(context, '*');
-  }, [context, sessionToken]);
+    if (frame.current?.contentWindow && flashLoanSessionActive(sessionToken, sessionExpiresAt)) postFlashLoanContext(frame.current.contentWindow, context, targetOrigin);
+  }, [context, sessionExpiresAt, sessionToken, targetOrigin]);
 
   const loadHistory = useCallback(async () => {
     const local = loadLocalFlashLoanHistory();
@@ -60,28 +60,33 @@ export function FlashLoanIntegration() {
   }, [loadHistory, walletAddress]);
 
   const check = useCallback(async () => {
-    setService('checking'); setError('');
+    setService('checking'); setBridge('waiting'); setError(''); setNotice(''); setSessionToken(''); setSessionExpiresAt(0);
     let ready = false;
-    if (targetOrigin === window.location.origin) {
-      try { ready = (await fetch(appUrl, { signal: AbortSignal.timeout(3000), cache: 'no-store' })).ok; }
-      catch { ready = false; }
-    } else {
-      try { const health = await api<{data:{status:string}}>('/integrations/flash-loan/health'); ready = health.data.status === 'ready'; }
-      catch { ready = false; }
-    }
+    try {
+      const health = await api<{data:{status:string;network:string;mainnetEnabled:boolean}}>('/integrations/flash-loan/health');
+      ready = flashLoanHealthReady(health.data);
+    } catch { ready = false; }
     setService(ready ? 'ready' : 'offline');
     if (!ready) { setError('闪电贷兼容入口当前不可用，主钱包其他功能不受影响。'); return; }
     try {
-      const session = await api<{data:{token:string}}>('/integrations/flash-loan/session', {method:'POST', body:JSON.stringify({network:'sepolia', dryRun:true})});
+      const session = await api<{data:{token:string;expiresIn:number}}>('/integrations/flash-loan/session', {method:'POST', body:JSON.stringify({network:'sepolia', dryRun:true})});
       setSessionToken(session.data.token);
+      setSessionExpiresAt(flashLoanSessionExpiry(Date.now(), session.data.expiresIn));
     } catch { setSessionToken(''); setError('无法创建 5 分钟闪电贷受限会话；未共享钱包签名权限。'); }
-  }, [appUrl, targetOrigin]);
+  }, []);
 
   useEffect(() => { void check(); void loadHistory().catch(() => setError('闪电贷审计历史暂时不可用。')); }, [check, loadHistory]);
   useEffect(() => { if (service !== 'ready') return; const timer=window.setTimeout(()=>setBridge(value=>value==='waiting'?'legacy':value),3000); return()=>clearTimeout(timer); }, [service]);
   useEffect(() => {
+    if (!sessionToken || !sessionExpiresAt) return;
+    const remaining = sessionExpiresAt - Date.now();
+    if (remaining <= 0) { setSessionToken(''); setSessionExpiresAt(0); return; }
+    const timer = window.setTimeout(() => { setSessionToken(''); setSessionExpiresAt(0); setNotice('5 分钟 Dry Run 会话已到期，请重新检查后再试。'); }, remaining);
+    return () => window.clearTimeout(timer);
+  }, [sessionExpiresAt, sessionToken]);
+  useEffect(() => {
     const receive = (event: MessageEvent) => {
-      if (![targetOrigin, 'null'].includes(event.origin) || event.source !== frame.current?.contentWindow || !event.data || typeof event.data !== 'object') return;
+      if (!flashLoanMessageOriginAllowed(event.origin, targetOrigin) || event.source !== frame.current?.contentWindow || !event.data || typeof event.data !== 'object') return;
       const message = event.data as Record<string, unknown>;
       if (containsSensitiveFields(message)) { setError('已阻止包含敏感密钥字段的集成消息。'); return; }
       if (message.type === 'FLASH_LOAN_READY') { setBridge('connected'); sendContext(); }
@@ -94,10 +99,10 @@ export function FlashLoanIntegration() {
   async function connectWallet() {
     setError('');
     try {
-      const accounts = await provider()?.request({method:'eth_requestAccounts'});
-      if (!Array.isArray(accounts) || typeof accounts[0] !== 'string') throw new Error('provider missing');
-      setWalletAddress(accounts[0]);
-    } catch { setError('钱包连接未完成。请安装钱包扩展，或在钱包中批准连接。'); }
+      const walletProvider = provider();
+      if (!walletProvider) throw new Error('provider missing');
+      setWalletAddress(await connectSepoliaWallet(walletProvider));
+    } catch { setWalletAddress(undefined); setError('钱包连接未完成。请批准连接并切换到 Sepolia 测试网；其他网络会被拒绝。'); }
   }
 
   const externalUrl = buildExternalUrl(appUrl, context);
@@ -110,11 +115,11 @@ export function FlashLoanIntegration() {
     </section>
     <div className="flash-controls">
       <section className="panel"><h3>共享连接</h3><div className="flash-setting"><span>受限会话</span><b>{sessionToken?'已授权 · 5 分钟':'等待授权'}</b></div><div className="flash-setting"><span>网络</span><b>Sepolia 测试网</b></div><div className="flash-setting"><span>模式</span><b className="safe">Dry Run</b></div><button onClick={connectWallet}><WalletCards size={16}/>{walletAddress?`${walletAddress.slice(0,6)}…${walletAddress.slice(-4)}`:'连接浏览器钱包'}</button></section>
-      <section className="panel"><h3>集成状态</h3><div className="flash-setting"><span>外部服务</span><b>{service==='ready'?'在线':'未就绪'}</b></div><div className="flash-setting"><span>集成协议</span><b>{bridge==='connected'?'已连接':bridge==='legacy'?'旧版未响应':'等待响应'}</b></div><div className="notice"><ShieldCheck size={18}/>iframe 使用隔离来源，无法读取主控制台会话；仅接收 5 分钟闪电贷权限和公开元数据。</div><button onClick={check}><RefreshCw size={16}/>重新检查</button></section>
+      <section className="panel"><h3>集成状态</h3><div className="flash-setting"><span>外部服务</span><b>{service==='ready'?'在线':'未就绪'}</b></div><div className="flash-setting"><span>集成协议</span><b>{bridge==='connected'?'已连接':bridge==='legacy'?'旧版未响应':'等待响应'}</b></div><div className="notice"><ShieldCheck size={18}/>iframe 仅与已配置的精确来源通信；仅接收 5 分钟闪电贷权限和公开元数据。主网闪电贷不可用。</div><button onClick={check}><RefreshCw size={16}/>重新检查</button></section>
     </div>
     {error&&<div className="batch-error flash-error">{error}</div>}
     {notice&&<div className="automation-notice flash-error">{notice}</div>}
-    {service==='ready'&&sessionToken?<section className="flash-frame panel"><iframe ref={frame} onLoad={sendContext} title="FlashForge 兼容入口" src={externalUrl} allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms allow-popups"/><p>{bridge==='legacy'?'外部入口在线，但尚未响应共享集成协议；不会将其误报为已完成交易集成。':'这是隔离的兼容验证壳，不包含真实闪电贷执行；Dry Run 记录由父页面严格校验后保存。'}</p></section>:<section className="panel empty"><div className="empty-icon"><Zap/></div><h2>{service==='ready'?'受限集成会话不可用':'闪电贷兼容入口暂时不可用'}</h2><p>{service==='ready'?'请稍后重试。入口不会在未授权状态下加载。':'错误已隔离，不会影响其他钱包模块，也不会导致整页白屏。'}</p></section>}
+    {service==='ready'&&flashLoanSessionActive(sessionToken,sessionExpiresAt)?<section className="flash-frame panel"><iframe ref={frame} onLoad={sendContext} title="FlashForge 兼容入口" src={externalUrl} sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer"/><p>{bridge==='legacy'?'外部入口在线，但尚未响应共享集成协议；不会将其误报为已完成交易集成。':'这是来源受限的兼容验证壳，不包含真实闪电贷执行；Dry Run 记录由父页面严格校验后保存。'}</p></section>:<section className="panel empty"><div className="empty-icon"><Zap/></div><h2>{service==='ready'?'受限集成会话不可用':'闪电贷兼容入口暂时不可用'}</h2><p>{service==='ready'?'会话可能已到期，请重新检查。入口不会在未授权状态下加载。':'错误已隔离，不会影响其他钱包模块，也不会导致整页白屏。'}</p></section>}
     <section className="panel flash-history"><div className="panel-head"><div><p className="eyebrow">AUDIT · METADATA ONLY</p><h3>闪电贷 Dry Run 记录</h3></div><button onClick={() => void loadHistory()}>刷新历史</button><span>{history.length} 条</span></div>{history.length?history.map(item=><div className="flash-history-row" key={item.id}><span>{formatDate(item.created_at)}</span><b>{item.result.status}</b><code>{item.result.transactionHash||'未广播'}</code></div>):<p className="muted">尚无本地或服务器审计记录。</p>}</section>
   </>;
 }

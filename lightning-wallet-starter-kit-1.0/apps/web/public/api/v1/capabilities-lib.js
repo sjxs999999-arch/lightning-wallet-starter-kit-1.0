@@ -1,4 +1,4 @@
-export const RELEASE_VERSION='2.38.0';
+export const RELEASE_VERSION='2.39.0';
 
 const enabled=value=>String(value??'').toLowerCase()==='true';
 const present=value=>typeof value==='string'&&value.trim().length>0;
