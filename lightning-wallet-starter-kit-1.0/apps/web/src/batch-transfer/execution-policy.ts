@@ -1,6 +1,6 @@
 import type { TransferTask } from './types';
 
-const EVM_MAINNETS = new Set(['0x1', '0x38', '0x89', '0x2105', '0xa4b1']);
+const EVM_MAINNETS = new Set(['0x1', '0xa', '0x38', '0x89', '0x2105', '0xa4b1', '0xa86a']);
 const EVM_TESTNETS = new Set(['0xaa36a7']);
 const TRON_MAINNET_HOSTS = new Set(['api.trongrid.io']);
 const TRON_TESTNET_HOSTS = new Set(['nile.trongrid.io', 'api.nileex.io', 'api.shasta.trongrid.io']);

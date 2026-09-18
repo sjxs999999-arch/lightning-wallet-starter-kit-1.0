@@ -24,6 +24,16 @@ describe('Solana batch transaction construction', () => {
     expect(() => buildSolanaBatchTransactions([tokenTask], owner, Keypair.generate().publicKey.toBase58(), new Map<string, PublicKey>())).toThrow('Token Program 未加载');
   });
 
+  it('rejects token and native amounts above the Solana u64 limit before construction', () => {
+    const owner = Keypair.generate().publicKey;
+    const mint = Keypair.generate().publicKey.toBase58();
+    const blockhash = Keypair.generate().publicKey.toBase58();
+    const tokenTask = { ...task(0), from: owner.toBase58(), token: mint, decimals: 0, amount: '18446744073709551616', assetKind: 'token' as const };
+    const programs = new Map([[mint, new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')]]);
+    expect(() => buildSolanaBatchTransactions([tokenTask], owner, blockhash, programs)).toThrow('u64');
+    expect(() => buildSolanaBatchTransactions([{ ...task(1), from: owner.toBase58(), amount: '18446744074' }], owner, blockhash, new Map())).toThrow('u64');
+  });
+
   it('does not broadcast signed transactions after the page execution is stopped', async () => {
     const sendRawTransaction = vi.fn(async () => 'must-not-run');
     const connection = { sendRawTransaction } as unknown as import('@solana/web3.js').Connection;

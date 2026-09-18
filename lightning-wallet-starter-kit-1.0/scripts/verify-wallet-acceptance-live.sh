@@ -2,7 +2,7 @@
 set -eu
 
 REPORT=${1:-${FINAL_WALLET_ACCEPTANCE_REPORT:-}}
-EXPECTED_RELEASE=${EXPECTED_RELEASE:-2.39.0}
+EXPECTED_RELEASE=${EXPECTED_RELEASE:-2.40.0}
 EXPECTED_ACCEPTANCE_ENVIRONMENT=${EXPECTED_ACCEPTANCE_ENVIRONMENT:-production}
 CURL_BIN=${CURL_BIN:-curl}
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -45,7 +45,7 @@ request_json() {
 request_json evm-chain "$SEPOLIA_RPC_URL" '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 jq -e '.result == "0xaa36a7"' "$VERIFY_DIR/evm-chain.json" >/dev/null || fail 'EVM evidence RPC is not Sepolia'
 evm_index=0
-jq -r '.providers[] | select(.chain == "EVM") | .reference' "$REPORT" | while IFS= read -r reference; do
+jq -r '[.providers[], .featureTransactions[]] | .[] | select(.chain == "EVM") | .reference' "$REPORT" | while IFS= read -r reference; do
   evm_index=$((evm_index + 1))
   payload=$(jq -nc --arg reference "$reference" '{jsonrpc:"2.0",id:1,method:"eth_getTransactionReceipt",params:[$reference]}')
   request_json "evm-$evm_index" "$SEPOLIA_RPC_URL" "$payload"
@@ -56,7 +56,7 @@ pass 'all Sepolia transaction references are confirmed successful'
 
 request_json solana-genesis "$SOLANA_DEVNET_RPC_URL" '{"jsonrpc":"2.0","id":1,"method":"getGenesisHash","params":[]}'
 jq -e '.result == "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"' "$VERIFY_DIR/solana-genesis.json" >/dev/null || fail 'Solana evidence RPC is not Devnet'
-solana_refs=$(jq -c '[.providers[] | select(.chain == "SOL") | .reference]' "$REPORT")
+solana_refs=$(jq -c '[[.providers[], .featureTransactions[]] | .[] | select(.chain == "SOL") | .reference]' "$REPORT")
 solana_payload=$(jq -nc --argjson references "$solana_refs" '{jsonrpc:"2.0",id:1,method:"getSignatureStatuses",params:[$references,{searchTransactionHistory:true}]}')
 request_json solana-status "$SOLANA_DEVNET_RPC_URL" "$solana_payload"
 solana_count=$(printf '%s' "$solana_refs" | jq 'length')
@@ -67,7 +67,7 @@ jq -e --argjson count "$solana_count" '
 pass 'all Solana Devnet signatures are confirmed successful'
 
 tron_index=0
-jq -r '.providers[] | select(.chain == "TRON") | .reference' "$REPORT" | while IFS= read -r reference; do
+jq -r '[.providers[], .featureTransactions[]] | .[] | select(.chain == "TRON") | .reference' "$REPORT" | while IFS= read -r reference; do
   tron_index=$((tron_index + 1))
   payload=$(jq -nc --arg reference "$reference" '{value:$reference}')
   request_json "tron-tx-$tron_index" "$TRON_NILE_RPC_URL/wallet/gettransactionbyid" "$payload"

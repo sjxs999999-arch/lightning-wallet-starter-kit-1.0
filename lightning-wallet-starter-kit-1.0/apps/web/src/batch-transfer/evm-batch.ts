@@ -25,9 +25,9 @@ function unsupported(cause: unknown) {
 export async function executeEvmBatch(tasks: TransferTask[], provider?: Provider): Promise<EvmBatchResult[] | null> {
   if (!tasks.length || !tasks.every(task => task.chain === 'EVM')) return null;
   provider ??= (await resolveEvmProvider([tasks[0]!.from])).provider;
-  const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
+  const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
   const from = tasks[0]!.from;
-  if (!accounts.some(address => address.toLowerCase() === from.toLowerCase())) throw new Error('当前钱包账户与 CSV 发送钱包不一致');
+  if (typeof accounts[0] !== 'string' || accounts[0].toLowerCase() !== from.toLowerCase()) throw new Error('当前钱包活动账户与 CSV 发送钱包不一致');
   const chainId = String(await provider.request({ method: 'eth_chainId' }));
   assertExecutionPolicy(tasks, chainId);
   try { await provider.request({ method: 'wallet_getCapabilities', params: [from] }); }

@@ -57,7 +57,7 @@ async function executeEvm(request: BridgeQuoteRequest, route: BridgeRoute, provi
   const actualChainId = String(await provider.request({ method: 'eth_chainId' })).toLowerCase();
   if (actualChainId !== `0x${request.fromChainId.toString(16)}`) throw new Error('钱包没有切换到报价来源网络，已停止签名');
   const revalidatedAccounts = await provider.request({ method: 'eth_accounts' });
-  if (!Array.isArray(revalidatedAccounts) || !revalidatedAccounts.some(value => typeof value === 'string' && value.toLowerCase() === request.fromAddress.toLowerCase())) throw new Error('切换网络后活动账户与报价发送钱包不一致，已停止签名');
+  if (!Array.isArray(revalidatedAccounts) || typeof revalidatedAccounts[0] !== 'string' || revalidatedAccounts[0].toLowerCase() !== request.fromAddress.toLowerCase()) throw new Error('切换网络后活动账户与报价发送钱包不一致，已停止签名');
 
   if (route.approvalAddress && !nativeToken(route.fromTokenAddress)) {
     if (!isAddress(route.approvalAddress) || !isAddress(route.fromTokenAddress)) throw new Error('报价缺少可核验的 Token 授权地址，已阻止签名');
@@ -98,6 +98,7 @@ async function executeSolana(request: BridgeQuoteRequest, route: BridgeRoute, pr
   let decoded: VersionedTransaction;
   try { decoded = VersionedTransaction.deserialize(Buffer.from(transaction.serialized, 'base64')); }
   catch { throw new Error('Solana 交易载荷无法解析，已阻止签名'); }
+  if (decoded.message.staticAccountKeys[0]?.toString() !== request.fromAddress) throw new Error('Solana 跨链交易付款人与报价钱包不一致，已阻止签名');
   if (!confirm(`模拟已通过${transaction.unitsConsumed ? `（${transaction.unitsConsumed.toLocaleString()} CU）` : ''}。\n路线：${route.providerLabel}\n最低到账：${route.toAmountMin ?? '提供方未返回'}\n是否使用当前 Phantom 账户签名？`)) throw new Error('用户取消跨链签名');
   const result = await provider.signAndSendTransaction(decoded);
   if (!result?.signature) throw new Error('钱包未返回 Solana 交易签名');

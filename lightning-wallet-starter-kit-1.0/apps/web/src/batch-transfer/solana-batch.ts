@@ -3,7 +3,7 @@ import { Connection, PublicKey, SystemProgram, Transaction, TransactionInstructi
 import { parseUnits } from 'ethers';
 import { api } from '../api';
 import { assertExecutionPolicy, assertSolanaRpcNetwork } from './execution-policy';
-import { getSolanaProvider } from './executor';
+import { assertSolanaU64Amount, assertSupportedSolanaMint, getSolanaProvider } from './executor';
 import type { TransferTask } from './types';
 
 const ASSOCIATED = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
@@ -19,13 +19,13 @@ export function buildSolanaBatchTransactions(tasks: TransferTask[], owner: Publi
   return tasks.map(task => {
     const recipient = new PublicKey(task.to);
     const transaction = new Transaction({ feePayer: owner, recentBlockhash: blockhash });
-    if (!task.token) return transaction.add(SystemProgram.transfer({ fromPubkey: owner, toPubkey: recipient, lamports: parseUnits(task.amount, 9) }));
+    if (!task.token) return transaction.add(SystemProgram.transfer({ fromPubkey: owner, toPubkey: recipient, lamports: assertSolanaU64Amount(parseUnits(task.amount, 9)) }));
     const mint = new PublicKey(task.token);
     const tokenProgram = mintPrograms.get(task.token);
     if (!tokenProgram) throw new Error(`Token Program 未加载：${task.token}`);
     const source = ata(owner, mint, tokenProgram);
     const destination = ata(recipient, mint, tokenProgram);
-    const amount = parseUnits(task.amount, task.decimals!);
+    const amount = assertSolanaU64Amount(parseUnits(task.amount, task.decimals!));
     const bytes = new Uint8Array(8);
     new DataView(bytes.buffer).setBigUint64(0, amount, true);
     return transaction.add(
@@ -111,6 +111,7 @@ export async function executeSolanaBatch(tasks: TransferTask[], options: SolanaB
     const mint = new PublicKey(mintAddress);
     const info = await connection.getAccountInfo(mint, 'confirmed');
     if (!info) throw new Error(`找不到 SPL Token Mint：${mintAddress}`);
+    for (const task of tasks.filter(candidate => candidate.token === mintAddress)) assertSupportedSolanaMint(info, task.decimals!);
     mintPrograms.set(mintAddress, info.owner);
   }
   const transactions = buildSolanaBatchTransactions(tasks, owner, latest.blockhash, mintPrograms);

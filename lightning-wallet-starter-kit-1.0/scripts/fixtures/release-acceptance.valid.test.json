@@ -1,0 +1,66 @@
+{
+  "format": "lightning-wallet-release-acceptance-v1",
+  "release": "2.40.0",
+  "environment": "test",
+  "recordedAt": "2026-09-18T00:00:00Z",
+  "recordedBy": "ci-fixture",
+  "code": {
+    "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "lint": "pass",
+    "typecheck": "pass",
+    "tests": "pass",
+    "build": "pass",
+    "secretScan": "pass"
+  },
+  "providers": {
+    "configuration": "pass",
+    "liveQuotes": "pass",
+    "evidence": [
+      "capabilities endpoint has no external provider blockers",
+      "live public quote verifier passed without wallet access"
+    ]
+  },
+  "featureChecks": [
+    { "feature": "wallet-center", "mode": "wallet-session", "result": "pass", "evidence": "shared provider session and account-change checks passed" },
+    { "feature": "wallet-chat", "mode": "wallet-signed", "result": "pass", "evidence": "wallet challenge and encrypted-message checks passed" },
+    { "feature": "wallet-factory", "mode": "local-only", "result": "pass", "evidence": "local encrypted-vault round trip passed" },
+    { "feature": "solana-vanity", "mode": "local-only", "result": "pass", "evidence": "local worker cancellation and export checks passed" },
+    { "feature": "batch-transfer", "mode": "wallet-signed", "result": "pass", "evidence": "validation and simulation checks passed" },
+    { "feature": "asset-collection", "mode": "wallet-signed", "result": "pass", "evidence": "collection plan and simulation checks passed" },
+    { "feature": "batch-trade", "mode": "wallet-signed", "result": "pass", "evidence": "quote impact slippage and simulation checks passed" },
+    { "feature": "swap", "mode": "wallet-signed", "result": "pass", "evidence": "route binding simulation and exact-account checks passed" },
+    { "feature": "activity-history", "mode": "read-only", "result": "pass", "evidence": "public metadata history reload and export checks passed" },
+    { "feature": "token-studio", "mode": "wallet-signed", "result": "pass", "evidence": "deployment plan simulation checks passed" },
+    { "feature": "lp-manager", "mode": "read-only", "result": "pass", "evidence": "public position read and explicit official-site handoff checks passed" },
+    { "feature": "risk-scanner", "mode": "read-only", "result": "pass", "evidence": "risk-source normalization checks passed" },
+    { "feature": "project-dashboard", "mode": "read-only", "result": "pass", "evidence": "project persistence and route checks passed" },
+    { "feature": "project-center", "mode": "read-only", "result": "pass", "evidence": "project metadata version and deployment history checks passed" },
+    { "feature": "bridge-router", "mode": "wallet-signed", "result": "pass", "evidence": "official and aggregate route simulation checks passed" },
+    { "feature": "gasfree", "mode": "wallet-signed", "result": "pass", "evidence": "paymaster policy dry run and wallet boundary checks passed" },
+    { "feature": "flash-loan", "mode": "external-provider", "result": "pass", "evidence": "provider health and transaction simulation checks passed" },
+    { "feature": "market-center", "mode": "read-only", "result": "pass", "evidence": "public market and exact-token holder normalization checks passed" },
+    { "feature": "automation-center", "mode": "admin-controlled", "result": "pass", "evidence": "authenticated dry run scheduling and delivery gates passed" },
+    { "feature": "security-center", "mode": "read-only", "result": "pass", "evidence": "client security and operator isolation checks passed" },
+    { "feature": "system-status", "mode": "read-only", "result": "pass", "evidence": "capability truthfulness and system status checks passed" }
+  ],
+  "walletFlows": [
+    { "feature": "batch-transfer", "walletProvider": "MetaMask", "chain": "EVM", "network": "Sepolia", "connect": "pass", "simulation": "pass", "sign": "pending", "broadcast": "pending", "confirm": "pending", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "asset-collection", "walletProvider": "TronLink", "chain": "TRON", "network": "TRON Nile", "connect": "pass", "simulation": "pass", "sign": "pending", "broadcast": "pending", "confirm": "pending", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "batch-trade", "walletProvider": "Phantom", "chain": "SOL", "network": "Solana Devnet", "connect": "pass", "simulation": "pass", "sign": "pending", "broadcast": "pending", "confirm": "pending", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "swap", "walletProvider": "MetaMask", "chain": "EVM", "network": "Sepolia", "connect": "pass", "simulation": "pass", "sign": "pending", "broadcast": "pending", "confirm": "pending", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "token-studio", "walletProvider": "MetaMask", "chain": "EVM", "network": "Sepolia", "connect": "pass", "simulation": "pass", "sign": "pending", "broadcast": "pending", "confirm": "pending", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "bridge-router", "walletProvider": "MetaMask", "chain": "EVM", "network": "Sepolia", "connect": "pass", "simulation": "pass", "sign": "pending", "broadcast": "pending", "confirm": "pending", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "gasfree", "walletProvider": "MetaMask", "chain": "EVM", "network": "Sepolia", "connect": "pass", "simulation": "pass", "sign": "pending", "broadcast": "pending", "confirm": "pending", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "flash-loan", "walletProvider": "MetaMask", "chain": "EVM", "network": "Sepolia", "connect": "pass", "simulation": "pass", "sign": "pending", "broadcast": "pending", "confirm": "pending", "intentVerified": "pending", "intentHash": "", "reference": "" }
+  ],
+  "walletAcceptance": {
+    "onChainVerified": "pending",
+    "reportSha256": ""
+  },
+  "security": {
+    "privateKeyUploaded": false,
+    "mnemonicUploaded": false,
+    "serverSigning": false,
+    "serverBroadcast": false
+  }
+}

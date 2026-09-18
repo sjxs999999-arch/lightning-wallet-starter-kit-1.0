@@ -46,11 +46,30 @@ type WalletWindow = Window & {
 };
 
 const SOLANA_DEVNET_GENESIS = 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG';
-const SOLANA_MAINNET_GENESIS = '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+const SOLANA_MAINNET_GENESIS = '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
 const EVM_NETWORKS = {
   testnet: { chainId: '0xaa36a7', decimalChainId: 11155111, name: 'Sepolia', rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com' },
   mainnet: { chainId: '0x1', decimalChainId: 1, name: 'Ethereum Mainnet', rpcUrl: import.meta.env.VITE_EVM_RPC_URL || 'https://ethereum-rpc.publicnode.com' },
 } as const;
+const EVM_NETWORK_METADATA: Record<string, { name: string; nativeSymbol: string; mode: WalletNetworkMode }> = {
+  '0x1': { name: 'Ethereum Mainnet', nativeSymbol: 'ETH', mode: 'mainnet' },
+  '0xa': { name: 'Optimism', nativeSymbol: 'ETH', mode: 'mainnet' },
+  '0x38': { name: 'BSC', nativeSymbol: 'BNB', mode: 'mainnet' },
+  '0x89': { name: 'Polygon', nativeSymbol: 'POL', mode: 'mainnet' },
+  '0x2105': { name: 'Base', nativeSymbol: 'ETH', mode: 'mainnet' },
+  '0xa4b1': { name: 'Arbitrum', nativeSymbol: 'ETH', mode: 'mainnet' },
+  '0xa86a': { name: 'Avalanche', nativeSymbol: 'AVAX', mode: 'mainnet' },
+  '0xaa36a7': { name: 'Sepolia', nativeSymbol: 'ETH', mode: 'testnet' },
+};
+const EVM_MAINNET_RPC_MAP: Record<number, string> = {
+  1: EVM_NETWORKS.mainnet.rpcUrl,
+  10: 'https://mainnet.optimism.io',
+  56: 'https://bsc-rpc.publicnode.com',
+  137: 'https://polygon-bor-rpc.publicnode.com',
+  8453: 'https://mainnet.base.org',
+  42161: 'https://arb1.arbitrum.io/rpc',
+  43114: 'https://api.avax.network/ext/bc/C/rpc',
+};
 const SOLANA_NETWORKS = {
   testnet: { chainId: SOLANA_DEVNET_GENESIS, name: 'Solana Devnet', rpcUrl: import.meta.env.VITE_LAUNCHPAD_SOLANA_RPC_URL || 'https://api.devnet.solana.com' },
   mainnet: { chainId: SOLANA_MAINNET_GENESIS, name: 'Solana Mainnet', rpcUrl: import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com' },
@@ -107,11 +126,13 @@ export async function connectEvm(
   if (name === 'WalletConnect') {
     if (!projectId) throw new Error('缺少 WalletConnect Project ID');
     const { default: EthereumProvider } = await import('@walletconnect/ethereum-provider');
+    const optionalChains = mode === 'mainnet' ? Object.keys(EVM_MAINNET_RPC_MAP).map(Number).filter(chainId => chainId !== network.decimalChainId) : [];
     provider = await EthereumProvider.init({
       projectId,
       chains: [network.decimalChainId],
+      optionalChains,
       showQrModal: true,
-      rpcMap: { [network.decimalChainId]: network.rpcUrl },
+      rpcMap: mode === 'mainnet' ? EVM_MAINNET_RPC_MAP : { [network.decimalChainId]: network.rpcUrl },
     }) as unknown as RequestProvider;
   } else {
     const item = (await discoverEvmProviders(discoveryWaitMs)).find(value => matchEvm(name, value));
@@ -245,7 +266,7 @@ export async function assertConnectedWalletSession(wallet: ConnectedWallet, conn
     const chainId = String(await provider.request({ method: 'eth_chainId' })).toLowerCase();
     if (chainId !== wallet.chainId) throw new Error('EVM 钱包网络已变化，请重新连接');
     const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
-    if (!accounts.some(address => address.toLowerCase() === wallet.address.toLowerCase())) throw new Error('EVM 钱包账户已变化，请重新连接');
+    if (typeof accounts[0] !== 'string' || accounts[0].toLowerCase() !== wallet.address.toLowerCase()) throw new Error('EVM 钱包活动账户已变化，请重新连接');
     return;
   }
   if (wallet.family === 'SOL') {
@@ -278,7 +299,7 @@ export async function signWalletMessage(wallet: ConnectedWallet, message: string
 
 export async function signChallenge(wallet: ConnectedWallet) {
   await assertConnectedWalletSession(wallet);
-  const purpose = wallet.mode === 'mainnet' ? 'mainnet read-only ownership verification' : 'testnet ownership verification';
+  const purpose = wallet.mode === 'mainnet' ? 'mainnet wallet session ownership verification' : 'testnet ownership verification';
   return signWalletMessage(wallet, [
     'Lightning Wallet',
     'Domain: lightingwallet.com',
@@ -301,8 +322,10 @@ function displayUnits(value: bigint, decimals: number) {
 export async function readNativeBalance(wallet: ConnectedWallet, connection?: Pick<Connection, 'getGenesisHash' | 'getBalance'>) {
   await assertConnectedWalletSession(wallet, connection);
   if (wallet.family === 'EVM') {
+    const nativeSymbol = EVM_NETWORK_METADATA[wallet.chainId.toLowerCase()]?.nativeSymbol;
+    if (!nativeSymbol) throw new Error(`不支持读取 Chain ID ${wallet.chainId} 的原生币余额`);
     const value = await (wallet.provider as RequestProvider).request({ method: 'eth_getBalance', params: [wallet.address, 'latest'] });
-    return { symbol: 'ETH', formatted: displayUnits(BigInt(String(value)), 18) };
+    return { symbol: nativeSymbol, formatted: displayUnits(BigInt(String(value)), 18) };
   }
   if (wallet.family === 'SOL') {
     const active = connection ?? solanaConnection(wallet.mode);
@@ -315,7 +338,7 @@ export async function readNativeBalance(wallet: ConnectedWallet, connection?: Pi
   return { symbol: 'TRX', formatted: displayUnits(BigInt(sun), 6) };
 }
 
-export function subscribeWalletSession(wallet: ConnectedWallet, onInvalidated: (reason: string) => void) {
+export function subscribeWalletSession(wallet: ConnectedWallet, onInvalidated: (reason: string) => void, onChanged?: (wallet: ConnectedWallet) => void) {
   const source = (wallet.eventProvider ?? wallet.provider) as EventProvider;
   const listeners: Array<[string, (...args: unknown[]) => void]> = [];
   let invalidated = false;
@@ -333,10 +356,15 @@ export function subscribeWalletSession(wallet: ConnectedWallet, onInvalidated: (
   if (wallet.family === 'EVM') {
     listen('accountsChanged', value => {
       const accounts = Array.isArray(value) ? value.map(String) : [];
-      if (!accounts.some(address => address.toLowerCase() === wallet.address.toLowerCase())) invalidate('EVM 钱包账户已变化，连接已安全断开');
+      if (accounts[0]?.toLowerCase() !== wallet.address.toLowerCase()) invalidate('EVM 钱包活动账户已变化，连接已安全断开');
     });
     listen('chainChanged', value => {
-      if (String(value).toLowerCase() !== wallet.chainId) invalidate('EVM 钱包网络已变化，连接已安全断开');
+      const chainId = String(value).toLowerCase();
+      if (chainId === wallet.chainId) return;
+      const metadata = EVM_NETWORK_METADATA[chainId];
+      const network = metadata?.mode === wallet.mode ? metadata.name : undefined;
+      if (network && onChanged) onChanged({ ...wallet, chainId, network });
+      else invalidate('EVM 钱包网络已变化，连接已安全断开');
     });
   } else if (wallet.family === 'SOL') {
     listen('accountChanged', value => {
@@ -368,13 +396,13 @@ export async function disconnectWallet(wallet: ConnectedWallet) {
 }
 
 export async function broadcastSelfTest(wallet: ConnectedWallet, connection?: Connection) {
-  if (isMainnetWallet(wallet)) throw new Error('主网连接仅支持只读验证，禁止广播自测交易');
+  if (isMainnetWallet(wallet)) throw new Error('钱包中心不执行主网自测交易；请在已通过门禁的业务模块中重新模拟并签名');
   if (wallet.family === 'EVM') {
     const requestProvider = wallet.provider as RequestProvider;
     const chainId = String(await requestProvider.request({ method: 'eth_chainId' })).toLowerCase();
     if (chainId !== EVM_NETWORKS.testnet.chainId) throw new Error('钱包已离开 Sepolia，未请求签名');
     const accounts = await requestProvider.request({ method: 'eth_accounts' }) as string[];
-    if (!accounts.some(address => address.toLowerCase() === wallet.address.toLowerCase())) throw new Error('当前 EVM 账户已变化，未请求签名');
+    if (typeof accounts[0] !== 'string' || accounts[0].toLowerCase() !== wallet.address.toLowerCase()) throw new Error('当前 EVM 活动账户已变化，未请求签名');
     const provider = new BrowserProvider(requestProvider);
     const signer = await provider.getSigner();
     const transaction = await signer.sendTransaction({ to: wallet.address, value: 0n });

@@ -1,6 +1,6 @@
 {
   "format": "lightning-wallet-wallet-acceptance-v1",
-  "release": "2.39.0",
+  "release": "2.40.0",
   "environment": "production",
   "approvedAt": "",
   "approvedBy": "",
@@ -21,6 +21,16 @@
     { "provider": "Backpack", "chain": "SOL", "network": "Solana Devnet", "connect": "pending", "sign": "pending", "broadcast": "pending", "confirm": "pending", "historyReload": "pending", "reference": "" },
     { "provider": "Solflare", "chain": "SOL", "network": "Solana Devnet", "connect": "pending", "sign": "pending", "broadcast": "pending", "confirm": "pending", "historyReload": "pending", "reference": "" },
     { "provider": "TronLink", "chain": "TRON", "network": "TRON Nile", "connect": "pending", "sign": "pending", "broadcast": "pending", "confirm": "pending", "historyReload": "pending", "reference": "" }
+  ],
+  "featureTransactions": [
+    { "feature": "batch-transfer", "provider": "", "chain": "EVM", "network": "", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "asset-collection", "provider": "", "chain": "TRON", "network": "", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "batch-trade", "provider": "", "chain": "SOL", "network": "", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "swap", "provider": "", "chain": "EVM", "network": "", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "token-studio", "provider": "", "chain": "EVM", "network": "", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "bridge-router", "provider": "", "chain": "EVM", "network": "", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "gasfree", "provider": "", "chain": "EVM", "network": "", "intentVerified": "pending", "intentHash": "", "reference": "" },
+    { "feature": "flash-loan", "provider": "", "chain": "EVM", "network": "", "intentVerified": "pending", "intentHash": "", "reference": "" }
   ],
   "negativeTests": [
     { "chain": "EVM", "network": "Sepolia", "walletRejectNoBroadcast": "pending", "rpcFailureNoWhiteScreen": "pending", "routeFailureNoWhiteScreen": "pending" },

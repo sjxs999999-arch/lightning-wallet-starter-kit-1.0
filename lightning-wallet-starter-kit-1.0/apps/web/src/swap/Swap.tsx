@@ -10,8 +10,12 @@ import { loadLocalSwapHistory, saveLocalSwapJob } from './local-history';
 import { fallbackSwapProviderAvailability } from './provider-status';
 import { bestRoute } from './routing';
 import type { SwapCandidate, SwapChain, SwapProviderAvailability, SwapRequest } from './types';
+import { useExternalWalletSession } from '../wallet-providers/ExternalWalletSession';
+import { SessionWalletNotice } from '../wallet-providers/SessionWalletNotice';
+import { evmChainIdNumber } from '../wallet-providers/module-session';
 
 export function Swap() {
+  const { connected } = useExternalWalletSession();
   const [chain, setChain] = useState<SwapChain>('EVM');
   const [evmChainId, setEvmChainId] = useState(1);
   const [taker, setTaker] = useState('');
@@ -69,6 +73,17 @@ export function Swap() {
     setSelected(null);
     quotedRequestRef.current = null;
   }
+
+  useEffect(() => {
+    if (!connected) return;
+    setChain(connected.family);
+    setTaker(connected.address);
+    const connectedChainId = evmChainIdNumber(connected);
+    if (connected.family === 'EVM' && connectedChainId && [1, 56, 137, 8453, 42161].includes(connectedChainId)) setEvmChainId(connectedChainId);
+    setQuotes([]);
+    setSelected(null);
+    quotedRequestRef.current = null;
+  }, [connected]);
 
   const quote = useCallback(() => {
     setError('');
@@ -150,7 +165,7 @@ export function Swap() {
 
     try {
       if (dryRun) await updateResult(job.id, 'simulated');
-      else await updateResult(job.id, 'submitted', await executeSwap(input, selected));
+      else await updateResult(job.id, 'submitted', await executeSwap(input, selected, { wallet: connected ?? undefined }));
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'Swap 失败';
       setError(message);
@@ -163,7 +178,8 @@ export function Swap() {
     <div className="grid">
       <section className="panel form-panel">
         <h3>Swap 参数</h3>
-        <label>网络<select value={chain} disabled={busy || executing} onChange={event => { setChain(event.target.value as SwapChain); invalidateQuotes(); }}><option>EVM</option><option value="SOL">Solana</option><option>TRON</option></select></label>
+        <SessionWalletNotice wallet={connected} family={chain}/>
+        <label>网络<select value={chain} disabled={busy || executing} onChange={event => { const next = event.target.value as SwapChain; setChain(next); setTaker(connected?.family === next ? connected.address : ''); invalidateQuotes(); }}><option>EVM</option><option value="SOL">Solana</option><option>TRON</option></select></label>
         {currentProvider && <div className={currentProvider.available ? 'notice' : 'batch-error'}>{currentProvider.available ? `报价服务已连接：${currentProvider.provider}` : currentProvider.reason}</div>}
         {chain==='EVM'&&<label>EVM 主网<select value={evmChainId} disabled={busy||executing} onChange={event=>{setEvmChainId(Number(event.target.value));invalidateQuotes()}}><option value={1}>Ethereum</option><option value={56}>BSC</option><option value={137}>Polygon</option><option value={8453}>Base</option><option value={42161}>Arbitrum</option></select></label>}
         <label>钱包地址<input value={taker} disabled={busy || executing} onChange={event => { setTaker(event.target.value.trim()); invalidateQuotes(); }} placeholder="公开签名地址"/></label>

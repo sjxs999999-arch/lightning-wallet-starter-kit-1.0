@@ -5,6 +5,7 @@ const SOLANA_CHAIN_ID = 1_151_111_081_099_710;
 const CHAIN_IDS = [1, 10, 137, 8453, 42161, SOLANA_CHAIN_ID] as const;
 const publicIdentifier = z.string().min(2).max(128).regex(/^(?:0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44}|[A-Za-z][A-Za-z0-9]{1,11})$/);
 const evmAddress = (value: string) => /^0x[0-9a-fA-F]{40}$/.test(value);
+const providerIdentifier = (value: string, chainId: number) => chainId !== SOLANA_CHAIN_ID && evmAddress(value) ? value.toLowerCase() : value;
 const solanaAddress = (value: string) => {
   try { return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value) && bs58.decode(value).length === 32; }
   catch { return false; }
@@ -28,13 +29,22 @@ export const bridgeQuoteSchema = z.object({
 
 type BridgeInput = z.infer<typeof bridgeQuoteSchema>;
 type LiFiCost = { amountUSD?: string };
+type LiFiToken = { address?: string; symbol?: string; coinKey?: string; chainId?: number | string };
 type LiFiQuote = {
   id?: string;
   tool?: string;
   toolDetails?: { name?: string };
-  action?: { fromToken?: { address?: string } };
+  action?: {
+    fromChainId?: number | string;
+    toChainId?: number | string;
+    fromAmount?: string;
+    fromAddress?: string;
+    toAddress?: string;
+    fromToken?: LiFiToken;
+    toToken?: LiFiToken;
+  };
   estimate?: { fromAmount?: string; toAmount?: string; toAmountMin?: string; executionDuration?: number; approvalAddress?: string; feeCosts?: LiFiCost[]; gasCosts?: LiFiCost[]; fromAmountUSD?: string; toAmountUSD?: string };
-  transactionRequest?: { to?: string; data?: string; value?: string; gas?: string; gasLimit?: string };
+  transactionRequest?: { from?: string; chainId?: number | string; to?: string; data?: string; value?: string; gas?: string; gasLimit?: string };
   includedSteps?: { tool?: string }[];
 };
 type PublicBridgeRoute = ReturnType<typeof normalizeLiFi> | { id: string; provider: string; providerLabel: string; kind: 'official'; fromAmount: string; steps: string[]; officialUrl: string; warnings: string[] };
@@ -53,7 +63,30 @@ const hexQuantity = (value: string | undefined) => {
   return `0x${BigInt(value).toString(16)}`;
 };
 
+const sameAccount = (actual: string | undefined, expected: string, chainId: number) =>
+  typeof actual === 'string' && providerIdentifier(actual, chainId) === providerIdentifier(expected, chainId);
+
+const sameToken = (token: LiFiToken | undefined, expected: string, chainId: number) => {
+  if (!token) return false;
+  if (chainId === SOLANA_CHAIN_ID && solanaAddress(expected)) return token.address === expected;
+  if (chainId !== SOLANA_CHAIN_ID && evmAddress(expected)) return evmAddress(token.address ?? '') && token.address?.toLowerCase() === expected.toLowerCase();
+  const symbol = expected.toUpperCase();
+  return token.symbol?.toUpperCase() === symbol || token.coinKey?.toUpperCase() === symbol;
+};
+
+function assertLiFiQuoteBound(raw: LiFiQuote, input: BridgeInput) {
+  const action = raw.action;
+  if (!action || Number(action.fromChainId) !== input.fromChainId || Number(action.toChainId) !== input.toChainId) throw new Error('BRIDGE_QUOTE_CHAIN_MISMATCH');
+  if (action.fromAmount !== input.fromAmount || raw.estimate?.fromAmount !== input.fromAmount) throw new Error('BRIDGE_QUOTE_AMOUNT_MISMATCH');
+  if (!sameAccount(action.fromAddress, input.fromAddress, input.fromChainId) || !sameAccount(action.toAddress, input.toAddress, input.toChainId)) throw new Error('BRIDGE_QUOTE_ADDRESS_MISMATCH');
+  if (!sameToken(action.fromToken, input.fromToken, input.fromChainId) || !sameToken(action.toToken, input.toToken, input.toChainId)) throw new Error('BRIDGE_QUOTE_TOKEN_MISMATCH');
+  const transaction = raw.transactionRequest;
+  if (transaction?.from && !sameAccount(transaction.from, input.fromAddress, input.fromChainId)) throw new Error('BRIDGE_TRANSACTION_SENDER_MISMATCH');
+  if (transaction?.chainId !== undefined && Number(transaction.chainId) !== input.fromChainId) throw new Error('BRIDGE_TRANSACTION_CHAIN_MISMATCH');
+}
+
 function normalizeLiFi(raw: LiFiQuote, input: BridgeInput, fallbackLabel: string) {
+  assertLiFiQuoteBound(raw, input);
   const estimate = raw.estimate ?? {}, provider = raw.tool ?? 'lifi', included = raw.includedSteps ?? [];
   const steps = [provider, ...included.map(item => item.tool)].filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index);
   const feeUsd = sumUsd(estimate.feeCosts), gasCostUsd = sumUsd(estimate.gasCosts), fromUsd = Number(estimate.fromAmountUSD), toUsd = Number(estimate.toAmountUSD);
@@ -96,7 +129,7 @@ async function fetchJson(url: string, init: RequestInit = {}, timeoutMs = 10_000
 }
 
 async function quote(input: BridgeInput, tool: typeof bridgeTools[number]) {
-  const params = new URLSearchParams({ fromChain: String(input.fromChainId), toChain: String(input.toChainId), fromToken: input.fromToken, toToken: input.toToken, fromAmount: input.fromAmount, fromAddress: input.fromAddress, toAddress: input.toAddress, slippage: String(input.slippageBps / 10_000), order: input.order, integrator: 'lightning-wallet' });
+  const params = new URLSearchParams({ fromChain: String(input.fromChainId), toChain: String(input.toChainId), fromToken: providerIdentifier(input.fromToken, input.fromChainId), toToken: providerIdentifier(input.toToken, input.toChainId), fromAmount: input.fromAmount, fromAddress: providerIdentifier(input.fromAddress, input.fromChainId), toAddress: providerIdentifier(input.toAddress, input.toChainId), slippage: String(input.slippageBps / 10_000), order: input.order, integrator: 'lightning-wallet' });
   if (tool.key) params.set('allowBridges', tool.key);
   const headers = { accept: 'application/json', ...(process.env.LIFI_API_KEY ? { 'x-lifi-api-key': process.env.LIFI_API_KEY } : {}) };
   const route = normalizeLiFi(await fetchJson(`https://li.quest/v1/quote?${params}`, { headers }), input, tool.label);
@@ -114,8 +147,8 @@ export async function fetchBridgeRoutes(raw: unknown) {
   const input = bridgeQuoteSchema.parse(raw);
   const tools = bridgeTools.filter(item => item.key !== 'mayanWH' || input.fromChainId === SOLANA_CHAIN_ID || input.toChainId === SOLANA_CHAIN_ID);
   const settled = await Promise.allSettled(tools.map(item => quote(input, item)));
-  const routes: PublicBridgeRoute[] = settled.filter((item): item is PromiseFulfilledResult<ReturnType<typeof normalizeLiFi>> => item.status === 'fulfilled').map(item => item.value);
-  const deduped = routes.filter((route, index, values) => values.findIndex(other => other.provider === route.provider && 'toAmount' in other && 'toAmount' in route && other.toAmount === route.toAmount && 'transaction' in other && 'transaction' in route && other.transaction?.data === route.transaction?.data && other.transaction?.serialized === route.transaction?.serialized) === index);
+  const routes = settled.filter((item): item is PromiseFulfilledResult<ReturnType<typeof normalizeLiFi>> => item.status === 'fulfilled').map(item => item.value);
+  const deduped: PublicBridgeRoute[] = routes.filter((route, index, values) => values.findIndex(other => other.provider === route.provider && other.toAmount === route.toAmount && other.toAmountMin === route.toAmountMin && other.feeUsd === route.feeUsd && other.gasCostUsd === route.gasCostUsd && other.durationSeconds === route.durationSeconds && other.steps.join('|') === route.steps.join('|')) === index);
   const otherChain = input.fromChainId === 1 ? input.toChainId : input.toChainId === 1 ? input.fromChainId : 0;
   const official = officialBridges.find(item => item.chainId === otherChain);
   if (official) deduped.push({ id: `official:${official.provider}:${input.fromChainId}:${input.toChainId}`, provider: official.provider, providerLabel: official.providerLabel, kind: 'official', fromAmount: input.fromAmount, steps: [official.provider], officialUrl: official.officialUrl, warnings: [...official.warnings] });

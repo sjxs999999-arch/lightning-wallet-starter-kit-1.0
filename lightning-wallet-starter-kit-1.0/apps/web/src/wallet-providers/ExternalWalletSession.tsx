@@ -21,7 +21,7 @@ export function ExternalWalletSessionProvider({ children }: { children: ReactNod
     return subscribeWalletSession(connected, reason => {
       setConnected(null);
       setNotice(reason);
-    });
+    }, updated => setConnected(current => current && current.provider === updated.provider && current.address === updated.address ? updated : current));
   }, [connected]);
 
   const activate = useCallback((wallet: ConnectedWallet) => {

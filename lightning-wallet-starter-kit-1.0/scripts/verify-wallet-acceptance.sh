@@ -2,7 +2,7 @@
 set -eu
 
 REPORT=${1:-${FINAL_WALLET_ACCEPTANCE_REPORT:-}}
-EXPECTED_RELEASE=${EXPECTED_RELEASE:-2.39.0}
+EXPECTED_RELEASE=${EXPECTED_RELEASE:-2.40.0}
 EXPECTED_ACCEPTANCE_ENVIRONMENT=${EXPECTED_ACCEPTANCE_ENVIRONMENT:-production}
 EXPECTED_SHA256=${FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256:-}
 
@@ -49,6 +49,25 @@ if ! jq -e --arg release "$EXPECTED_RELEASE" --arg environment "$EXPECTED_ACCEPT
     ["Solflare","SOL","Solana Devnet"],
     ["TronLink","TRON","TRON Nile"]
   ] - [.providers[] | [.provider,.chain,.network]] | length) == 0 and
+  (.featureTransactions | type == "array" and length == 8) and
+  ([.featureTransactions[].feature] | sort) == (["batch-transfer","asset-collection","batch-trade","swap","token-studio","bridge-router","gasfree","flash-loan"] | sort) and
+  ([.featureTransactions[] | [.chain,.reference] | join("|")] | length) ==
+    ([.featureTransactions[] | [.chain,.reference] | join("|")] | unique | length) and
+  ([.providers[] | [.chain,.reference] | join("|")] + [.featureTransactions[] | [.chain,.reference] | join("|")] | length) ==
+    ([.providers[] | [.chain,.reference] | join("|")] + [.featureTransactions[] | [.chain,.reference] | join("|")] | unique | length) and
+  all(.featureTransactions[];
+    (.provider | type == "string" and length > 0 and length <= 80) and
+    (if .chain == "EVM" then .network == "Sepolia"
+     elif .chain == "SOL" then .network == "Solana Devnet"
+     elif .chain == "TRON" then .network == "TRON Nile"
+     else false end) and
+    .intentVerified == "pass" and
+    (.intentHash | type == "string" and test("^[0-9a-f]{64}$")) and
+    (if .chain == "EVM" then .reference | test("^0x[0-9a-fA-F]{64}$")
+     elif .chain == "SOL" then .reference | test("^[1-9A-HJ-NP-Za-km-z]{64,100}$")
+     elif .chain == "TRON" then .reference | test("^[0-9a-fA-F]{64}$")
+     else false end)
+  ) and
   (.negativeTests | type == "array" and length == 3) and
   ([.negativeTests[].chain] | sort) == ["EVM","SOL","TRON"] and
   all(.negativeTests[];

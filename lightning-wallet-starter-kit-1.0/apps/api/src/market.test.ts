@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeHistory, normalizePair, normalizeTrades } from './market.js';
+import { normalizeGoPlusHolders, normalizeHistory, normalizePair, normalizeTrades } from './market.js';
 
 describe('market normalization', () => {
   it('returns read-only public metrics without sensitive material', () => {
@@ -23,5 +23,21 @@ describe('market normalization', () => {
     ] }, '0xweth');
     expect(result.map((item: { priceUsd: number | null }) => item.priceUsd)).toEqual([1900, 1910]);
     expect(JSON.stringify(result)).not.toMatch(/tx_from_address|private|signature/i);
+  });
+
+  it('normalizes public GoPlus holder counts and fractional ownership percentages', () => {
+    const result = normalizeGoPlusHolders({ code: 1, result: { token: { holder_count: '1234', holders: [
+      { address: '0x37305b1cd40574e4c5ce33f8e8306be057fd7341', balance: '4093844026.662287', percent: '0.081428799012144361' },
+      { account: '7VHUFJHWu2CuExkJcJrzhQPJ2oygupTWkL2A2For4BmE', balance: '100.5', percent: '0.001' },
+      { address: 'invalid', balance: '1', percent: '0.5' },
+    ] } } }, 'token');
+    expect(result).toEqual({ status: 'available', holderCount: 1234, source: 'GoPlus Security', topHolders: [
+      { address: '0x37305b1cd40574e4c5ce33f8e8306be057fd7341', balance: '4093844026.662287', sharePct: 8.1428799 },
+      { address: '7VHUFJHWu2CuExkJcJrzhQPJ2oygupTWkL2A2For4BmE', balance: '100.5', sharePct: 0.1 },
+    ] });
+  });
+
+  it('fails closed instead of assigning another token holder result to the requested token', () => {
+    expect(() => normalizeGoPlusHolders({ code: 1, result: { other: { holder_count: '1', holders: [] } } }, 'requested')).toThrow(/NOT_FOUND/);
   });
 });

@@ -2,6 +2,8 @@ import { Buffer } from 'buffer';
 import { Interface, isAddress, parseEther, parseUnits } from 'ethers';
 import { api } from '../api';
 import { discoverEvmProviders } from '../wallet-providers/providers';
+import { connectedEvmProvider, connectedSolanaProvider, connectedTronProvider, requireConnectedWallet, sameWalletAddress } from '../wallet-providers/module-session';
+import type { ConnectedWallet } from '../wallet-providers/types';
 import { assertExecutionPolicy, assertSolanaRpcNetwork } from './execution-policy';
 import type { TransferChain, TransferTask } from './types';
 
@@ -16,6 +18,25 @@ type TronWeb = {
 export type SolanaProvider = { publicKey?: { toString(): string }; connect?(): Promise<{ publicKey?: { toString(): string } }>; signAndSendTransaction(tx: unknown): Promise<{ signature: string }>; signAllTransactions?(transactions: unknown[]): Promise<{ serialize(): Uint8Array }[]> };
 type OkxWallet = EvmProvider & { tronLink?: { request(args: { method: string; params?: unknown[] }): Promise<{ code?: number } | unknown>; tronWeb?: TronWeb }; solana?: SolanaProvider };
 export type ExecutionResult = { hash: string; state: 'submitted' | 'confirmed' };
+
+const SOLANA_U64_MAX = 18_446_744_073_709_551_615n;
+const SPL_TOKEN_PROGRAM_IDS = new Set([
+  'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+  'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
+]);
+
+export function assertSolanaU64Amount(amount: bigint) {
+  if (amount <= 0n || amount > SOLANA_U64_MAX) throw new Error('Solana 转账数量必须大于 0 且不超过 u64 上限');
+  return amount;
+}
+
+export function assertSupportedSolanaMint<T extends { toBase58(): string }>(info: { owner: T; data: Uint8Array }, expectedDecimals: number): T {
+  const program = info.owner.toBase58();
+  if (!SPL_TOKEN_PROGRAM_IDS.has(program)) throw new Error('Mint owner 不是官方 SPL Token 或 Token-2022 Program，已拒绝签名');
+  if (info.data.byteLength < 82 || info.data[45] !== 1) throw new Error('SPL Token Mint 账户布局无效或尚未初始化，已拒绝签名');
+  if (!Number.isInteger(expectedDecimals) || expectedDecimals < 0 || expectedDecimals > 255 || info.data[44] !== expectedDecimals) throw new Error('CSV decimals 与链上 Mint 不一致，已拒绝签名');
+  return info.owner;
+}
 
 type TronExtension = { request(args: { method: string; params?: unknown[] }): Promise<{ code?: number } | unknown>; tronWeb?: TronWeb };
 declare global { interface Window { ethereum?: EvmProvider; okxwallet?: OkxWallet; rabby?: EvmProvider; tronWeb?: TronWeb; tron?: TronExtension; tronLink?: TronExtension; solana?: SolanaProvider; phantom?: { solana?: SolanaProvider }; backpack?: SolanaProvider; xnft?: { solana?: SolanaProvider }; solflare?: SolanaProvider } }
@@ -87,7 +108,23 @@ function getTronWallet(expectedAddresses: string[] = []) {
   return candidates.length === 1 ? candidates[0] : undefined;
 }
 
-export async function getActiveSender(chain: TransferChain, expectedAddresses: string[] = []): Promise<string> {
+export async function getActiveSender(chain: TransferChain, expectedAddresses: string[] = [], wallet?: ConnectedWallet): Promise<string> {
+  if (wallet) {
+    const shared = requireConnectedWallet(wallet, chain);
+    if (expectedAddresses.length && !expectedAddresses.some(address => sameWalletAddress(chain, address, shared.address))) throw new Error(`当前共享钱包账户 ${shared.address} 不在待执行发送地址中`);
+    if (chain === 'EVM') {
+      const accounts = await connectedEvmProvider(shared).request({ method: 'eth_accounts' });
+      if (!Array.isArray(accounts) || typeof accounts[0] !== 'string' || !sameWalletAddress('EVM', accounts[0], shared.address)) throw new Error('共享 EVM 钱包活动账户已变化，请重新连接');
+    } else if (chain === 'SOL') {
+      const provider = connectedSolanaProvider(shared);
+      const address = provider.publicKey?.toString() ?? (await provider.connect?.())?.publicKey?.toString();
+      if (address !== shared.address) throw new Error('共享 Solana 钱包活动账户已变化，请重新连接');
+    } else {
+      const tronWeb = connectedTronProvider(shared);
+      if (tronWeb.defaultAddress?.base58 !== shared.address) throw new Error('共享 TRON 钱包活动账户已变化，请重新连接');
+    }
+    return shared.address;
+  }
   if (chain === 'EVM') {
     return (await resolveEvmProvider(expectedAddresses)).address;
   }
@@ -125,8 +162,10 @@ async function waitForEvmReceipt(provider: EvmProvider, hash: string): Promise<'
   return 'submitted';
 }
 
-async function executeEvm(task: TransferTask): Promise<ExecutionResult> {
-  const { provider } = await resolveEvmProvider([task.from]);
+async function executeEvm(task: TransferTask, wallet?: ConnectedWallet): Promise<ExecutionResult> {
+  const provider = wallet ? connectedEvmProvider(wallet, task.from) : (await resolveEvmProvider([task.from])).provider;
+  const accounts = await provider.request({ method: 'eth_accounts' });
+  if (!Array.isArray(accounts) || typeof accounts[0] !== 'string' || !sameWalletAddress('EVM', accounts[0], task.from)) throw new Error('当前 EVM 钱包活动账户与发送地址不一致，已停止签名');
   const chainId = String(await provider.request({ method: 'eth_chainId' }));
   assertExecutionPolicy([task], chainId);
   let data: string | undefined;
@@ -137,15 +176,20 @@ async function executeEvm(task: TransferTask): Promise<ExecutionResult> {
   return { hash, state: await waitForEvmReceipt(provider, hash) };
 }
 
-async function executeTron(task: TransferTask): Promise<ExecutionResult> {
-  const selected = getTronWallet([task.from]);
-  if (!selected) throw new Error('没有找到已连接且与发送地址匹配的 OKX Wallet 或 TronLink');
-  if (selected.extension && selected.method) {
-    const connection = await selected.extension.request({ method: selected.method }) as { code?: number };
-    if (connection?.code === 4001) throw new Error('用户拒绝连接 OKX Wallet');
-    if (connection?.code && connection.code !== 200) throw new Error('TRON 钱包连接失败');
+async function executeTron(task: TransferTask, wallet?: ConnectedWallet): Promise<ExecutionResult> {
+  let tronWeb: TronWeb;
+  if (wallet) {
+    tronWeb = connectedTronProvider(wallet, task.from) as unknown as TronWeb;
+  } else {
+    const selected = getTronWallet([task.from]);
+    if (!selected) throw new Error('没有找到已连接且与发送地址匹配的 OKX Wallet 或 TronLink');
+    if (selected.extension && selected.method) {
+      const connection = await selected.extension.request({ method: selected.method }) as { code?: number };
+      if (connection?.code === 4001) throw new Error('用户拒绝连接 OKX Wallet');
+      if (connection?.code && connection.code !== 200) throw new Error('TRON 钱包连接失败');
+    }
+    tronWeb = selected.tronWeb;
   }
-  const tronWeb = selected.tronWeb;
   if (tronWeb.defaultAddress?.base58 !== task.from) throw new Error('当前 TRON 账户与 CSV 发送钱包不一致');
   const host = String(tronWeb.fullNode?.host ?? '');
   assertExecutionPolicy([task], host);
@@ -180,13 +224,13 @@ async function latestSolanaBlockhash(connection: import('@solana/web3.js').Conne
   catch { return connection.getLatestBlockhash('confirmed'); }
 }
 
-async function executeSolana(task: TransferTask): Promise<ExecutionResult> {
+async function executeSolana(task: TransferTask, wallet?: ConnectedWallet): Promise<ExecutionResult> {
   const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } = await import('@solana/web3.js');
   const network = import.meta.env.VITE_SOLANA_NETWORK || 'devnet';
   assertExecutionPolicy([task], network);
   const connection = new Connection(import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
   await assertSolanaRpcNetwork(connection, network);
-  const solana = getSolanaProvider([task.from]);
+  const solana = wallet ? connectedSolanaProvider(wallet, task.from) as SolanaProvider : getSolanaProvider([task.from]);
   if (!solana) throw new Error('没有找到已连接且与发送地址匹配的 OKX、Phantom、Backpack 或 Solflare 钱包');
   const connected = solana.connect ? await solana.connect() : undefined;
   const solanaAddress = connected?.publicKey?.toString() ?? solana.publicKey?.toString();
@@ -199,20 +243,20 @@ async function executeSolana(task: TransferTask): Promise<ExecutionResult> {
     const mint = new PublicKey(task.token);
     const mintInfo = await connection.getAccountInfo(mint, 'confirmed');
     if (!mintInfo) throw new Error('找不到 SPL Token Mint');
-    const tokenProgram = mintInfo.owner;
+    const decimals = task.decimals!;
+    const tokenProgram = assertSupportedSolanaMint(mintInfo, decimals);
     const associatedProgram = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
     const ata = (wallet: InstanceType<typeof PublicKey>) => PublicKey.findProgramAddressSync([wallet.toBuffer(), tokenProgram.toBuffer(), mint.toBuffer()], associatedProgram)[0];
     const source = ata(owner);
     const destination = ata(recipient);
-    const decimals = task.decimals!;
-    const amount = parseUnits(task.amount, decimals);
+    const amount = assertSolanaU64Amount(parseUnits(task.amount, decimals));
     const amountBytes = new Uint8Array(8);
     new DataView(amountBytes.buffer).setBigUint64(0, amount, true);
     transaction.add(
       new TransactionInstruction({ programId: associatedProgram, keys: [{ pubkey: owner, isSigner: true, isWritable: true }, { pubkey: destination, isSigner: false, isWritable: true }, { pubkey: recipient, isSigner: false, isWritable: false }, { pubkey: mint, isSigner: false, isWritable: false }, { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, { pubkey: tokenProgram, isSigner: false, isWritable: false }], data: Buffer.from([1]) }),
       new TransactionInstruction({ programId: tokenProgram, keys: [{ pubkey: source, isSigner: false, isWritable: true }, { pubkey: mint, isSigner: false, isWritable: false }, { pubkey: destination, isSigner: false, isWritable: true }, { pubkey: owner, isSigner: true, isWritable: false }], data: Buffer.from([12, ...amountBytes, decimals]) }),
     );
-  } else transaction.add(SystemProgram.transfer({ fromPubkey: owner, toPubkey: recipient, lamports: parseUnits(task.amount, 9) }));
+  } else transaction.add(SystemProgram.transfer({ fromPubkey: owner, toPubkey: recipient, lamports: assertSolanaU64Amount(parseUnits(task.amount, 9)) }));
   const latest = await latestSolanaBlockhash(connection, network);
   transaction.recentBlockhash = latest.blockhash;
   transaction.feePayer = owner;
@@ -227,9 +271,9 @@ async function executeSolana(task: TransferTask): Promise<ExecutionResult> {
   }
 }
 
-export async function executeTask(task: TransferTask, options: { batchConfirmed?: boolean } = {}): Promise<ExecutionResult> {
+export async function executeTask(task: TransferTask, options: { batchConfirmed?: boolean; wallet?: ConnectedWallet } = {}): Promise<ExecutionResult> {
   if (!options.batchConfirmed && !window.confirm(`确认签名第 ${task.row - 1} 笔交易？\n${task.amount} → ${task.to}`)) throw new Error('用户取消签名');
-  if (task.chain === 'EVM') return executeEvm(task);
-  if (task.chain === 'TRON') return executeTron(task);
-  return executeSolana(task);
+  if (task.chain === 'EVM') return executeEvm(task, options.wallet);
+  if (task.chain === 'TRON') return executeTron(task, options.wallet);
+  return executeSolana(task, options.wallet);
 }

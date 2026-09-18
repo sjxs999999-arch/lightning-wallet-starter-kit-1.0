@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Keypair, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import { executeBridgeRoute } from './executor';
 import type { BridgeQuoteRequest, BridgeRoute } from './types';
 
@@ -45,6 +46,18 @@ describe('bridge executor', () => {
     expect(requestCall).toHaveBeenCalledTimes(1);
   });
 
+  it('blocks after a network switch when the quoted account is authorized but no longer active', async () => {
+    const other = '0x0000000000000000000000000000000000000003';
+    const requestCall = vi.fn(async ({ method }: { method: string }) => {
+      if (method === 'eth_requestAccounts') return [request.fromAddress];
+      if (method === 'eth_accounts') return [other, request.fromAddress];
+      if (method === 'eth_chainId') return '0x1';
+      return null;
+    });
+    await expect(executeBridgeRoute(request, route, { evmProvider: { request: requestCall }, confirm: () => true, now: () => Date.parse('2029-01-01') })).rejects.toThrow(/活动账户/);
+    expect(requestCall.mock.calls.some(([value]) => value.method === 'eth_sendTransaction')).toBe(false);
+  });
+
   it('does not sign when the wallet fails to switch to the quoted network', async () => {
     const requestCall = vi.fn(async ({ method }: { method: string }) => {
       if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [request.fromAddress];
@@ -73,6 +86,19 @@ describe('bridge executor', () => {
     const signAndSendTransaction = vi.fn();
     const connection = { getGenesisHash: vi.fn().mockResolvedValue('wrong-genesis'), confirmTransaction: vi.fn() };
     await expect(executeBridgeRoute(solRequest, solRoute, { solanaProvider: { publicKey: { toString: () => solRequest.fromAddress }, signAndSendTransaction }, solanaConnection: connection, confirm: () => true, now: () => Date.parse('2029-01-01') })).rejects.toThrow(/Genesis.*不匹配/);
+    expect(signAndSendTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects a simulated Solana route whose actual fee payer differs from the quoted wallet', async () => {
+    const quoted = Keypair.generate().publicKey.toBase58();
+    const other = Keypair.generate().publicKey;
+    const message = new TransactionMessage({ payerKey: other, recentBlockhash: '11111111111111111111111111111111', instructions: [] }).compileToV0Message();
+    const serialized = Buffer.from(new VersionedTransaction(message).serialize()).toString('base64');
+    const solRequest: BridgeQuoteRequest = { ...request, fromChainId: 1_151_111_081_099_710, fromAddress: quoted };
+    const solRoute: BridgeRoute = { ...route, transaction: { family: 'SOL', chainId: solRequest.fromChainId, serialized, simulated: true } };
+    const signAndSendTransaction = vi.fn();
+    const connection = { getGenesisHash: vi.fn().mockResolvedValue('5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d'), confirmTransaction: vi.fn() };
+    await expect(executeBridgeRoute(solRequest, solRoute, { solanaProvider: { publicKey: { toString: () => quoted }, signAndSendTransaction }, solanaConnection: connection, confirm: () => true, now: () => Date.parse('2029-01-01') })).rejects.toThrow(/付款人/);
     expect(signAndSendTransaction).not.toHaveBeenCalled();
   });
 });

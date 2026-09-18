@@ -65,6 +65,7 @@ const hexQuantity = (value: unknown) => {
   catch { return null; }
 };
 const sameAddress = (left: unknown, right: string) => typeof left === 'string' && left.toLowerCase() === right.toLowerCase();
+const providerEvmIdentifier = (value: string) => evmAddress(value) ? value.toLowerCase() : value;
 const tokenMatches = (token: JsonRecord, requested: string) => requested.startsWith('0x')
   ? sameAddress(token.address, requested)
   : typeof token.symbol === 'string' && token.symbol.toUpperCase() === requested.toUpperCase();
@@ -223,8 +224,8 @@ export function normalizeLiFiEvmQuote(input: SwapQuoteInput, payload: unknown, n
 export async function fetchLiFiEvmCandidate(input: SwapQuoteInput, fetchImpl: FetchLike = fetch) {
   if (input.chain !== 'EVM' || !input.chainId || !SUPPORTED_EVM_CHAIN_IDS.has(input.chainId)) throw new Error('Unsupported LI.FI EVM chain');
   const query = new URLSearchParams({
-    fromChain: String(input.chainId), toChain: String(input.chainId), fromToken: input.sellToken, toToken: input.buyToken,
-    fromAmount: input.sellAmount, fromAddress: input.taker, toAddress: input.taker,
+    fromChain: String(input.chainId), toChain: String(input.chainId), fromToken: providerEvmIdentifier(input.sellToken), toToken: providerEvmIdentifier(input.buyToken),
+    fromAmount: input.sellAmount, fromAddress: input.taker.toLowerCase(), toAddress: input.taker.toLowerCase(),
     slippage: String(input.slippageBps / 10_000), order: 'CHEAPEST', integrator: 'lightning-wallet',
   });
   const response = await fetchImpl(`${LIFI_API}/quote?${query}`, {

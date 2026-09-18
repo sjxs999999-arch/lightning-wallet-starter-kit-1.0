@@ -3,6 +3,7 @@ import { Keypair } from '@solana/web3.js';
 import { assertMainnetLaunchpadEnabled, assertSolanaLaunchNetwork, createFixedSupplySolanaInstructions, deployLaunchToken, launchpadSolanaRpcUrl, prepareLaunchDeployment } from './deployer';
 import { isMainnetLaunchNetwork, launchNetworkMatchesChain } from './types';
 import type { LaunchDraft } from './types';
+import type { ConnectedWallet } from '../wallet-providers/types';
 import tronArtifact from './artifacts/LightningFixedSupplyToken.tron.json';
 import evmArtifact from './artifacts/LightningFixedSupplyToken.json';
 
@@ -116,6 +117,51 @@ describe('client-side Launchpad deployment', () => {
     expect(createSmartContract).not.toHaveBeenCalled();
     expect(sign).not.toHaveBeenCalled();
     expect(sendRawTransaction).not.toHaveBeenCalled();
+  });
+
+  it('reuses an already connected TRON session for fee preview without global wallet discovery', async () => {
+    const tronWeb = {
+      defaultAddress: { base58: 'TNileSharedWallet' }, fullNode: { host: 'https://nile.trongrid.io' },
+      transactionBuilder: { createSmartContract: vi.fn() },
+      trx: { sign: vi.fn(), sendRawTransaction: vi.fn(), getTransactionInfo: vi.fn() },
+    };
+    const wallet: ConnectedWallet = {
+      name: 'TronLink', family: 'TRON', address: 'TNileSharedWallet', network: 'TRON Nile', mode: 'testnet',
+      chainId: '0xcd8690dc', readOnly: false, provider: tronWeb,
+    };
+    await expect(prepareLaunchDeployment(draft, { wallet })).resolves.toMatchObject({ walletAddress: 'TNileSharedWallet', network: 'TRON Nile' });
+    expect(tronWeb.transactionBuilder.createSmartContract).not.toHaveBeenCalled();
+    expect(tronWeb.trx.sign).not.toHaveBeenCalled();
+  });
+
+  it('rejects a shared TRON session whose live account changed after the fee preview', async () => {
+    const createSmartContract = vi.fn();
+    const sign = vi.fn();
+    const tronWeb = {
+      defaultAddress: { base58: 'TChangedWallet' }, fullNode: { host: 'https://nile.trongrid.io' },
+      transactionBuilder: { createSmartContract },
+      trx: { sign, sendRawTransaction: vi.fn(), getTransactionInfo: vi.fn() },
+    };
+    const wallet: ConnectedWallet = {
+      name: 'TronLink', family: 'TRON', address: 'TNileSharedWallet', network: 'TRON Nile', mode: 'testnet',
+      chainId: '0xcd8690dc', readOnly: false, provider: tronWeb,
+    };
+    await expect(deployLaunchToken(draft, { wallet, expectedWalletAddress: 'TNileSharedWallet' })).rejects.toThrow('活动账户已变化');
+    expect(createSmartContract).not.toHaveBeenCalled();
+    expect(sign).not.toHaveBeenCalled();
+  });
+
+  it('rejects a shared Solana session whose live account changed after the fee preview', async () => {
+    const previewAddress = Keypair.generate().publicKey.toBase58();
+    const changedAddress = Keypair.generate().publicKey.toBase58();
+    const signAndSendTransaction = vi.fn();
+    const wallet: ConnectedWallet = {
+      name: 'Phantom', family: 'SOL', address: previewAddress, network: 'Solana Devnet', mode: 'testnet',
+      chainId: 'solana:devnet', readOnly: false,
+      provider: { publicKey: { toString: () => changedAddress }, connect: vi.fn(async () => ({ publicKey: { toString: () => changedAddress } })), signAndSendTransaction },
+    };
+    await expect(deployLaunchToken({ ...draft, chain: 'SOL', network: 'solana-devnet', decimals: 9 }, { wallet, expectedWalletAddress: previewAddress })).rejects.toThrow('活动账户已变化');
+    expect(signAndSendTransaction).not.toHaveBeenCalled();
   });
 
   it('allows a read-only TRON Mainnet estimate only after both production gates are enabled', async () => {

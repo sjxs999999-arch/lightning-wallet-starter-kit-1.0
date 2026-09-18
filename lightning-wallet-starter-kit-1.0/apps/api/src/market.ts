@@ -6,6 +6,7 @@ export type MarketChain = z.infer<typeof marketChain>;
 
 const chainMap: Record<MarketChain, string> = { EVM: 'ethereum', SOL: 'solana', TRON: 'tron' };
 const geckoMap: Record<MarketChain, string> = { EVM: 'eth', SOL: 'solana', TRON: 'tron' };
+const goPlusChain: Partial<Record<MarketChain, string>> = { EVM: '1', SOL: 'solana' };
 
 async function getJson(url: string, timeout = 7_000) {
   const controller = new AbortController();
@@ -100,13 +101,46 @@ export async function marketTrades(chain: MarketChain, pool: string, token: stri
 }
 
 export async function holderData(chain: MarketChain, address: string) {
-  if (!config.MARKET_HOLDER_PROVIDER_URL) return { status: 'unavailable' as const, holderCount: null, topHolders: [] };
-  const payload: any = await getJson(`${config.MARKET_HOLDER_PROVIDER_URL}?chain=${chain}&address=${encodeURIComponent(address)}`);
-  return {
-    status: 'available' as const,
-    holderCount: number(payload.holderCount),
-    topHolders: Array.isArray(payload.topHolders)
-      ? payload.topHolders.slice(0, 20).map((holder: any) => ({ address: String(holder.address), balance: String(holder.balance), sharePct: number(holder.sharePct) }))
-      : [],
-  };
+  if (config.MARKET_HOLDER_PROVIDER_URL) {
+    try {
+      const payload: any = await getJson(`${config.MARKET_HOLDER_PROVIDER_URL}?chain=${chain}&address=${encodeURIComponent(address)}`);
+      return {
+        status: 'available' as const,
+        holderCount: number(payload.holderCount),
+        topHolders: Array.isArray(payload.topHolders)
+          ? payload.topHolders.slice(0, 20).map((holder: any) => ({ address: String(holder.address), balance: String(holder.balance), sharePct: number(holder.sharePct) }))
+          : [],
+        source: new URL(config.MARKET_HOLDER_PROVIDER_URL).hostname,
+      };
+    } catch {
+      // Fall through to the built-in public-chain provider without hiding the market quote.
+    }
+  }
+  const builtInChain = goPlusChain[chain];
+  if (!builtInChain) return { status: 'unavailable' as const, holderCount: null, topHolders: [], source: 'GoPlus Security (no verified TRON holder coverage)' };
+  try {
+    const endpoint = chain === 'SOL'
+      ? `https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${encodeURIComponent(address)}`
+      : `https://api.gopluslabs.io/api/v1/token_security/${builtInChain}?contract_addresses=${encodeURIComponent(address)}`;
+    return normalizeGoPlusHolders(await getJson(endpoint), address);
+  } catch {
+    return { status: 'unavailable' as const, holderCount: null, topHolders: [], source: 'GoPlus Security' };
+  }
+}
+
+export function normalizeGoPlusHolders(payload: any, tokenAddress: string) {
+  if (Number(payload?.code) !== 1 || !payload?.result || typeof payload.result !== 'object') throw new Error('GOPLUS_HOLDERS_UNAVAILABLE');
+  const token = payload.result[tokenAddress] ?? payload.result[tokenAddress.toLowerCase()];
+  if (!token || typeof token !== 'object') throw new Error('GOPLUS_HOLDERS_NOT_FOUND');
+  const rawCount = Number((token as any).holder_count);
+  const holderCount = Number.isSafeInteger(rawCount) && rawCount >= 0 ? rawCount : null;
+  const topHolders = Array.isArray((token as any).holders) ? (token as any).holders.flatMap((holder: any) => {
+    const holderAddress = String(holder?.address ?? holder?.account ?? '').trim();
+    const balance = String(holder?.balance ?? '').trim();
+    const fraction = Number(holder?.percent);
+    if (!/^(?:0x)?[A-Za-z0-9]{20,128}$/.test(holderAddress) || !/^\d+(?:\.\d+)?$/.test(balance) || balance.length > 100) return [];
+    const sharePct = Number.isFinite(fraction) && fraction >= 0 && fraction <= 1 ? Number((fraction * 100).toFixed(8)) : null;
+    return [{ address: holderAddress, balance, sharePct }];
+  }).slice(0, 10) : [];
+  return { status: 'available' as const, holderCount, topHolders, source: 'GoPlus Security' };
 }

@@ -4,6 +4,7 @@ import { ApiError, api } from '../api';
 import { buildExternalUrl, connectSepoliaWallet, containsSensitiveFields, flashLoanHealthReady, flashLoanMessageOriginAllowed, flashLoanSessionActive, flashLoanSessionExpiry, integrationOrigin, postFlashLoanContext, type FlashLoanEthereumProvider, sanitizeHistory } from './bridge';
 import { flashLoanLocalJob, loadLocalFlashLoanHistory, saveLocalFlashLoanJob } from './local-history';
 import type { FlashLoanAuditJob, FlashLoanContext, FlashLoanSettings } from './types';
+import { AaveV3PreflightPanel } from './AaveV3PreflightPanel';
 
 type ServiceStatus = 'checking' | 'ready' | 'offline';
 type BridgeStatus = 'waiting' | 'connected' | 'legacy';
@@ -107,19 +108,20 @@ export function FlashLoanIntegration() {
 
   const externalUrl = buildExternalUrl(appUrl, context);
   return <>
-    <div className="page-head"><div><p className="eyebrow">COMPATIBILITY GATE · SEPOLIA</p><h1>闪电贷款</h1><p>当前历史仓库未包含可运行的闪电贷业务程序，因此这里只提供无签名、无广播的兼容与审计入口。</p></div></div>
+    <div className="page-head"><div><p className="eyebrow">AAVE V3 · FAIL-CLOSED RELEASE GATE</p><h1>闪电贷款</h1><p>已具备 Aave V3 Sepolia 真实 calldata、合约绑定校验、整笔交易模拟与 Gas 预估路径；只有经审计 Receiver 白名单和发布开关同时满足时才开放内测。</p></div></div>
+    <AaveV3PreflightPanel walletAddress={walletAddress} walletProvider={provider()} onConnect={connectWallet} onRecord={recordHistory}/>
     <section className="panel integration flash-integration">
-      <div className="integration-icon"><Zap/></div><div><h2>FlashForge 兼容壳</h2><p>统一深色主题、受限会话与公开钱包上下文。真实协议逻辑和借贷广播尚未接入。</p><code>{appUrl}</code></div>
+      <div className="integration-icon"><Zap/></div><div><h2>外部策略兼容入口</h2><p>保留来源受限的外部策略界面与审计历史；它不能绕过上方 Aave 合约、Receiver 白名单、模拟与用户签名闸门。</p><code>{appUrl}</code></div>
       <span className={`integration-status ${service}`}>{service==='checking'?'检查中':service==='ready'?'服务在线':'服务离线'}</span>
       <a href={externalUrl} target="_blank" rel="noreferrer">独立打开 <ChevronRight size={18}/></a>
     </section>
     <div className="flash-controls">
       <section className="panel"><h3>共享连接</h3><div className="flash-setting"><span>受限会话</span><b>{sessionToken?'已授权 · 5 分钟':'等待授权'}</b></div><div className="flash-setting"><span>网络</span><b>Sepolia 测试网</b></div><div className="flash-setting"><span>模式</span><b className="safe">Dry Run</b></div><button onClick={connectWallet}><WalletCards size={16}/>{walletAddress?`${walletAddress.slice(0,6)}…${walletAddress.slice(-4)}`:'连接浏览器钱包'}</button></section>
-      <section className="panel"><h3>集成状态</h3><div className="flash-setting"><span>外部服务</span><b>{service==='ready'?'在线':'未就绪'}</b></div><div className="flash-setting"><span>集成协议</span><b>{bridge==='connected'?'已连接':bridge==='legacy'?'旧版未响应':'等待响应'}</b></div><div className="notice"><ShieldCheck size={18}/>iframe 仅与已配置的精确来源通信；仅接收 5 分钟闪电贷权限和公开元数据。主网闪电贷不可用。</div><button onClick={check}><RefreshCw size={16}/>重新检查</button></section>
+      <section className="panel"><h3>集成状态</h3><div className="flash-setting"><span>外部服务</span><b>{service==='ready'?'在线':'未就绪'}</b></div><div className="flash-setting"><span>集成协议</span><b>{bridge==='connected'?'已连接':bridge==='legacy'?'旧版未响应':'等待响应'}</b></div><div className="notice"><ShieldCheck size={18}/>iframe 仅与已配置的精确来源通信；只共享 5 分钟受限会话和公开元数据。它没有签名或广播权限。</div><button onClick={check}><RefreshCw size={16}/>重新检查</button></section>
     </div>
     {error&&<div className="batch-error flash-error">{error}</div>}
     {notice&&<div className="automation-notice flash-error">{notice}</div>}
-    {service==='ready'&&flashLoanSessionActive(sessionToken,sessionExpiresAt)?<section className="flash-frame panel"><iframe ref={frame} onLoad={sendContext} title="FlashForge 兼容入口" src={externalUrl} sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer"/><p>{bridge==='legacy'?'外部入口在线，但尚未响应共享集成协议；不会将其误报为已完成交易集成。':'这是来源受限的兼容验证壳，不包含真实闪电贷执行；Dry Run 记录由父页面严格校验后保存。'}</p></section>:<section className="panel empty"><div className="empty-icon"><Zap/></div><h2>{service==='ready'?'受限集成会话不可用':'闪电贷兼容入口暂时不可用'}</h2><p>{service==='ready'?'会话可能已到期，请重新检查。入口不会在未授权状态下加载。':'错误已隔离，不会影响其他钱包模块，也不会导致整页白屏。'}</p></section>}
+    {service==='ready'&&flashLoanSessionActive(sessionToken,sessionExpiresAt)?<section className="flash-frame panel"><iframe ref={frame} onLoad={sendContext} title="FlashForge 兼容入口" src={externalUrl} sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer"/><p>{bridge==='legacy'?'外部入口在线，但尚未响应共享集成协议；不会将其误报为已完成交易集成。':'这是来源受限的外部策略界面；所有真实 Aave 交易仍必须返回上方预检闸门并由用户单独签名。'}</p></section>:<section className="panel empty"><div className="empty-icon"><Zap/></div><h2>{service==='ready'?'受限集成会话不可用':'外部策略入口暂时不可用'}</h2><p>{service==='ready'?'会话可能已到期，请重新检查。入口不会在未授权状态下加载。':'错误已隔离，不会影响 Aave 预检和其他钱包模块，也不会导致整页白屏。'}</p></section>}
     <section className="panel flash-history"><div className="panel-head"><div><p className="eyebrow">AUDIT · METADATA ONLY</p><h3>闪电贷 Dry Run 记录</h3></div><button onClick={() => void loadHistory()}>刷新历史</button><span>{history.length} 条</span></div>{history.length?history.map(item=><div className="flash-history-row" key={item.id}><span>{formatDate(item.created_at)}</span><b>{item.result.status}</b><code>{item.result.transactionHash||'未广播'}</code></div>):<p className="muted">尚无本地或服务器审计记录。</p>}</section>
   </>;
 }

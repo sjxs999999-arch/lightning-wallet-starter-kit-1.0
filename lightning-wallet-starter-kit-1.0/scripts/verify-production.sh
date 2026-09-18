@@ -4,7 +4,8 @@ set -u
 CLIENT_ORIGIN=${CLIENT_ORIGIN:-https://lightingwallet.com}
 ADMIN_ORIGIN=${ADMIN_ORIGIN:-https://admin.lightingwallet.com}
 API_ORIGIN=${API_ORIGIN:-https://api.lightingwallet.com}
-EXPECTED_RELEASE=${EXPECTED_RELEASE:-2.39.0}
+EXPECTED_RELEASE=${EXPECTED_RELEASE:-2.40.0}
+EXPECTED_COMMIT=${EXPECTED_COMMIT:-${VITE_RELEASE_COMMIT:-}}
 VERIFY_DIR=$(mktemp -d)
 FAILURES_FILE=$VERIFY_DIR/failures
 : > "$FAILURES_FILE"
@@ -17,6 +18,12 @@ fail() {
 }
 
 pass() { printf 'PASS: %s\n' "$*"; }
+
+case "$EXPECTED_COMMIT" in
+  ''|*[!0-9a-fA-F]*) echo 'EXPECTED_COMMIT must be a full 40-character Git commit SHA.' >&2; exit 2 ;;
+esac
+[ "${#EXPECTED_COMMIT}" -eq 40 ] || { echo 'EXPECTED_COMMIT must be a full 40-character Git commit SHA.' >&2; exit 2; }
+EXPECTED_COMMIT=$(printf '%s' "$EXPECTED_COMMIT" | tr 'A-F' 'a-f')
 
 fetch() {
   name=$1
@@ -48,10 +55,34 @@ if fetch client "$CLIENT_ORIGIN/wallets"; then
   pass 'client domain is reachable'
 fi
 
+if fetch client-release "$CLIENT_ORIGIN/release.json"; then
+  jq -e --arg release "$EXPECTED_RELEASE" --arg commit "$EXPECTED_COMMIT" '
+    .format == "lightning-wallet-client-release-v1" and
+    .version == $release and
+    (.commit | type) == "string" and
+    (.commit | ascii_downcase) == $commit and
+    (.mainnet.execution | type) == "boolean" and
+    (.mainnet.swap | type) == "boolean" and
+    (.mainnet.launchpad | type) == "boolean" and
+    (.mainnet.bridge | type) == "boolean"
+  ' "$VERIFY_DIR/client-release.body" >/dev/null || fail 'client release manifest or build-time gates are invalid' || true
+fi
+
 if fetch admin "$ADMIN_ORIGIN/login"; then
   header_contains "$VERIFY_DIR/admin.headers" content-security-policy "frame-ancestors 'none'" 'operator domain' || true
   header_contains "$VERIFY_DIR/admin.headers" x-frame-options 'DENY' 'operator domain' || true
   pass 'operator domain is reachable'
+fi
+
+
+if fetch admin-release "$ADMIN_ORIGIN/release.json"; then
+  jq -e --arg release "$EXPECTED_RELEASE" --arg commit "$EXPECTED_COMMIT" '
+    .format == "lightning-wallet-client-release-v1" and
+    .version == $release and
+    (.commit | type) == "string" and
+    (.commit | ascii_downcase) == $commit
+  ' "$VERIFY_DIR/admin-release.body" >/dev/null || fail 'operator release manifest or commit identity is invalid' || true
+  cmp -s "$VERIFY_DIR/client-release.body" "$VERIFY_DIR/admin-release.body" || fail 'client and operator domains do not serve the same release manifest' || true
 fi
 
 if fetch flash "$CLIENT_ORIGIN/flashforge/"; then
@@ -82,6 +113,12 @@ if fetch capabilities "$API_ORIGIN/api/v1/system/capabilities"; then
     (.data.readiness.finalApproval == ((.data.readiness.externalBlockers | length) == 0 and (.data.readiness.walletAcceptanceRequired | not) and .data.readiness.mainnet.execution and .data.readiness.mainnet.swap and .data.readiness.mainnet.launchpad and .data.readiness.mainnet.bridge)) and
     (if (.data.readiness.externalBlockers | length) > 0 then any(.data.features[]; .status != "ready") else true end)
   ' "$VERIFY_DIR/capabilities.body" >/dev/null || fail 'capability safety or readiness contract is invalid' || true
+  jq -e --slurpfile client "$VERIFY_DIR/client-release.body" '
+    .data.readiness.mainnet.execution == $client[0].mainnet.execution and
+    .data.readiness.mainnet.swap == $client[0].mainnet.swap and
+    .data.readiness.mainnet.launchpad == $client[0].mainnet.launchpad and
+    .data.readiness.mainnet.bridge == $client[0].mainnet.bridge
+  ' "$VERIFY_DIR/capabilities.body" >/dev/null || fail 'client build-time mainnet gates do not match the API capability contract' || true
 fi
 if fetch swap "$API_ORIGIN/api/v1/swap/status"; then
   jq -e '.data.privateKeyAccepted == false and .data.serverSigning == false and (.data.providers | length == 3) and any(.data.providers[]; .chain == "EVM" and .available == true and (.provider | contains("LI.FI")))' "$VERIFY_DIR/swap.body" >/dev/null || fail 'Swap provider status is invalid' || true
@@ -123,6 +160,7 @@ if [ -s "$FAILURES_FILE" ]; then
 fi
 
 pass 'client and operator security headers'
+pass 'client and operator release manifests, commit identity and build-time gates'
 pass 'FlashForge compatibility frame isolation'
 pass 'API, PostgreSQL and Redis readiness'
 pass 'public capability and Swap provider truthfulness'

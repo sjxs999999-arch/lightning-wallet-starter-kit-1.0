@@ -51,4 +51,22 @@ if EXPECTED_ACCEPTANCE_ENVIRONMENT=test FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256=
   exit 1
 fi
 
+jq '(.featureTransactions[] | select(.chain == "EVM") | .network) = "Ethereum Mainnet"' "$VALID" > "$TEST_DIR/wrong-evm-network.json"
+if EXPECTED_ACCEPTANCE_ENVIRONMENT=test "$SCRIPT_DIR/verify-wallet-acceptance.sh" "$TEST_DIR/wrong-evm-network.json"; then
+  echo 'Wallet acceptance verifier unexpectedly accepted a non-Sepolia EVM feature transaction.' >&2
+  exit 1
+fi
+
+jq '(.featureTransactions[] | select(.chain == "SOL") | .network) = "Solana Mainnet"' "$VALID" > "$TEST_DIR/wrong-sol-network.json"
+if EXPECTED_ACCEPTANCE_ENVIRONMENT=test "$SCRIPT_DIR/verify-wallet-acceptance.sh" "$TEST_DIR/wrong-sol-network.json"; then
+  echo 'Wallet acceptance verifier unexpectedly accepted a non-Devnet Solana feature transaction.' >&2
+  exit 1
+fi
+
+jq '(.featureTransactions[] | select(.chain == "TRON") | .network) = "TRON Mainnet"' "$VALID" > "$TEST_DIR/wrong-tron-network.json"
+if EXPECTED_ACCEPTANCE_ENVIRONMENT=test "$SCRIPT_DIR/verify-wallet-acceptance.sh" "$TEST_DIR/wrong-tron-network.json"; then
+  echo 'Wallet acceptance verifier unexpectedly accepted a non-Nile TRON feature transaction.' >&2
+  exit 1
+fi
+
 echo 'Wallet acceptance offline and public-chain evidence tests passed.'

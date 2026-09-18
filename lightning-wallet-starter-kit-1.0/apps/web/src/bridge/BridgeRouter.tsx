@@ -1,14 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, CheckCircle2, ExternalLink, Gauge, LockKeyhole, RefreshCw, Route, ShieldCheck, Timer, WalletCards } from 'lucide-react';
 import { api } from '../api';
 import { executeBridgeRoute } from './executor';
 import { formatDuration, routeRisk, validateBridgeRequest } from './guard';
 import { BRIDGE_CHAINS, type BridgeQuoteRequest, type BridgeRoute } from './types';
+import { useExternalWalletSession } from '../wallet-providers/ExternalWalletSession';
+import { connectedEvmProvider, connectedSolanaProvider } from '../wallet-providers/module-session';
+import { SessionWalletNotice } from '../wallet-providers/SessionWalletNotice';
 
 function short(value: string) { return value.length > 18 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value; }
 function usd(value?: string) { const number = Number(value); return value !== undefined && Number.isFinite(number) ? `$${number.toFixed(2)}` : '待确认'; }
 
 export function BridgeRouter() {
+  const { connected } = useExternalWalletSession();
   const [fromChainId, setFromChainId] = useState(1);
   const [toChainId, setToChainId] = useState(42161);
   const [fromToken, setFromToken] = useState('USDC');
@@ -28,6 +32,12 @@ export function BridgeRouter() {
   const fromChain = useMemo(() => BRIDGE_CHAINS.find(chain => chain.id === fromChainId)!, [fromChainId]);
   const toChain = useMemo(() => BRIDGE_CHAINS.find(chain => chain.id === toChainId)!, [toChainId]);
   const chosen = routes.find(route => route.id === selected) ?? null;
+
+  useEffect(() => {
+    if (!connected || connected.family !== fromChain.family) return;
+    setFromAddress(current => current || connected.address);
+    if (toChain.family === connected.family) setToAddress(current => current || connected.address);
+  }, [connected, fromChain.family, toChain.family]);
 
   function invalidate() { setRoutes([]); setSelected(''); setQuotedRequest(null); setResult(''); }
   async function quote() {
@@ -49,7 +59,9 @@ export function BridgeRouter() {
     if (!quotedRequest || !chosen.transaction) { setError('该报价未包含可签名交易，请重新获取报价'); return; }
     setExecuting(true); setError(''); setResult('');
     try {
-      const execution = await executeBridgeRoute(quotedRequest, chosen);
+      const execution = await executeBridgeRoute(quotedRequest, chosen, chosen.transaction.family === 'EVM'
+        ? { evmProvider: connectedEvmProvider(connected, quotedRequest.fromAddress) }
+        : { solanaProvider: connectedSolanaProvider(connected, quotedRequest.fromAddress) });
       setResult(execution.kind === 'approval' ? `精确额度授权已提交：${short(execution.reference)}。链上确认后请重新报价，再执行跨链。` : `跨链交易已由钱包提交：${short(execution.reference)}`);
       if (execution.kind === 'approval') { setRoutes([]); setSelected(''); setQuotedRequest(null); }
     } catch (cause) { setError(cause instanceof Error ? cause.message : '用户取消或钱包拒绝交易'); }
@@ -60,7 +72,8 @@ export function BridgeRouter() {
     <div className="page-head"><div><p className="eyebrow">LIGHTNING BRIDGE ROUTER</p><h1>跨链路由</h1><p>比较官方桥与聚合路线，费用、到账时间和风险先展示，最终交易只由用户钱包签名。</p></div></div>
     <div className="bridge-layout">
       <section className="panel bridge-form"><h3>跨链参数</h3>
-        <div className="bridge-chain-pair"><label>来源网络<select value={fromChainId} onChange={event => { setFromChainId(Number(event.target.value)); invalidate(); }}>{BRIDGE_CHAINS.map(chain => <option value={chain.id} key={chain.id}>{chain.name}</option>)}</select></label><ArrowRight/><label>目标网络<select value={toChainId} onChange={event => { setToChainId(Number(event.target.value)); invalidate(); }}>{BRIDGE_CHAINS.map(chain => <option value={chain.id} key={chain.id}>{chain.name}</option>)}</select></label></div>
+        <SessionWalletNotice wallet={connected} family={fromChain.family}/>
+        <div className="bridge-chain-pair"><label>来源网络<select value={fromChainId} onChange={event => { const nextId = Number(event.target.value), next = BRIDGE_CHAINS.find(item => item.id === nextId)!; setFromChainId(nextId); setFromAddress(connected?.family === next.family ? connected.address : ''); invalidate(); }}>{BRIDGE_CHAINS.map(chain => <option value={chain.id} key={chain.id}>{chain.name}</option>)}</select></label><ArrowRight/><label>目标网络<select value={toChainId} onChange={event => { const nextId = Number(event.target.value), next = BRIDGE_CHAINS.find(item => item.id === nextId)!; setToChainId(nextId); setToAddress(connected?.family === next.family ? connected.address : ''); invalidate(); }}>{BRIDGE_CHAINS.map(chain => <option value={chain.id} key={chain.id}>{chain.name}</option>)}</select></label></div>
         <div className="bridge-two"><label>发送 Token<input value={fromToken} onChange={event => { setFromToken(event.target.value); invalidate(); }} placeholder="USDC 或 Token 地址"/></label><label>接收 Token<input value={toToken} onChange={event => { setToToken(event.target.value); invalidate(); }} placeholder="USDC 或 Token 地址"/></label></div>
         <label>发送数量（最小单位）<input value={fromAmount} inputMode="numeric" onChange={event => { setFromAmount(event.target.value.replace(/\D/g, '')); invalidate(); }} placeholder="例如 1 USDC = 1000000"/><small>按 Token decimals 输入整数，避免浮点精度错误。</small></label>
         <label>发送钱包地址<input value={fromAddress} onChange={event => { setFromAddress(event.target.value.trim()); invalidate(); }} placeholder={fromChain.family === 'SOL' ? 'Solana 地址' : '0x…'}/></label>

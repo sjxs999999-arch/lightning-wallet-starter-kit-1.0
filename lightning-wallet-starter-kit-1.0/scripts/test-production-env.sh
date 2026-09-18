@@ -14,8 +14,9 @@ bridge_fixture=$(mktemp)
 swap_fixture=$(mktemp)
 accepted_fixture=$(mktemp)
 bad_acceptance_fixture=$(mktemp)
+aave_fixture=$(mktemp)
 production_acceptance_report=$(mktemp)
-trap 'rm -f "$mainnet_fixture" "$bridge_fixture" "$swap_fixture" "$accepted_fixture" "$bad_acceptance_fixture" "$production_acceptance_report"' EXIT
+trap 'rm -f "$mainnet_fixture" "$bridge_fixture" "$swap_fixture" "$accepted_fixture" "$bad_acceptance_fixture" "$aave_fixture" "$production_acceptance_report"' EXIT
 sed 's/^VITE_ENABLE_MAINNET_LAUNCHPAD=false$/VITE_ENABLE_MAINNET_LAUNCHPAD=true/' "$VALID_FIXTURE" > "$mainnet_fixture"
 if STRICT_EXTERNAL_PROVIDERS=true PRODUCTION_ENV_FILE="$mainnet_fixture" "$SCRIPT_DIR/check-production-env.sh"; then
   echo 'Launchpad mainnet gate unexpectedly accepted without the global mainnet switch.' >&2
@@ -38,6 +39,15 @@ if STRICT_EXTERNAL_PROVIDERS=true PRODUCTION_ENV_FILE="$VALID_FIXTURE" "$SCRIPT_
   echo 'Strict provider gate unexpectedly accepted missing providers.' >&2
   exit 1
 fi
+
+cp "$VALID_FIXTURE" "$aave_fixture"
+printf '%s\n' 'VITE_ENABLE_AAVE_FLASH_LOAN_PREFLIGHT=true' >> "$aave_fixture"
+if PRODUCTION_ENV_FILE="$aave_fixture" "$SCRIPT_DIR/check-production-env.sh"; then
+  echo 'Aave preflight gate unexpectedly accepted without a reviewed receiver allowlist.' >&2
+  exit 1
+fi
+printf '%s\n' 'VITE_AAVE_FLASH_LOAN_RECEIVERS=0x2222222222222222222222222222222222222222' >> "$aave_fixture"
+PRODUCTION_ENV_FILE="$aave_fixture" "$SCRIPT_DIR/check-production-env.sh"
 
 jq --arg approvedAt "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" '
   .environment = "production" |

@@ -17,7 +17,7 @@ describe('EIP-5792 batch calls', () => {
 
   it('keeps a returned batch id submitted when status polling times out', async () => {
     const request = async ({ method }: { method: string }) => {
-      if (method === 'eth_requestAccounts') return [task.from];
+      if (method === 'eth_accounts') return [task.from];
       if (method === 'eth_chainId') return '0xaa36a7';
       if (method === 'wallet_getCapabilities') return {};
       if (method === 'wallet_sendCalls') return 'batch-123';
@@ -28,7 +28,7 @@ describe('EIP-5792 batch calls', () => {
 
   it('rejects a pre-broadcast wallet failure and mixed senders', async () => {
     const request = async ({ method }: { method: string }) => {
-      if (method === 'eth_requestAccounts') return [task.from];
+      if (method === 'eth_accounts') return [task.from];
       if (method === 'eth_chainId') return '0xaa36a7';
       if (method === 'wallet_getCapabilities') return {};
       throw new Error('wallet_sendCalls rejected');
@@ -40,7 +40,7 @@ describe('EIP-5792 batch calls', () => {
   it('uses each receipt status instead of marking an incomplete batch as confirmed', async () => {
     const tasks = [task, { ...task, id: '0x2', row: 3, to: '0x0000000000000000000000000000000000000002' }, { ...task, id: '0x3', row: 4, to: '0x0000000000000000000000000000000000000003' }];
     const request = async ({ method }: { method: string }) => {
-      if (method === 'eth_requestAccounts') return [task.from];
+      if (method === 'eth_accounts') return [task.from];
       if (method === 'eth_chainId') return '0xaa36a7';
       if (method === 'wallet_getCapabilities') return {};
       if (method === 'wallet_sendCalls') return 'batch-receipts';
@@ -52,5 +52,13 @@ describe('EIP-5792 batch calls', () => {
       { index: 1, hash: '0xfailure', state: 'failed', error: 'EVM 交易执行失败：0xfailure' },
       { index: 2, hash: 'batch-receipts', state: 'submitted' },
     ]);
+  });
+
+  it('rejects when the expected sender remains authorized but is no longer the active account', async () => {
+    const request = async ({ method }: { method: string }) => {
+      if (method === 'eth_accounts') return ['0x0000000000000000000000000000000000000001', task.from];
+      throw new Error(`unexpected ${method}`);
+    };
+    await expect(executeEvmBatch([task], { request })).rejects.toThrow('活动账户');
   });
 });

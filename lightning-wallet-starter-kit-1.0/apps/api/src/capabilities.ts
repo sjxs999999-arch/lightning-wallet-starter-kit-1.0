@@ -1,4 +1,4 @@
-export const RELEASE_VERSION='2.39.0';
+export const RELEASE_VERSION='2.40.0';
 
 export type ExternalBlockerCode='WALLETCONNECT_PROJECT_ID'|'GASFREE_PAYMASTER'|'MARKET_HOLDER_PROVIDER'|'FLASH_LOAN_APPLICATION'|'AUTOMATION_DELIVERY_PROVIDER';
 export type CapabilityInput={
@@ -28,7 +28,8 @@ export function buildCapabilities(input:CapabilityInput){
     ...(!input.automationDeliveryConfigured?[blocker('AUTOMATION_DELIVERY_PROVIDER','Automation delivery provider')]:[]),
   ];
   const mainnet={
-    readOnlyWalletConnection:true,
+    walletSession:true,
+    walletCenterBroadcast:false,
     execution:input.mainnetExecutionEnabled,
     swap:input.mainnetSwapEnabled,
     launchpad:input.mainnetLaunchpadEnabled,
@@ -47,7 +48,7 @@ export function buildCapabilities(input:CapabilityInput){
     operator:'separate-admin-surface',
     chains:input.chains,
     features:[
-      {name:'多链钱包',mode:'mainnet-read-only-provider-and-local-worker',status:'ready'},
+      {name:'多链钱包',mode:'mainnet-provider-session-and-local-worker',status:'ready'},
       {name:'批量转账',mode:'wallet-signed',status:walletReady?'ready':'acceptance-required'},
       {name:'资产归集',mode:'wallet-signed',status:walletReady?'ready':'acceptance-required'},
       {name:'闪电兑换',mode:'aggregator-and-wallet-signed',status:walletReady&&mainnet.swap?input.swapStatus:'acceptance-required'},

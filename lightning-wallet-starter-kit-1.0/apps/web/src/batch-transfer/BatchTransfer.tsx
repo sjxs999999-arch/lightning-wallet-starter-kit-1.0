@@ -14,11 +14,15 @@ import { pendingSenderCount, senderCount, tasksForActiveSender } from './sender-
 import { validateAddress } from './validation';
 import { executeLocalVaultBatch, selectLocalWallet, walletsForChain } from './local-vault-executor';
 import { useLocalWalletSession } from '../wallet-center/LocalWalletSession';
+import { useExternalWalletSession } from '../wallet-providers/ExternalWalletSession';
+import { SessionWalletNotice } from '../wallet-providers/SessionWalletNotice';
+import { connectedEvmProvider } from '../wallet-providers/module-session';
 
 type SigningSource = 'extension' | 'local-vault';
 
 export function BatchTransfer() {
   const { vault, vaultKey, isKeyActive } = useLocalWalletSession();
+  const { connected } = useExternalWalletSession();
   const [searchParams] = useSearchParams();
   const requestedChain = searchParams.get('chain');
   const initialChain: TransferChain = requestedChain === 'SOL' || requestedChain === 'TRON' ? requestedChain : 'EVM';
@@ -66,6 +70,10 @@ export function BatchTransfer() {
     const available = walletsForChain(vault, chain);
     if (!available.some(wallet => wallet.id === localWalletId)) setLocalWalletId(available[0]?.id ?? '');
   }, [chain, localWalletId, vault]);
+
+  useEffect(() => {
+    if (connected && !requestedChain) setChain(connected.family);
+  }, [connected, requestedChain]);
 
   async function persistPlan(nextPlan: TransferPlan) {
     setSaving(true);
@@ -171,7 +179,7 @@ export function BatchTransfer() {
     } else if (!dryRun && senderCount(tasks) > 1) {
       if (!window.confirm(`当前任务包含 ${senderCount(tasks)} 个发送账户。\n将连接当前钱包并只执行与活动账户匹配的任务，完成后切换钱包继续。`)) return;
       try {
-        const activeSender = await getActiveSender(plan.chain, tasks.map(task => task.from));
+        const activeSender = await getActiveSender(plan.chain, tasks.map(task => task.from), connected ?? undefined);
         executionTasks = tasksForActiveSender(tasks, activeSender);
         if (!executionTasks.length) throw new Error(`当前钱包账户 ${activeSender} 不在待执行发送地址中`);
         log(`已选择当前钱包对应的 ${executionTasks.length} 笔任务；其他发送账户保持待处理`, 'success');
@@ -226,7 +234,7 @@ export function BatchTransfer() {
       try {
         executionTasks.forEach(task => { task.status = 'running'; task.attempts++; });
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
-        const results = await executeEvmBatch(executionTasks);
+        const results = await executeEvmBatch(executionTasks, connected?.family === 'EVM' ? connectedEvmProvider(connected, executionTasks[0]!.from) : undefined);
         if (results) {
           results.forEach((result, index) => { const task = executionTasks[index]!; task.txHash = result.hash; task.status = result.state; if (result.error) task.error = result.error; log(result.state === 'confirmed' ? 'EVM 批量调用已确认' : result.state === 'failed' ? result.error ?? 'EVM 批量调用失败' : 'EVM 批量调用已提交', result.state === 'failed' ? 'error' : 'success', task.id); });
           setProgress(tasksRef.current.filter(task => task.status === 'confirmed' || task.status === 'submitted' || task.status === 'failed').length);
@@ -294,7 +302,7 @@ export function BatchTransfer() {
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
         try {
           if (dryRun) { task.txHash = `DRY-RUN-${task.id.slice(2, 14)}`; task.status = 'confirmed'; }
-          else { const result = await executeTask(task, { batchConfirmed: true }); task.txHash = result.hash; task.status = result.state; }
+          else { const result = await executeTask(task, { batchConfirmed: true, wallet: connected ?? undefined }); task.txHash = result.hash; task.status = result.state; }
           log(dryRun ? '模拟验证通过' : task.status === 'confirmed' ? '交易已确认' : '交易已提交，等待链上确认', 'success', task.id);
         } catch (cause) {
           task.status = 'failed';
@@ -324,6 +332,7 @@ export function BatchTransfer() {
     <div className="grid">
       <section className="panel form-panel">
         <h3>创建转账任务</h3>
+        {signingSource === 'extension' && <SessionWalletNotice wallet={connected} family={chain} usage="identity"/>}
         <label>网络<select value={chain} disabled={running} onChange={event => { setChain(event.target.value as TransferChain); setPlan(null); }}><option>EVM</option><option value="SOL">Solana</option><option>TRON</option></select></label>
         <label>模式<select value={mode} disabled={running} onChange={event => setMode(event.target.value as TransferMode)}><option value="one-to-many">一对多</option><option value="many-to-one">多对一</option><option value="many-to-many">多对多</option></select></label>
         <label>签名来源<select value={signingSource} disabled={running || !dryRun && saving} onChange={event => setSigningSource(event.target.value as SigningSource)}><option value="extension">浏览器扩展钱包</option><option value="local-vault">本地加密钱包（仅测试网）</option></select></label>

@@ -31,6 +31,8 @@ services:
       args:
         VITE_API_URL: "/api/v1"
         VITE_FLASH_LOAN_URL: "${FLASH_LOAN_PUBLIC_URL}"
+        VITE_ENABLE_AAVE_FLASH_LOAN_PREFLIGHT: "${VITE_ENABLE_AAVE_FLASH_LOAN_PREFLIGHT:-false}"
+        VITE_AAVE_FLASH_LOAN_RECEIVERS: "${VITE_AAVE_FLASH_LOAN_RECEIVERS:-}"
         VITE_WALLETCONNECT_PROJECT_ID: "${VITE_WALLETCONNECT_PROJECT_ID}"
         VITE_EVM_RPC_URL: "${VITE_EVM_RPC_URL:-https://ethereum-rpc.publicnode.com}"
         VITE_EVM_RPC_FALLBACK_URLS: "${VITE_EVM_RPC_FALLBACK_URLS:-https://eth.llamarpc.com}"
@@ -59,6 +61,7 @@ services:
         VITE_ENABLE_MAINNET_SWAP: "${VITE_ENABLE_MAINNET_SWAP:-false}"
         VITE_ENABLE_MAINNET_LAUNCHPAD: "${VITE_ENABLE_MAINNET_LAUNCHPAD:-false}"
         VITE_ENABLE_MAINNET_BRIDGE: "${VITE_ENABLE_MAINNET_BRIDGE:-false}"
+        VITE_RELEASE_COMMIT: "${VITE_RELEASE_COMMIT:-}"
     restart: unless-stopped
     read_only: true
     tmpfs: ["/var/cache/nginx", "/var/run"]

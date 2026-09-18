@@ -7,6 +7,8 @@ import type { DeploymentEstimate, DeploymentResult } from './deployer';
 import { validateMedia } from './media';
 import { isMainnetLaunchNetwork, launchNetworkOptions } from './types';
 import type { DeploymentPlan, LaunchChain, LaunchDraft, LiquidityPlan, MediaDescriptor } from './types';
+import { useExternalWalletSession } from '../wallet-providers/ExternalWalletSession';
+import { SessionWalletNotice } from '../wallet-providers/SessionWalletNotice';
 
 const defaults: Record<LaunchChain, number> = { EVM: 18, SOL: 9, TRON: 6 };
 const initial: LaunchDraft = {
@@ -16,6 +18,7 @@ const initial: LaunchDraft = {
 };
 
 export function Launchpad() {
+  const { connected } = useExternalWalletSession();
   const [step, setStep] = useState(1);
   const [draft, setDraft] = useState(initial);
   const [liquidity, setLiquidity] = useState<LiquidityPlan | null>(null);
@@ -86,7 +89,7 @@ export function Launchpad() {
   async function prepare() {
     if (draft.dryRun || !deployment) return;
     setBusy(true); setError(''); setEstimate(null); setResult(null);
-    try { setEstimate(await prepareLaunchDeployment(draft)); }
+    try { setEstimate(await prepareLaunchDeployment(draft, { wallet: connected ?? undefined })); }
     catch (cause) { setError(cause instanceof Error ? cause.message : '部署估算失败'); }
     finally { setBusy(false); }
   }
@@ -97,7 +100,7 @@ export function Launchpad() {
     if (!window.confirm(`确认由当前钱包部署到 ${estimate.network}？\n钱包：${estimate.walletAddress}\n费用：${estimate.feeLabel}\n\n${mainnet ? '这是主网真实资产操作，将产生真实费用。' : '这会广播真实测试网交易。'}`)) return;
     setBusy(true);
     try {
-      const completed = await deployLaunchToken(draft);
+      const completed = await deployLaunchToken(draft, { wallet: connected ?? undefined, expectedWalletAddress: estimate.walletAddress });
       recordLocalDeployment(deployment.projectId, {
         id: completed.transactionHash, chain: completed.chain, network: completed.network,
         contract_address: completed.contractAddress, transaction_hash: completed.transactionHash,
@@ -113,6 +116,7 @@ export function Launchpad() {
     <div className="launch-steps">{['Token', 'Metadata', 'Media', 'Liquidity', 'Review'].map((name, index) => <button className={step === index + 1 ? 'active' : ''} onClick={() => setStep(index + 1)} key={name}><span>{index + 1}</span>{name}</button>)}</div>
     <div className="launch-layout">
       <section className="panel launch-form">
+        <SessionWalletNotice wallet={connected} family={draft.chain}/>
         {step === 1 && <TokenStep draft={draft} onChain={chain} patch={patch} />}
         {step === 2 && <MetadataStep draft={draft} patch={patch} />}
         {step === 3 && <><h3>3. Media & Whitepaper</h3><Upload icon={<Image />} label="Logo · PNG/JPEG/WebP · 最大 2MB" accept="image/png,image/jpeg,image/webp" value={draft.media.logo} onFile={file => upload('logo', file)} /><Upload icon={<Image />} label="Banner · 最大 5MB" accept="image/png,image/jpeg,image/webp" value={draft.media.banner} onFile={file => upload('banner', file)} /><Upload icon={<FileText />} label="Whitepaper · PDF · 最大 10MB" accept="application/pdf" value={draft.media.whitepaper} onFile={file => upload('whitepaper', file)} /><div className="notice"><ShieldCheck size={18} />文件仅在当前浏览器预览；API 只接收名称、类型和大小，不接收文件内容。</div></>}

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Keypair } from '@solana/web3.js';
-import { broadcastSelfTest, connectEvm, connectSol, connectTron, discoverEvmProviders, subscribeWalletSession } from './providers';
+import { broadcastSelfTest, connectEvm, connectSol, connectTron, discoverEvmProviders, readNativeBalance, subscribeWalletSession } from './providers';
 import type { ConnectedWallet, RequestProvider } from './types';
 
 class TestCustomEvent<T> extends Event {
@@ -67,6 +67,29 @@ describe('wallet provider discovery and fail-closed network validation', () => {
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'wallet_switchEthereumChain' }));
   });
 
+  it.each([
+    ['0x1', 'Ethereum Mainnet', 'ETH'],
+    ['0xa', 'Optimism', 'ETH'],
+    ['0x38', 'BSC', 'BNB'],
+    ['0x89', 'Polygon', 'POL'],
+    ['0x2105', 'Base', 'ETH'],
+    ['0xa4b1', 'Arbitrum', 'ETH'],
+    ['0xa86a', 'Avalanche', 'AVAX'],
+  ])('labels %s native balances with the correct symbol', async (chainId, network, symbol) => {
+    const address = '0x0000000000000000000000000000000000000001';
+    const request = vi.fn(async ({ method }: { method: string }) => {
+      if (method === 'eth_chainId') return chainId;
+      if (method === 'eth_accounts') return [address];
+      if (method === 'eth_getBalance') return '0xde0b6b3a7640000';
+      return null;
+    });
+    const wallet: ConnectedWallet = {
+      name: 'MetaMask', family: 'EVM', address, network, mode: 'mainnet', chainId, readOnly: true, provider: { request },
+    };
+
+    await expect(readNativeBalance(wallet)).resolves.toEqual({ symbol, formatted: '1' });
+  });
+
   it('validates the full Devnet genesis before connecting OKX Solana', async () => {
     const address = Keypair.generate().publicKey.toBase58();
     const connect = vi.fn().mockResolvedValue({ publicKey: { toString: () => address } });
@@ -87,7 +110,7 @@ describe('wallet provider discovery and fail-closed network validation', () => {
     const address = Keypair.generate().publicKey.toBase58();
     const connect = vi.fn().mockResolvedValue({ publicKey: { toString: () => address } });
     setWindow({ phantom: { solana: { connect } } });
-    const connection = { getGenesisHash: vi.fn().mockResolvedValue('5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp') };
+    const connection = { getGenesisHash: vi.fn().mockResolvedValue('5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d') };
     await expect(connectSol('Phantom', connection, 'mainnet')).resolves.toMatchObject({
       family: 'SOL', network: 'Solana Mainnet', mode: 'mainnet', readOnly: true,
     });
@@ -168,7 +191,7 @@ describe('wallet self-test receipt validation', () => {
       name: 'MetaMask', family: 'EVM', address: '0x0000000000000000000000000000000000000001',
       network: 'Ethereum Mainnet', mode: 'mainnet', chainId: '0x1', readOnly: true, provider: { request },
     };
-    await expect(broadcastSelfTest(wallet)).rejects.toThrow('主网连接仅支持只读验证');
+    await expect(broadcastSelfTest(wallet)).rejects.toThrow('钱包中心不执行主网自测交易');
     expect(request).not.toHaveBeenCalled();
   });
 
@@ -186,5 +209,38 @@ describe('wallet self-test receipt validation', () => {
     subscribeWalletSession(wallet, invalidated);
     source.dispatchEvent(new CustomEvent('chainChanged', { detail: '0xaa36a7' }));
     expect(invalidated).toHaveBeenCalledWith('EVM 钱包网络已变化，连接已安全断开');
+  });
+
+  it('keeps one mainnet EVM session while a module switches between supported production chains', () => {
+    const source = new EventTarget();
+    const eventProvider = {
+      on: (event: string, listener: (...args: unknown[]) => void) => source.addEventListener(event, detail => listener((detail as CustomEvent).detail)),
+    };
+    const wallet: ConnectedWallet = {
+      name: 'MetaMask', family: 'EVM', address: '0x0000000000000000000000000000000000000001',
+      network: 'Ethereum Mainnet', mode: 'mainnet', chainId: '0x1', readOnly: true,
+      provider: { request: vi.fn() }, eventProvider,
+    };
+    const invalidated = vi.fn(), changed = vi.fn();
+    subscribeWalletSession(wallet, invalidated, changed);
+    source.dispatchEvent(new CustomEvent('chainChanged', { detail: '0xa4b1' }));
+    expect(changed).toHaveBeenCalledWith(expect.objectContaining({ chainId: '0xa4b1', network: 'Arbitrum', address: wallet.address }));
+    expect(invalidated).not.toHaveBeenCalled();
+  });
+
+  it('invalidates when the connected address remains authorized but is no longer the active EVM account', () => {
+    const source = new EventTarget();
+    const eventProvider = {
+      on: (event: string, listener: (...args: unknown[]) => void) => source.addEventListener(event, detail => listener((detail as CustomEvent).detail)),
+    };
+    const wallet: ConnectedWallet = {
+      name: 'MetaMask', family: 'EVM', address: '0x0000000000000000000000000000000000000001',
+      network: 'Ethereum Mainnet', mode: 'mainnet', chainId: '0x1', readOnly: true,
+      provider: { request: vi.fn() }, eventProvider,
+    };
+    const invalidated = vi.fn();
+    subscribeWalletSession(wallet, invalidated);
+    source.dispatchEvent(new CustomEvent('accountsChanged', { detail: ['0x0000000000000000000000000000000000000002', wallet.address] }));
+    expect(invalidated).toHaveBeenCalledWith('EVM 钱包活动账户已变化，连接已安全断开');
   });
 });

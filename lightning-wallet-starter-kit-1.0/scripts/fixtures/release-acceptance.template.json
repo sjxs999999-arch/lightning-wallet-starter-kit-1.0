@@ -1,0 +1,63 @@
+{
+  "format": "lightning-wallet-release-acceptance-v1",
+  "release": "2.40.0",
+  "environment": "production",
+  "recordedAt": "",
+  "recordedBy": "",
+  "code": {
+    "commit": "",
+    "lint": "pending",
+    "typecheck": "pending",
+    "tests": "pending",
+    "build": "pending",
+    "secretScan": "pending"
+  },
+  "providers": {
+    "configuration": "pending",
+    "liveQuotes": "pending",
+    "evidence": []
+  },
+  "featureChecks": [
+    { "feature": "wallet-center", "mode": "wallet-session", "result": "pending", "evidence": "" },
+    { "feature": "wallet-chat", "mode": "wallet-signed", "result": "pending", "evidence": "" },
+    { "feature": "wallet-factory", "mode": "local-only", "result": "pending", "evidence": "" },
+    { "feature": "solana-vanity", "mode": "local-only", "result": "pending", "evidence": "" },
+    { "feature": "batch-transfer", "mode": "wallet-signed", "result": "pending", "evidence": "" },
+    { "feature": "asset-collection", "mode": "wallet-signed", "result": "pending", "evidence": "" },
+    { "feature": "batch-trade", "mode": "wallet-signed", "result": "pending", "evidence": "" },
+    { "feature": "swap", "mode": "wallet-signed", "result": "pending", "evidence": "" },
+    { "feature": "activity-history", "mode": "read-only", "result": "pending", "evidence": "" },
+    { "feature": "token-studio", "mode": "wallet-signed", "result": "pending", "evidence": "" },
+    { "feature": "lp-manager", "mode": "read-only", "result": "pending", "evidence": "" },
+    { "feature": "risk-scanner", "mode": "read-only", "result": "pending", "evidence": "" },
+    { "feature": "project-dashboard", "mode": "read-only", "result": "pending", "evidence": "" },
+    { "feature": "project-center", "mode": "read-only", "result": "pending", "evidence": "" },
+    { "feature": "bridge-router", "mode": "wallet-signed", "result": "pending", "evidence": "" },
+    { "feature": "gasfree", "mode": "wallet-signed", "result": "pending", "evidence": "" },
+    { "feature": "flash-loan", "mode": "external-provider", "result": "pending", "evidence": "" },
+    { "feature": "market-center", "mode": "read-only", "result": "pending", "evidence": "" },
+    { "feature": "automation-center", "mode": "admin-controlled", "result": "pending", "evidence": "" },
+    { "feature": "security-center", "mode": "read-only", "result": "pending", "evidence": "" },
+    { "feature": "system-status", "mode": "read-only", "result": "pending", "evidence": "" }
+  ],
+  "walletFlows": [
+    { "feature": "batch-transfer", "walletProvider": "", "chain": "EVM", "network": "", "connect": "pending", "simulation": "pending", "sign": "not-run", "broadcast": "not-run", "confirm": "not-run", "intentVerified": "not-run", "intentHash": "", "reference": "" },
+    { "feature": "asset-collection", "walletProvider": "", "chain": "TRON", "network": "", "connect": "pending", "simulation": "pending", "sign": "not-run", "broadcast": "not-run", "confirm": "not-run", "intentVerified": "not-run", "intentHash": "", "reference": "" },
+    { "feature": "batch-trade", "walletProvider": "", "chain": "SOL", "network": "", "connect": "pending", "simulation": "pending", "sign": "not-run", "broadcast": "not-run", "confirm": "not-run", "intentVerified": "not-run", "intentHash": "", "reference": "" },
+    { "feature": "swap", "walletProvider": "", "chain": "EVM", "network": "", "connect": "pending", "simulation": "pending", "sign": "not-run", "broadcast": "not-run", "confirm": "not-run", "intentVerified": "not-run", "intentHash": "", "reference": "" },
+    { "feature": "token-studio", "walletProvider": "", "chain": "EVM", "network": "", "connect": "pending", "simulation": "pending", "sign": "not-run", "broadcast": "not-run", "confirm": "not-run", "intentVerified": "not-run", "intentHash": "", "reference": "" },
+    { "feature": "bridge-router", "walletProvider": "", "chain": "EVM", "network": "", "connect": "pending", "simulation": "pending", "sign": "not-run", "broadcast": "not-run", "confirm": "not-run", "intentVerified": "not-run", "intentHash": "", "reference": "" },
+    { "feature": "gasfree", "walletProvider": "", "chain": "EVM", "network": "", "connect": "pending", "simulation": "pending", "sign": "not-run", "broadcast": "not-run", "confirm": "not-run", "intentVerified": "not-run", "intentHash": "", "reference": "" },
+    { "feature": "flash-loan", "walletProvider": "", "chain": "EVM", "network": "", "connect": "pending", "simulation": "pending", "sign": "not-run", "broadcast": "not-run", "confirm": "not-run", "intentVerified": "not-run", "intentHash": "", "reference": "" }
+  ],
+  "walletAcceptance": {
+    "onChainVerified": "pending",
+    "reportSha256": ""
+  },
+  "security": {
+    "privateKeyUploaded": false,
+    "mnemonicUploaded": false,
+    "serverSigning": false,
+    "serverBroadcast": false
+  }
+}

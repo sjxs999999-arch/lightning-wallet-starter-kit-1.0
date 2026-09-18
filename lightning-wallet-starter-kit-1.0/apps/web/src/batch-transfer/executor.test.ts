@@ -1,12 +1,14 @@
 import { beforeEach,describe,expect,it,vi } from 'vitest';
-import { executeTask,getActiveSender,getSolanaProvider,resolveEvmProvider } from './executor';
+import { PublicKey } from '@solana/web3.js';
+import { assertSolanaU64Amount, assertSupportedSolanaMint, executeTask,getActiveSender,getSolanaProvider,resolveEvmProvider } from './executor';
 import type { TransferTask } from './types';
+import type { ConnectedWallet } from '../wallet-providers/types';
 const task:TransferTask={id:'0x1',row:2,chain:'EVM',assetKind:'native',from:'0x0000000000000000000000000000000000000001',to:'0x0000000000000000000000000000000000000002',amount:'0.01',status:'pending',attempts:0,estimatedFee:'0.00021'};
 describe('client-only transaction executor',()=>{
   beforeEach(()=>{const values=new Map<string,string>();Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>values.set(key,value)}});Object.defineProperty(globalThis,'window',{configurable:true,value:{confirm:vi.fn(()=>true)}})});
   it('requires explicit confirmation before any wallet request',async()=>{window.confirm=vi.fn(()=>false);window.ethereum={request:vi.fn()};await expect(executeTask(task)).rejects.toThrow('用户取消');expect(window.ethereum.request).not.toHaveBeenCalled()});
-  it('fails closed on mainnet until the deployment switch is enabled',async()=>{window.ethereum={request:vi.fn(async({method})=>method==='eth_requestAccounts'?[task.from]:'0x38')};await expect(executeTask({...task,amount:'0.0001'})).rejects.toThrow('主网真实执行');expect(window.ethereum.request).toHaveBeenCalledTimes(3)});
-  it('requests wallet signing on Sepolia without private key material',async()=>{window.ethereum={request:vi.fn(async({method})=>method==='eth_requestAccounts'?[task.from]:method==='eth_chainId'?'0xaa36a7':method==='eth_getTransactionReceipt'?{status:'0x1'}:'0xtesthash')};await expect(executeTask(task)).resolves.toEqual({hash:'0xtesthash',state:'confirmed'});expect(JSON.stringify(vi.mocked(window.ethereum.request).mock.calls)).not.toMatch(/private|mnemonic|secret/i)});
+  it('fails closed on mainnet until the deployment switch is enabled',async()=>{window.ethereum={request:vi.fn(async({method})=>method==='eth_requestAccounts'||method==='eth_accounts'?[task.from]:'0x38')};await expect(executeTask({...task,amount:'0.0001'})).rejects.toThrow('主网真实执行');expect(window.ethereum.request).toHaveBeenCalledTimes(3)});
+  it('requests wallet signing on Sepolia without private key material',async()=>{window.ethereum={request:vi.fn(async({method})=>method==='eth_requestAccounts'||method==='eth_accounts'?[task.from]:method==='eth_chainId'?'0xaa36a7':method==='eth_getTransactionReceipt'?{status:'0x1'}:'0xtesthash')};await expect(executeTask(task)).resolves.toEqual({hash:'0xtesthash',state:'confirmed'});expect(JSON.stringify(vi.mocked(window.ethereum.request).mock.calls)).not.toMatch(/private|mnemonic|secret/i)});
   it('selects the authorized EVM provider whose public account matches the sender',async()=>{const okx=vi.fn(async({method}:{method:string})=>method==='eth_accounts'||method==='eth_requestAccounts'?[task.from]:method==='eth_chainId'?'0xaa36a7':method==='eth_getTransactionReceipt'?{status:'0x1'}:'0xokxhash');window.ethereum={request:vi.fn(async({method}:{method:string})=>method==='eth_accounts'?['0x0000000000000000000000000000000000000003']:null)};window.okxwallet={request:okx};await expect(executeTask(task)).resolves.toEqual({hash:'0xokxhash',state:'confirmed'});expect(window.ethereum.request).toHaveBeenCalledWith({method:'eth_accounts'});expect(window.ethereum.request).not.toHaveBeenCalledWith({method:'eth_requestAccounts'})});
   it('does not prompt the wrong EVM extension when another authorized provider matches',async()=>{const wrong=vi.fn(async({method}:{method:string})=>method==='eth_accounts'?['0x0000000000000000000000000000000000000003']:[]),right=vi.fn(async()=>[task.from]);window.ethereum={request:wrong};window.okxwallet={request:right};await expect(resolveEvmProvider([task.from])).resolves.toMatchObject({provider:window.okxwallet,address:task.from});expect(wrong).not.toHaveBeenCalledWith({method:'eth_requestAccounts'})});
   it('connects OKX TRON provider and signs a testnet TRC-20 transfer locally',async()=>{const request=vi.fn(async()=>({code:200})),send=vi.fn(async()=>({txID:'tron-usdt-tx'})),tronWeb={defaultAddress:{base58:'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA'},fullNode:{host:'https://nile.trongrid.io'},trx:{sendTransaction:vi.fn()},contract:()=>({at:async()=>({transfer:()=>({send})})})};window.okxwallet={request:vi.fn(),tronLink:{request,tronWeb}};await expect(executeTask({...task,chain:'TRON',assetKind:'token',from:'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA',to:'TQxgyuuj43UrFhYtgkBGNTZtLY4iuvm7CL',amount:'1',token:'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',decimals:6})).resolves.toEqual({hash:'tron-usdt-tx',state:'submitted'});expect(request).toHaveBeenCalledWith({method:'tron_requestAccounts'});expect(send).toHaveBeenCalledOnce()});
@@ -14,11 +16,50 @@ describe('client-only transaction executor',()=>{
   it('rejects unsafe TRX integer conversion before signing',async()=>{const sendTransaction=vi.fn(),tronWeb={defaultAddress:{base58:'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA'},fullNode:{host:'https://nile.trongrid.io'},trx:{sendTransaction},contract:()=>({at:vi.fn()})};window.okxwallet={request:vi.fn(),tronLink:{request:vi.fn(async()=>({code:200})),tronWeb}};await expect(executeTask({...task,chain:'TRON',from:'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA',to:'TQxgyuuj43UrFhYtgkBGNTZtLY4iuvm7CL',amount:'9007199255'})).rejects.toThrow('安全整数范围');expect(sendTransaction).not.toHaveBeenCalled()});
   it('prefers the official OKX Solana provider',()=>{const okxSolana={publicKey:{toString:()=> 'okx-sol'},signAndSendTransaction:vi.fn()};window.solana={publicKey:{toString:()=> 'other-sol'},signAndSendTransaction:vi.fn()};window.okxwallet={request:vi.fn(),solana:okxSolana};expect(getSolanaProvider()).toBe(okxSolana)});
   it('selects the Solana provider whose connected public key matches the sender',()=>{const okxSolana={publicKey:{toString:()=> 'okx-sol'},signAndSendTransaction:vi.fn()},phantom={publicKey:{toString:()=> 'phantom-sol'},signAndSendTransaction:vi.fn()};window.okxwallet={request:vi.fn(),solana:okxSolana};window.phantom={solana:phantom};expect(getSolanaProvider(['phantom-sol'])).toBe(phantom)});
+  it('accepts only initialized official SPL mint layouts with matching decimals',()=>{
+    const data=new Uint8Array(82);data[44]=6;data[45]=1;
+    const legacy=new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+    const token2022=new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb');
+    expect(assertSupportedSolanaMint({owner:legacy,data},6)).toBe(legacy);
+    expect(assertSupportedSolanaMint({owner:token2022,data:new Uint8Array([...data,0,0,0])},6)).toBe(token2022);
+    expect(()=>assertSupportedSolanaMint({owner:new PublicKey('11111111111111111111111111111111'),data},6)).toThrow('Mint owner');
+    expect(()=>assertSupportedSolanaMint({owner:legacy,data:new Uint8Array(81)},6)).toThrow('布局无效');
+    expect(()=>assertSupportedSolanaMint({owner:legacy,data},9)).toThrow('decimals');
+  });
+  it('rejects zero and overflowing Solana amounts instead of truncating them',()=>{
+    expect(assertSolanaU64Amount(1n)).toBe(1n);
+    expect(assertSolanaU64Amount(18_446_744_073_709_551_615n)).toBe(18_446_744_073_709_551_615n);
+    expect(()=>assertSolanaU64Amount(0n)).toThrow('u64');
+    expect(()=>assertSolanaU64Amount(18_446_744_073_709_551_616n)).toThrow('u64');
+  });
   it('selects the active sender from each wallet family without secret material',async()=>{
     const evmRequest=vi.fn(async()=>[task.from]);window.okxwallet={request:evmRequest};expect(await getActiveSender('EVM')).toBe(task.from);
     const solana={connect:vi.fn(async()=>({publicKey:{toString:()=> 'active-solana'}})),signAndSendTransaction:vi.fn()};window.okxwallet={request:vi.fn(),solana};expect(await getActiveSender('SOL')).toBe('active-solana');
     const tronRequest=vi.fn(async()=>({code:200})),tronWeb={defaultAddress:{base58:'active-tron'},trx:{sendTransaction:vi.fn()},contract:()=>({at:vi.fn()})};window.okxwallet={request:vi.fn(),tronLink:{request:tronRequest,tronWeb}};expect(await getActiveSender('TRON')).toBe('active-tron');
     expect(tronRequest).toHaveBeenCalledWith({method:'tron_requestAccounts'});
     expect(JSON.stringify([evmRequest.mock.calls,solana.connect.mock.calls,tronRequest.mock.calls])).not.toMatch(/private|mnemonic|secret/i);
+  });
+  it('reuses the shared session for sender selection without rediscovering or requesting a transaction',async()=>{
+    const request=vi.fn(async({method}:{method:string})=>method==='eth_accounts'?[task.from]:null);
+    const wallet:ConnectedWallet={name:'MetaMask',family:'EVM',address:task.from,network:'Ethereum Mainnet',mode:'mainnet',chainId:'0x1',readOnly:true,provider:{request}};
+    expect(await getActiveSender('EVM',[task.from],wallet)).toBe(task.from);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith({method:'eth_accounts'});
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({method:'eth_sendTransaction'}));
+  });
+  it('rejects a shared EVM session when its address remains authorized but is no longer active',async()=>{
+    const other='0x0000000000000000000000000000000000000003';
+    const request=vi.fn(async({method}:{method:string})=>method==='eth_accounts'?[other,task.from]:null);
+    const wallet:ConnectedWallet={name:'MetaMask',family:'EVM',address:task.from,network:'Ethereum Mainnet',mode:'mainnet',chainId:'0x1',readOnly:true,provider:{request}};
+    await expect(getActiveSender('EVM',[task.from],wallet)).rejects.toThrow('活动账户已变化');
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({method:'eth_sendTransaction'}));
+  });
+  it('uses the same verified shared provider for execution instead of rediscovering another extension',async()=>{
+    const sharedRequest=vi.fn(async({method}:{method:string})=>method==='eth_accounts'?[task.from]:method==='eth_chainId'?'0xaa36a7':method==='eth_getTransactionReceipt'?{status:'0x1'}:method==='eth_sendTransaction'?'0xsharedhash':null);
+    window.ethereum={request:vi.fn(async()=>{throw new Error('wrong provider')})};
+    const wallet:ConnectedWallet={name:'MetaMask',family:'EVM',address:task.from,network:'Sepolia',mode:'testnet',chainId:'0xaa36a7',readOnly:false,provider:{request:sharedRequest}};
+    await expect(executeTask(task,{batchConfirmed:true,wallet})).resolves.toEqual({hash:'0xsharedhash',state:'confirmed'});
+    expect(sharedRequest).toHaveBeenCalledWith({method:'eth_sendTransaction',params:[expect.objectContaining({from:task.from,to:task.to})]});
+    expect(window.ethereum.request).not.toHaveBeenCalled();
   });
 });

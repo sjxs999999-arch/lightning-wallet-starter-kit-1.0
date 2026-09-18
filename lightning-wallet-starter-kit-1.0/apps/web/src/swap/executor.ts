@@ -1,12 +1,14 @@
 import { Buffer } from 'buffer';
 import { Interface, isAddress } from 'ethers';
 import { api } from '../api';
-import { getSolanaProvider, resolveEvmProvider } from '../batch-transfer/executor';
+import { getSolanaProvider, resolveEvmProvider, type SolanaProvider } from '../batch-transfer/executor';
 import { assertSolanaRpcNetwork } from '../batch-transfer/execution-policy';
+import { connectedEvmProvider, connectedSolanaProvider, requireConnectedWallet } from '../wallet-providers/module-session';
+import type { ConnectedWallet } from '../wallet-providers/types';
 import { confirmedWalletAction } from './guard';
 import { fetchQuotes } from './quote';
 import { executeVerifiedSunSwap } from './sunswap-execution';
-import { assertTronMainnet, assertTronSellBalance, connectInjectedTron, createSunSwapWallet } from './tron-wallet';
+import { assertTronMainnet, assertTronSellBalance, connectInjectedTron, createSunSwapWallet, type InjectedTronProvider, type InjectedTronWeb } from './tron-wallet';
 import type { SwapCandidate, SwapRequest } from './types';
 
 type Provider = { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
@@ -36,9 +38,11 @@ async function waitEvm(provider: Provider, hash: string) {
   throw new Error(`交易已提交但确认超时，请使用交易编号核验：${hash}`);
 }
 
-async function executeEvm(request: SwapRequest, quote: SwapCandidate) {
+async function executeEvm(request: SwapRequest, quote: SwapCandidate, wallet?: ConnectedWallet) {
   if (!quote.transaction?.to || !quote.transaction.data || !isAddress(quote.transaction.to)) throw new Error('EVM 钱包或聚合器交易数据不可用');
-  const { provider } = await resolveEvmProvider([request.taker]);
+  const provider = wallet ? connectedEvmProvider(wallet, request.taker) : (await resolveEvmProvider([request.taker])).provider;
+  const accounts = await provider.request({ method: 'eth_accounts' });
+  if (!Array.isArray(accounts) || typeof accounts[0] !== 'string' || accounts[0].toLowerCase() !== request.taker.toLowerCase()) throw new Error('当前 EVM 活动账户与报价 taker 不一致，已停止签名');
   const chainId = String(await provider.request({ method: 'eth_chainId' }));
   if (Number.parseInt(chainId, 16) !== request.chainId) throw new Error(`当前钱包网络与报价 Chain ID ${request.chainId} 不一致`);
   if (quote.amountIn !== request.sellAmount) throw new Error('报价卖出数量已变化，请重新报价');
@@ -57,15 +61,15 @@ async function executeEvm(request: SwapRequest, quote: SwapCandidate) {
   return hash;
 }
 
-async function executeSolana(request: SwapRequest, selected: SwapCandidate) {
+async function executeSolana(request: SwapRequest, selected: SwapCandidate, wallet?: ConnectedWallet) {
   const { Connection } = await import('@solana/web3.js');
   const network = import.meta.env.VITE_SOLANA_NETWORK || 'devnet';
   const connection = new Connection(import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
   await assertSolanaRpcNetwork(connection, network);
-  const wallet = getSolanaProvider([request.taker]);
-  if (!wallet) throw new Error('Solana 钱包不可用');
-  const connected = wallet.connect ? await wallet.connect() : undefined;
-  const address = connected?.publicKey?.toString() ?? wallet.publicKey?.toString();
+  const provider = wallet ? connectedSolanaProvider(wallet, request.taker) as SolanaProvider : getSolanaProvider([request.taker]);
+  if (!provider) throw new Error('Solana 钱包不可用');
+  const connected = provider.connect ? await provider.connect() : undefined;
+  const address = connected?.publicKey?.toString() ?? provider.publicKey?.toString();
   if (address !== request.taker) throw new Error(`当前 Solana 账户 ${address ?? '未知'} 与报价 taker 不一致`);
   const prepared = (await api<{ data: { serializedTransaction: string; quote: { amountOut: string; priceImpactPct: number } } }>('/swap/solana-transaction', { method: 'POST', body: JSON.stringify({ sellToken: request.sellToken, buyToken: request.buyToken, sellAmount: request.sellAmount, taker: request.taker, slippageBps: request.slippageBps, priority: 'auto' }) })).data;
   if (BigInt(prepared.quote.amountOut) < BigInt(selected.minReceived)) throw new Error('实时 Solana 报价低于原最低收到数量，请重新报价');
@@ -73,15 +77,20 @@ async function executeSolana(request: SwapRequest, selected: SwapCandidate) {
   const { VersionedTransaction } = await import('@solana/web3.js');
   const transaction = VersionedTransaction.deserialize(Buffer.from(prepared.serializedTransaction, 'base64'));
   if (transaction.message.staticAccountKeys[0]?.toString() !== request.taker) throw new Error('Solana 交易付款人与当前钱包不一致');
-  const signature = (await wallet.signAndSendTransaction(transaction)).signature;
+  const signature = (await provider.signAndSendTransaction(transaction)).signature;
   const confirmation = await connection.confirmTransaction(signature, 'confirmed');
   if (confirmation.value.err) throw new Error(`Solana Swap 链上执行失败：${signature}`);
   return signature;
 }
 
-async function executeTron(request: SwapRequest, quote: SwapCandidate) {
+async function executeTron(request: SwapRequest, quote: SwapCandidate, wallet?: ConnectedWallet) {
   if (quote.provider !== 'SUN.io Smart Router' || quote.amountIn !== request.sellAmount) throw new Error('SUN.io 报价与当前请求不一致，请重新报价');
-  const { provider, tronWeb, address } = await connectInjectedTron(request.taker);
+  const shared = wallet ? requireConnectedWallet(wallet, 'TRON', request.taker) : null;
+  const fallback = shared ? null : await connectInjectedTron(request.taker);
+  const provider = shared?.eventProvider as InjectedTronProvider | undefined ?? fallback?.provider;
+  const tronWeb = shared?.provider as InjectedTronWeb | undefined ?? fallback?.tronWeb;
+  const address = shared?.address ?? fallback?.address ?? '';
+  if (!tronWeb) throw new Error('已连接 TRON 钱包缺少可用 Provider');
   if (address !== request.taker) throw new Error('当前 TRON 账户与报价 taker 不一致');
   await assertTronMainnet(tronWeb, provider);
   await assertTronSellBalance(tronWeb, address, request.sellToken, request.sellAmount);
@@ -89,13 +98,13 @@ async function executeTron(request: SwapRequest, quote: SwapCandidate) {
   return executeVerifiedSunSwap(request, quote, tronWeb, createSunSwapWallet(tronWeb, address), address);
 }
 
-export async function executeSwap(request: SwapRequest, quote: SwapCandidate) {
+export async function executeSwap(request: SwapRequest, quote: SwapCandidate, options: { wallet?: ConnectedWallet } = {}) {
   if (import.meta.env.VITE_MAINNET_EXECUTION_ENABLED !== 'true' || import.meta.env.VITE_ENABLE_MAINNET_SWAP !== 'true') throw new Error('主网 Swap 未通过双重生产开关；仅允许 Dry Run');
   const executable = request.chain === 'EVM' ? revalidatedEvmQuote(request, quote, await fetchQuotes(request)) : quote;
   const cost = executable.feeUsd || executable.gasCostUsd ? `\nProvider 费用：$${executable.feeUsd ?? '0'}；预计 Gas：$${executable.gasCostUsd ?? '0'}` : '';
   return confirmedWalletAction(() => window.confirm(`确认使用 ${executable.provider} 路由并请求钱包签名？\n最低收到：${executable.minReceived}${cost}${request.chain === 'TRON' ? '\nSUN.io 单笔 Swap feeLimit 上限 500 TRX；实际消耗以 Energy 与钱包确认页为准。' : ''}`), async () => {
-    if (request.chain === 'EVM') return executeEvm(request, executable);
-    if (request.chain === 'SOL') return executeSolana(request, executable);
-    return executeTron(request, executable);
+    if (request.chain === 'EVM') return executeEvm(request, executable, options.wallet);
+    if (request.chain === 'SOL') return executeSolana(request, executable, options.wallet);
+    return executeTron(request, executable, options.wallet);
   });
 }

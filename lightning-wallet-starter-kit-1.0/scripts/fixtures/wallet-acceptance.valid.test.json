@@ -1,6 +1,6 @@
 {
   "format": "lightning-wallet-wallet-acceptance-v1",
-  "release": "2.39.0",
+  "release": "2.40.0",
   "environment": "test",
   "approvedAt": "2026-08-24T00:00:00Z",
   "approvedBy": "operator@test.invalid",
@@ -21,6 +21,16 @@
     { "provider": "Backpack", "chain": "SOL", "network": "Solana Devnet", "connect": "pass", "sign": "pass", "broadcast": "pass", "confirm": "pass", "historyReload": "pass", "reference": "4444444444444444444444444444444444444444444444444444444444444444" },
     { "provider": "Solflare", "chain": "SOL", "network": "Solana Devnet", "connect": "pass", "sign": "pass", "broadcast": "pass", "confirm": "pass", "historyReload": "pass", "reference": "5555555555555555555555555555555555555555555555555555555555555555" },
     { "provider": "TronLink", "chain": "TRON", "network": "TRON Nile", "connect": "pass", "sign": "pass", "broadcast": "pass", "confirm": "pass", "historyReload": "pass", "reference": "6666666666666666666666666666666666666666666666666666666666666666" }
+  ],
+  "featureTransactions": [
+    { "feature": "batch-transfer", "provider": "MetaMask", "chain": "EVM", "network": "Sepolia", "intentVerified": "pass", "intentHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "reference": "0x7777777777777777777777777777777777777777777777777777777777777777" },
+    { "feature": "asset-collection", "provider": "TronLink", "chain": "TRON", "network": "TRON Nile", "intentVerified": "pass", "intentHash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "reference": "7777777777777777777777777777777777777777777777777777777777777777" },
+    { "feature": "batch-trade", "provider": "Phantom", "chain": "SOL", "network": "Solana Devnet", "intentVerified": "pass", "intentHash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "reference": "6666666666666666666666666666666666666666666666666666666666666666" },
+    { "feature": "swap", "provider": "MetaMask", "chain": "EVM", "network": "Sepolia", "intentVerified": "pass", "intentHash": "1111111111111111111111111111111111111111111111111111111111111111", "reference": "0x8888888888888888888888888888888888888888888888888888888888888888" },
+    { "feature": "token-studio", "provider": "WalletConnect", "chain": "EVM", "network": "Sepolia", "intentVerified": "pass", "intentHash": "2222222222222222222222222222222222222222222222222222222222222222", "reference": "0x9999999999999999999999999999999999999999999999999999999999999999" },
+    { "feature": "bridge-router", "provider": "OKX", "chain": "EVM", "network": "Sepolia", "intentVerified": "pass", "intentHash": "3333333333333333333333333333333333333333333333333333333333333333", "reference": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+    { "feature": "gasfree", "provider": "Rabby", "chain": "EVM", "network": "Sepolia", "intentVerified": "pass", "intentHash": "4444444444444444444444444444444444444444444444444444444444444444", "reference": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+    { "feature": "flash-loan", "provider": "Rabby", "chain": "EVM", "network": "Sepolia", "intentVerified": "pass", "intentHash": "5555555555555555555555555555555555555555555555555555555555555555", "reference": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" }
   ],
   "negativeTests": [
     { "chain": "EVM", "network": "Sepolia", "walletRejectNoBroadcast": "pass", "rpcFailureNoWhiteScreen": "pass", "routeFailureNoWhiteScreen": "pass" },

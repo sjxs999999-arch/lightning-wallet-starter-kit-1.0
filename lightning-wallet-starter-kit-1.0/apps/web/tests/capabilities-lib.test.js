@@ -9,6 +9,7 @@ describe('serverless capability fallback',()=>{
     expect(value.database).toBe('server-protected');
     expect(value.readiness.finalApproval).toBe(false);
     expect(value.readiness.externalBlockers.map(item=>item.code)).toEqual(['WALLETCONNECT_PROJECT_ID','GASFREE_PAYMASTER','MARKET_HOLDER_PROVIDER','FLASH_LOAN_APPLICATION','AUTOMATION_DELIVERY_PROVIDER']);
+    expect(value.features.find(item=>item.name==='项目与市场中心')?.status).toBe('partial-provider-configuration');
     expect(value.features.every(item=>item.status==='ready')).toBe(false);
     expect(value.security).toMatchObject({privateKeysUploaded:false,serverSigning:false});
   });

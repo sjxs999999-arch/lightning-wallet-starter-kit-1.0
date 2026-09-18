@@ -9,6 +9,8 @@ describe('production execution policy', () => {
     const enabled = { mainnetEnabled: true, maxBatchCount: 1000 };
     expect(() => assertExecutionPolicy([task], '0x1', enabled)).not.toThrow();
     expect(() => assertExecutionPolicy([{ ...task, from: '0x0000000000000000000000000000000000000001' }], '0x38', enabled)).not.toThrow();
+    expect(() => assertExecutionPolicy([task], '0xa', enabled)).not.toThrow();
+    expect(() => assertExecutionPolicy([task], '0xa86a', enabled)).not.toThrow();
     expect(isMainnet('EVM', '0xa4b1')).toBe(true);
   });
 

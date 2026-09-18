@@ -1,4 +1,4 @@
-export const RELEASE_VERSION='2.39.0';
+export const RELEASE_VERSION='2.40.0';
 
 const enabled=value=>String(value??'').toLowerCase()==='true';
 const present=value=>typeof value==='string'&&value.trim().length>0;
@@ -13,7 +13,7 @@ export function buildServerlessCapabilities(env=process.env){
   const flashLoanConfigured=enabled(env.FLASH_LOAN_PROVIDER_APPROVED)&&secureProvider(env.FLASH_LOAN_URL)&&secureProvider(env.FLASH_LOAN_API_URL)&&!/example|localhost|lightingwallet\.com|flash-loan:32104/i.test(flashTargets);
   const automationDeliveryConfigured=enabled(env.AUTOMATION_ENABLE_DELIVERY)&&Boolean(present(env.TELEGRAM_BOT_TOKEN)||(present(env.EMAIL_PROVIDER_URL)&&present(env.EMAIL_API_KEY))||present(env.WEBHOOK_SIGNING_SECRET));
   const walletAcceptanceApproved=enabled(env.FINAL_WALLET_ACCEPTANCE_APPROVED)&&/^[a-fA-F0-9]{64}$/.test(env.FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256??'');
-  const mainnet={execution:enabled(env.VITE_MAINNET_EXECUTION_ENABLED),swap:enabled(env.VITE_ENABLE_MAINNET_SWAP),launchpad:enabled(env.VITE_ENABLE_MAINNET_LAUNCHPAD),bridge:enabled(env.VITE_ENABLE_MAINNET_BRIDGE)};
+  const mainnet={walletSession:true,walletCenterBroadcast:false,execution:enabled(env.VITE_MAINNET_EXECUTION_ENABLED),swap:enabled(env.VITE_ENABLE_MAINNET_SWAP),launchpad:enabled(env.VITE_ENABLE_MAINNET_LAUNCHPAD),bridge:enabled(env.VITE_ENABLE_MAINNET_BRIDGE)};
   const externalBlockers=[
     ...(!walletConnectConfigured?[blocker('WALLETCONNECT_PROJECT_ID','WalletConnect Project ID')]:[]),
     ...(!gasfreeConfigured?[blocker('GASFREE_PAYMASTER','GasFree Paymaster')]:[]),
@@ -23,7 +23,7 @@ export function buildServerlessCapabilities(env=process.env){
   ];
   const walletReady=walletAcceptanceApproved&&mainnet.execution;
   return{version:RELEASE_VERSION,environment:'production',database:'server-protected',operator:'separate-admin-surface',chains:['Ethereum','BNB Chain','Base','Arbitrum','Optimism','Polygon','Avalanche C-Chain','Solana','TRON'],features:[
-    {name:'多链钱包',mode:'browser-provider-and-local-worker',status:walletConnectConfigured?'ready':'provider-required'},
+    {name:'多链钱包',mode:'mainnet-provider-session-and-local-worker',status:walletConnectConfigured?'ready':'provider-required'},
     {name:'批量转账',mode:'wallet-signed',status:walletReady?'ready':'acceptance-required'},
     {name:'资产归集',mode:'wallet-signed',status:walletReady?'ready':'acceptance-required'},
     {name:'闪电兑换',mode:'aggregator-and-wallet-signed',status:walletReady&&mainnet.swap?'ready':'acceptance-required'},

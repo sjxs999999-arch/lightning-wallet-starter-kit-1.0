@@ -16,6 +16,9 @@ import { collectorSenderCount, collectorTasksForActiveSender } from './sender-gr
 import { collectorTransferTask } from './transfer-task';
 import { executeLocalVaultBatch, selectLocalWallet, walletsForChain } from '../batch-transfer/local-vault-executor';
 import { useLocalWalletSession } from '../wallet-center/LocalWalletSession';
+import { useExternalWalletSession } from '../wallet-providers/ExternalWalletSession';
+import { SessionWalletNotice } from '../wallet-providers/SessionWalletNotice';
+import { connectedEvmProvider } from '../wallet-providers/module-session';
 
 type SigningSource = 'extension' | 'local-vault';
 
@@ -26,6 +29,7 @@ function AssetRow({ item }: { item: ScannedAsset | CollectorTask }) {
 
 export function AssetCollector() {
   const { vault, vaultKey, isKeyActive } = useLocalWalletSession();
+  const { connected } = useExternalWalletSession();
   const [chain, setChain] = useState<TransferChain>('EVM');
   const [inputs, setInputs] = useState<ScanInput[]>([]);
   const [destination, setDestination] = useState('');
@@ -69,6 +73,10 @@ export function AssetCollector() {
     const available = walletsForChain(vault, chain);
     if (!available.some(wallet => wallet.id === localWalletId)) setLocalWalletId(available[0]?.id ?? '');
   }, [chain, localWalletId, vault]);
+
+  useEffect(() => {
+    if (connected) setChain(connected.family);
+  }, [connected]);
 
   function resetAudit() {
     setActiveJob(null);
@@ -205,7 +213,7 @@ export function AssetCollector() {
     } else if (!dryRun && collectorSenderCount(list) > 1) {
       if (!window.confirm(`当前归集计划包含 ${collectorSenderCount(list)} 个发送账户。\n将连接当前钱包并只归集该活动账户的资产，完成后切换钱包继续。`)) return;
       try {
-        const activeSender = await getActiveSender(chain, list.map(task => task.address));
+        const activeSender = await getActiveSender(chain, list.map(task => task.address), connected ?? undefined);
         executionList = collectorTasksForActiveSender(list, activeSender);
         if (!executionList.length) throw new Error(`当前钱包账户 ${activeSender} 不在待归集地址中`);
         log(`已选择当前钱包的 ${executionList.length} 项资产；其他钱包保持待处理`, 'success');
@@ -259,7 +267,8 @@ export function AssetCollector() {
       try {
         executionList.forEach(task => { task.executionStatus = 'running'; task.attempts++; });
         setTasks([...tasksRef.current]);
-        const results = await executeEvmBatch(executionList.map((task, index) => collectorTransferTask(task, index + 2)));
+        const evmTasks = executionList.map((task, index) => collectorTransferTask(task, index + 2));
+        const results = await executeEvmBatch(evmTasks, connected?.family === 'EVM' ? connectedEvmProvider(connected, evmTasks[0]!.from) : undefined);
         if (results) {
           results.forEach((result, index) => {
             const task = executionList[index]!;
@@ -342,7 +351,7 @@ export function AssetCollector() {
         try {
           const transfer: TransferTask = collectorTransferTask(task, index + 2);
           if (dryRun) { task.txHash = `DRY-COLLECT-${task.id.slice(2, 14)}`; task.executionStatus = 'confirmed'; }
-          else { const result = await executeTask(transfer, { batchConfirmed: true }); task.txHash = result.hash; task.executionStatus = result.state; }
+          else { const result = await executeTask(transfer, { batchConfirmed: true, wallet: connected ?? undefined }); task.txHash = result.hash; task.executionStatus = result.state; }
           log(dryRun ? '模拟归集通过' : task.executionStatus === 'confirmed' ? '归集交易已确认' : '归集交易已提交，等待链上确认', 'success', task.id);
         } catch (cause) {
           task.executionStatus = 'failed';
@@ -375,6 +384,7 @@ export function AssetCollector() {
     <div className="grid">
       <section className="panel form-panel">
         <h3>归集配置</h3>
+        {signingSource === 'extension' && <SessionWalletNotice wallet={connected} family={chain} usage="identity"/>}
         <label>网络<select value={chain} disabled={scanning || running || saving} onChange={event => { setChain(event.target.value as TransferChain); setInputs([]); setAssets([]); setTasks([]); tasksRef.current = []; resetAudit(); }}><option>EVM</option><option value="SOL">Solana</option><option>TRON</option></select></label>
         <label>签名来源<select value={signingSource} disabled={scanning || running || saving} onChange={event => setSigningSource(event.target.value as SigningSource)}><option value="extension">浏览器扩展钱包</option><option value="local-vault">本地加密钱包（仅测试网）</option></select></label>
         {signingSource === 'local-vault' && <label>本地钱包<select value={localWalletId} disabled={scanning || running || saving || !chainWallets.length} onChange={event => setLocalWalletId(event.target.value)}><option value="">{chainWallets.length ? '请选择钱包' : '当前网络没有本地钱包'}</option>{chainWallets.map(wallet => <option key={wallet.id} value={wallet.id}>{wallet.name} · {wallet.address.slice(0, 8)}…{wallet.address.slice(-6)}</option>)}</select></label>}

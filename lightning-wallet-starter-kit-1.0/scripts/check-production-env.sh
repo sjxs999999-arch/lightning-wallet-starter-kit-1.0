@@ -110,6 +110,8 @@ mainnet=$(value VITE_MAINNET_EXECUTION_ENABLED)
 mainnet_swap=$(value VITE_ENABLE_MAINNET_SWAP)
 mainnet_launchpad=$(value VITE_ENABLE_MAINNET_LAUNCHPAD)
 mainnet_bridge=$(value VITE_ENABLE_MAINNET_BRIDGE)
+aave_preflight=$(value VITE_ENABLE_AAVE_FLASH_LOAN_PREFLIGHT)
+aave_receivers=$(value VITE_AAVE_FLASH_LOAN_RECEIVERS)
 wallet_acceptance=$(value FINAL_WALLET_ACCEPTANCE_APPROVED)
 wallet_acceptance_report=$(value FINAL_WALLET_ACCEPTANCE_REPORT)
 wallet_acceptance_sha=$(value FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256)
@@ -117,7 +119,21 @@ case "$mainnet" in ''|false|true) : ;; *) fail 'VITE_MAINNET_EXECUTION_ENABLED m
 case "$mainnet_swap" in ''|false|true) : ;; *) fail 'VITE_ENABLE_MAINNET_SWAP must be true or false' ;; esac
 case "$mainnet_launchpad" in ''|false|true) : ;; *) fail 'VITE_ENABLE_MAINNET_LAUNCHPAD must be true or false' ;; esac
 case "$mainnet_bridge" in ''|false|true) : ;; *) fail 'VITE_ENABLE_MAINNET_BRIDGE must be true or false' ;; esac
+case "$aave_preflight" in ''|false|true) : ;; *) fail 'VITE_ENABLE_AAVE_FLASH_LOAN_PREFLIGHT must be true or false' ;; esac
 case "$wallet_acceptance" in ''|false|true) : ;; *) fail 'FINAL_WALLET_ACCEPTANCE_APPROVED must be true or false' ;; esac
+if [ "$aave_preflight" = true ]; then
+  if [ -z "$aave_receivers" ]; then
+    fail 'VITE_ENABLE_AAVE_FLASH_LOAN_PREFLIGHT=true requires VITE_AAVE_FLASH_LOAN_RECEIVERS'
+  else
+    old_ifs=$IFS
+    IFS=,
+    for receiver in $aave_receivers; do
+      normalized_receiver=$(printf '%s' "$receiver" | tr -d '[:space:]')
+      printf '%s' "$normalized_receiver" | grep -Eq '^0x[a-fA-F0-9]{40}$' || fail 'Every VITE_AAVE_FLASH_LOAN_RECEIVERS entry must be a public EVM contract address'
+    done
+    IFS=$old_ifs
+  fi
+fi
 if [ -n "$wallet_acceptance_report" ]; then
   case "$wallet_acceptance_report" in
     /*) : ;;
@@ -137,7 +153,7 @@ fi
 if [ -n "$wallet_acceptance_report" ] || [ -n "$wallet_acceptance_sha" ]; then
   if [ -z "$wallet_acceptance_report" ] || [ -z "$wallet_acceptance_sha" ]; then
     fail 'Wallet acceptance report and SHA-256 must be configured together'
-  elif ! EXPECTED_RELEASE=2.39.0 FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256="$wallet_acceptance_sha" "$SCRIPT_DIR/verify-wallet-acceptance.sh" "$wallet_acceptance_report"; then
+  elif ! EXPECTED_RELEASE=2.40.0 FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256="$wallet_acceptance_sha" "$SCRIPT_DIR/verify-wallet-acceptance.sh" "$wallet_acceptance_report"; then
     fail 'Wallet acceptance evidence verification failed'
   fi
 fi
@@ -145,7 +161,7 @@ if [ "$wallet_acceptance" = true ] && [ -n "$wallet_acceptance_report" ] && [ -n
   acceptance_sepolia_rpc=$(value WALLET_ACCEPTANCE_SEPOLIA_RPC_URL)
   acceptance_solana_rpc=$(value WALLET_ACCEPTANCE_SOLANA_DEVNET_RPC_URL)
   acceptance_tron_rpc=$(value WALLET_ACCEPTANCE_TRON_NILE_RPC_URL)
-  if ! EXPECTED_RELEASE=2.39.0 FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256="$wallet_acceptance_sha" \
+  if ! EXPECTED_RELEASE=2.40.0 FINAL_WALLET_ACCEPTANCE_EVIDENCE_SHA256="$wallet_acceptance_sha" \
     WALLET_ACCEPTANCE_SEPOLIA_RPC_URL="${acceptance_sepolia_rpc:-https://ethereum-sepolia-rpc.publicnode.com}" \
     WALLET_ACCEPTANCE_SOLANA_DEVNET_RPC_URL="${acceptance_solana_rpc:-https://api.devnet.solana.com}" \
     WALLET_ACCEPTANCE_TRON_NILE_RPC_URL="${acceptance_tron_rpc:-https://nile.trongrid.io}" \
@@ -180,7 +196,7 @@ fi
 
 optional_provider VITE_WALLETCONNECT_PROJECT_ID 'WalletConnect Project ID'
 optional_provider GASFREE_PROVIDER_URL 'GasFree Paymaster provider'
-optional_provider MARKET_HOLDER_PROVIDER_URL 'Market holder-data provider'
+optional_provider MARKET_HOLDER_PROVIDER_URL 'Full-chain market holder-data provider'
 
 walletconnect_id=$(value VITE_WALLETCONNECT_PROJECT_ID)
 [ -z "$walletconnect_id" ] || printf '%s' "$walletconnect_id" | grep -Eq '^[a-fA-F0-9]{32}$' || fail 'VITE_WALLETCONNECT_PROJECT_ID must be a 32-character hexadecimal project ID'

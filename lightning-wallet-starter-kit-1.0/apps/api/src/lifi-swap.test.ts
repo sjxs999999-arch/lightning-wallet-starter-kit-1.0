@@ -51,7 +51,9 @@ describe('LI.FI same-chain EVM Swap', () => {
     const [url, init] = fetcher.mock.calls[0]!;
     expect(String(url)).toContain('https://li.quest/v1/quote?');
     expect(String(url)).toContain('fromChain=1&toChain=1');
-    expect(String(url)).toContain('fromAddress=0x42BA');
+    expect(String(url)).toContain('fromAddress=0x42bae181b2fbd5cc8f04762770942c719dd4d30a');
+    expect(String(url)).toContain('fromToken=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48');
+    expect(String(url)).toContain('toToken=0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2');
     expect(String(url)).not.toMatch(/privateKey|mnemonic|seed|signature/i);
     expect(JSON.stringify(init)).not.toMatch(/privateKey|mnemonic|seed|signature/i);
   });

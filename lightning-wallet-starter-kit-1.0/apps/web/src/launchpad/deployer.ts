@@ -3,7 +3,9 @@ import { Buffer } from 'buffer';
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
 import artifact from './artifacts/LightningFixedSupplyToken.json';
 import tronArtifact from './artifacts/LightningFixedSupplyToken.tron.json';
-import { getSolanaProvider, resolveEvmProvider } from '../batch-transfer/executor';
+import { getSolanaProvider, resolveEvmProvider, type SolanaProvider } from '../batch-transfer/executor';
+import { connectedEvmProvider, connectedSolanaProvider, connectedTronProvider } from '../wallet-providers/module-session';
+import type { ConnectedWallet } from '../wallet-providers/types';
 import { isMainnetLaunchNetwork, launchNetworkMatchesChain } from './types';
 import type { LaunchDraft, LaunchNetwork } from './types';
 
@@ -38,6 +40,8 @@ export interface DeploymentResult {
   explorerUrl: string;
 }
 
+export type LaunchDeploymentOptions = { wallet?: ConnectedWallet; expectedWalletAddress?: string };
+
 const sleep = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
@@ -70,11 +74,15 @@ const unitAmount = (draft: LaunchDraft) => {
 };
 const deployArguments = (draft: LaunchDraft) => [draft.name, draft.symbol, draft.decimals, unitAmount(draft)] as const;
 
-async function requireEvm(draft: LaunchDraft) {
+async function requireEvm(draft: LaunchDraft, options: LaunchDeploymentOptions) {
   if (draft.chain !== 'EVM' || !launchNetworkMatchesChain('EVM', draft.network)) throw new Error('EVM Launchpad 网络无效');
   assertMainnetLaunchpadEnabled(draft.network);
   const network = EVM_NETWORKS[draft.network as keyof typeof EVM_NETWORKS];
-  const { provider, address } = await resolveEvmProvider();
+  const active = options.wallet
+    ? { provider: connectedEvmProvider(options.wallet, options.expectedWalletAddress), address: options.wallet.address }
+    : await resolveEvmProvider();
+  const { provider, address } = active;
+  if (options.expectedWalletAddress && getAddress(address) !== getAddress(options.expectedWalletAddress)) throw new Error('部署前 EVM 钱包账户与费用预览不一致，已停止签名');
   const expectedChainId = `0x${network.chainId.toString(16)}`;
   let chainId = String(await provider.request({ method: 'eth_chainId' })).toLowerCase();
   if (chainId !== expectedChainId) {
@@ -83,14 +91,14 @@ async function requireEvm(draft: LaunchDraft) {
   }
   if (chainId !== expectedChainId) throw new Error(`钱包没有切换到 ${network.label}，已停止部署`);
   const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
-  if (!accounts.some(account => isAddress(account) && account.toLowerCase() === address.toLowerCase())) throw new Error('切换网络后活动账户发生变化，已停止部署');
+  if (!isAddress(accounts[0] ?? '') || accounts[0]!.toLowerCase() !== address.toLowerCase()) throw new Error('切换网络后活动账户发生变化，已停止部署');
   return { provider, address: getAddress(address), network };
 }
 
-async function prepareEvm(draft: LaunchDraft): Promise<DeploymentEstimate> {
-  const active = await requireEvm(draft);
+async function prepareEvm(draft: LaunchDraft, options: LaunchDeploymentOptions): Promise<DeploymentEstimate> {
+  const active = await requireEvm(draft, options);
   const browserProvider = new BrowserProvider(active.provider);
-  const signer = await browserProvider.getSigner();
+  const signer = await browserProvider.getSigner(active.address);
   const factory = new ContractFactory(artifact.abi, artifact.bytecode, signer);
   const transaction = await factory.getDeployTransaction(...deployArguments(draft));
   const gas = await signer.estimateGas(transaction);
@@ -99,9 +107,9 @@ async function prepareEvm(draft: LaunchDraft): Promise<DeploymentEstimate> {
   return { chain: 'EVM', network: active.network.label, walletAddress: active.address, feeLabel: `${formatEther(wei)} ${active.network.nativeSymbol}`, feeDetail: `Gas 上限估算 ${gas.toString()}；实际费用由钱包确认页决定`, exact: false };
 }
 
-async function deployEvm(draft: LaunchDraft): Promise<DeploymentResult> {
-  const active = await requireEvm(draft);
-  const signer = await new BrowserProvider(active.provider).getSigner();
+async function deployEvm(draft: LaunchDraft, options: LaunchDeploymentOptions): Promise<DeploymentResult> {
+  const active = await requireEvm(draft, options);
+  const signer = await new BrowserProvider(active.provider).getSigner(active.address);
   const contract = await new ContractFactory(artifact.abi, artifact.bytecode, signer).deploy(...deployArguments(draft));
   const transaction = contract.deploymentTransaction();
   if (!transaction) throw new Error('钱包未返回 EVM 部署交易');
@@ -118,14 +126,16 @@ const solanaConnection = (network: 'solana-devnet' | 'solana-mainnet') => new Co
 export async function assertSolanaLaunchNetwork(connection: Pick<Connection, 'getGenesisHash'>, network: 'solana-devnet' | 'solana-mainnet') {
   if (await connection.getGenesisHash() !== SOLANA_NETWORKS[network].genesis) throw new Error(`Solana RPC 不是 ${SOLANA_NETWORKS[network].label}，已停止部署`);
 }
-async function requireSolana(draft: LaunchDraft) {
+async function requireSolana(draft: LaunchDraft, options: LaunchDeploymentOptions) {
   if (draft.chain !== 'SOL' || !launchNetworkMatchesChain('SOL', draft.network)) throw new Error('Solana Launchpad 网络无效');
   assertMainnetLaunchpadEnabled(draft.network);
-  const provider = getSolanaProvider();
+  const provider = options.wallet ? connectedSolanaProvider(options.wallet, options.expectedWalletAddress) as SolanaProvider : getSolanaProvider(options.expectedWalletAddress ? [options.expectedWalletAddress] : []);
   if (!provider) throw new Error('未检测到 OKX、Phantom、Backpack 或 Solflare');
   const connected = provider.connect ? await provider.connect() : undefined;
   const address = connected?.publicKey?.toString() ?? provider.publicKey?.toString();
   if (!address) throw new Error('Solana 钱包未返回活动账户');
+  if (options.wallet && address !== options.wallet.address) throw new Error('部署前 Solana 钱包活动账户已变化，已停止签名');
+  if (options.expectedWalletAddress && address !== options.expectedWalletAddress) throw new Error('部署前 Solana 钱包账户与费用预览不一致，已停止签名');
   return { provider, address, owner: new PublicKey(address) };
 }
 
@@ -155,8 +165,8 @@ async function buildSolanaMint(draft: LaunchDraft, owner: PublicKey, connection:
   return { mint, rent, latest, transaction };
 }
 
-async function prepareSolana(draft: LaunchDraft): Promise<DeploymentEstimate> {
-  const active = await requireSolana(draft);
+async function prepareSolana(draft: LaunchDraft, options: LaunchDeploymentOptions): Promise<DeploymentEstimate> {
+  const active = await requireSolana(draft, options);
   const network = draft.network as keyof typeof SOLANA_NETWORKS;
   const connection = solanaConnection(network);
   await assertSolanaLaunchNetwork(connection, network);
@@ -168,8 +178,8 @@ async function prepareSolana(draft: LaunchDraft): Promise<DeploymentEstimate> {
   } finally { prepared.mint.secretKey.fill(0); }
 }
 
-async function deploySolana(draft: LaunchDraft): Promise<DeploymentResult> {
-  const active = await requireSolana(draft);
+async function deploySolana(draft: LaunchDraft, options: LaunchDeploymentOptions): Promise<DeploymentResult> {
+  const active = await requireSolana(draft, options);
   const network = draft.network as keyof typeof SOLANA_NETWORKS;
   const connection = solanaConnection(network);
   await assertSolanaLaunchNetwork(connection, network);
@@ -184,28 +194,31 @@ async function deploySolana(draft: LaunchDraft): Promise<DeploymentResult> {
   } finally { prepared.mint.secretKey.fill(0); }
 }
 
-function getTronWeb(draft: LaunchDraft) {
+function getTronWeb(draft: LaunchDraft, options: LaunchDeploymentOptions) {
   if (draft.chain !== 'TRON' || !launchNetworkMatchesChain('TRON', draft.network)) throw new Error('TRON Launchpad 网络无效');
   assertMainnetLaunchpadEnabled(draft.network);
   const network = TRON_NETWORKS[draft.network as keyof typeof TRON_NETWORKS];
   const root = window as typeof window & { okxwallet?: { tronLink?: { tronWeb?: TronWeb } }; tronWeb?: TronWeb };
-  const tronWeb = root.okxwallet?.tronLink?.tronWeb ?? root.tronWeb;
+  const tronWeb = options.wallet ? connectedTronProvider(options.wallet, options.expectedWalletAddress) as unknown as TronWeb : root.okxwallet?.tronLink?.tronWeb ?? root.tronWeb;
   if (!tronWeb) throw new Error('未检测到 OKX Wallet 或 TronLink');
   let hostname = '';
   try { hostname = new URL(String(tronWeb.fullNode?.host ?? '')).hostname.toLowerCase(); } catch { /* rejected below */ }
   if (!(network.hosts as readonly string[]).includes(hostname)) throw new Error(`请先将 TRON 钱包切换到 ${network.label} 官方 RPC`);
   if (!tronWeb.defaultAddress?.base58) throw new Error('TRON 钱包未返回活动账户');
+  const address = tronWeb.defaultAddress.base58;
+  if (options.wallet && address !== options.wallet.address) throw new Error('部署前 TRON 钱包活动账户已变化，已停止签名');
+  if (options.expectedWalletAddress && address !== options.expectedWalletAddress) throw new Error('部署前 TRON 钱包账户与费用预览不一致，已停止签名');
   return { tronWeb, network };
 }
 
 const TRON_FEE_LIMIT = 150_000_000;
-async function prepareTron(draft: LaunchDraft): Promise<DeploymentEstimate> {
-  const { tronWeb, network } = getTronWeb(draft);
+async function prepareTron(draft: LaunchDraft, options: LaunchDeploymentOptions): Promise<DeploymentEstimate> {
+  const { tronWeb, network } = getTronWeb(draft, options);
   return { chain: 'TRON', network: network.label, walletAddress: tronWeb.defaultAddress!.base58!, feeLabel: '最高 150 TRX', feeDetail: '这是 feeLimit 安全上限，不是固定扣费；实际资源消耗以钱包确认页和链上回执为准', exact: false };
 }
 
-async function deployTron(draft: LaunchDraft): Promise<DeploymentResult> {
-  const { tronWeb, network } = getTronWeb(draft);
+async function deployTron(draft: LaunchDraft, options: LaunchDeploymentOptions): Promise<DeploymentResult> {
+  const { tronWeb, network } = getTronWeb(draft, options);
   const issuer = tronWeb.defaultAddress!.base58!;
   const unsigned = await tronWeb.transactionBuilder.createSmartContract({
     abi: tronArtifact.abi,
@@ -236,16 +249,16 @@ async function deployTron(draft: LaunchDraft): Promise<DeploymentResult> {
   return { chain: 'TRON', network: network.label, walletAddress: issuer, contractAddress: address, transactionHash: txId, status: 'confirmed', explorerUrl: `${network.explorer}/#/contract/${address}` };
 }
 
-export async function prepareLaunchDeployment(draft: LaunchDraft): Promise<DeploymentEstimate> {
+export async function prepareLaunchDeployment(draft: LaunchDraft, options: LaunchDeploymentOptions = {}): Promise<DeploymentEstimate> {
   if (draft.dryRun) throw new Error('Dry Run 已开启，不会连接钱包或构造部署交易');
-  if (draft.chain === 'EVM') return prepareEvm(draft);
-  if (draft.chain === 'SOL') return prepareSolana(draft);
-  return prepareTron(draft);
+  if (draft.chain === 'EVM') return prepareEvm(draft, options);
+  if (draft.chain === 'SOL') return prepareSolana(draft, options);
+  return prepareTron(draft, options);
 }
 
-export async function deployLaunchToken(draft: LaunchDraft): Promise<DeploymentResult> {
+export async function deployLaunchToken(draft: LaunchDraft, options: LaunchDeploymentOptions = {}): Promise<DeploymentResult> {
   if (draft.dryRun) throw new Error('Dry Run 已开启，拒绝广播');
-  if (draft.chain === 'EVM') return deployEvm(draft);
-  if (draft.chain === 'SOL') return deploySolana(draft);
-  return deployTron(draft);
+  if (draft.chain === 'EVM') return deployEvm(draft, options);
+  if (draft.chain === 'SOL') return deploySolana(draft, options);
+  return deployTron(draft, options);
 }
