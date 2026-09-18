@@ -7,6 +7,16 @@
       "minReceived": "338300",
       "priceImpactPct": 0.001,
       "route": ["TRX", "USDT"],
+      "display": {
+        "amountIn": "1",
+        "amountOut": "0.34",
+        "minReceived": "0.3383",
+        "sellSymbol": "TRX",
+        "buySymbol": "USDT",
+        "sellDecimals": 6,
+        "buyDecimals": 6,
+        "usdValuationAvailable": true
+      },
       "raw": {
         "network": "mainnet",
         "verifiedHooksOnly": true,

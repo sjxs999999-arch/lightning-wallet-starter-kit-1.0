@@ -14,6 +14,7 @@ export const swapQuoteInputSchema = z.object({
   sellToken: publicIdentifier,
   buyToken: publicIdentifier,
   sellAmount: rawAmount,
+  sellDecimals: z.number().int().min(0).max(30).optional(),
   taker: publicIdentifier,
   slippageBps: z.number().int().min(1).max(500),
 }).strict().superRefine((value, context) => {

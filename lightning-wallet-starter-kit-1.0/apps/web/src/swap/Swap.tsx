@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, History, RefreshCw, ShieldCheck } from 'lucide-react';
 import { getAddress, isAddress, parseUnits } from 'ethers';
 import { ApiError, api } from '../api';
+import { fetchSwapTokenMetadata } from './quote';
 import { executeSwap } from './executor';
 import { validateImpact, validateSlippage } from './guard';
 import { swapPlanPayload, swapResultPayload } from './persistence';
@@ -9,7 +10,7 @@ import type { SwapJob } from './persistence';
 import { loadLocalSwapHistory, saveLocalSwapJob } from './local-history';
 import { fallbackSwapProviderAvailability } from './provider-status';
 import { bestRoute } from './routing';
-import type { SwapCandidate, SwapChain, SwapProviderAvailability, SwapRequest } from './types';
+import type { SwapCandidate, SwapChain, SwapProviderAvailability, SwapRequest, SwapTokenMetadata } from './types';
 import { useExternalWalletSession } from '../wallet-providers/ExternalWalletSession';
 import { SessionWalletNotice } from '../wallet-providers/SessionWalletNotice';
 import { evmChainIdNumber } from '../wallet-providers/module-session';
@@ -22,7 +23,9 @@ export function Swap() {
   const [sellToken, setSellToken] = useState('');
   const [buyToken, setBuyToken] = useState('');
   const [amount, setAmount] = useState('');
-  const [decimals, setDecimals] = useState(18);
+  const [sellMetadata, setSellMetadata] = useState<SwapTokenMetadata | null>(null);
+  const [metadataLoading, setMetadataLoading] = useState(false);
+  const [metadataError, setMetadataError] = useState('');
   const [slippage, setSlippage] = useState(0.5);
   const [dryRun, setDryRun] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -54,19 +57,40 @@ export function Swap() {
 
   const currentProvider = providers.find(item => item.chain === chain);
 
+  useEffect(() => {
+    setSellMetadata(null);
+    setMetadataError('');
+    setQuotes([]);
+    setSelected(null);
+    quotedRequestRef.current = null;
+    if (sellToken.length < 20) { setMetadataLoading(false); return; }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setMetadataLoading(true);
+      void fetchSwapTokenMetadata(chain, sellToken, chain === 'EVM' ? evmChainId : undefined, controller.signal)
+        .then(value => { setSellMetadata(value); setMetadataError(''); })
+        .catch(cause => { if (!controller.signal.aborted) setMetadataError(cause instanceof Error ? cause.message : '无法验证 Token 精度'); })
+        .finally(() => { if (!controller.signal.aborted) setMetadataLoading(false); });
+    }, 350);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [chain, evmChainId, sellToken]);
+
   const request = useCallback((): SwapRequest => {
     if (chain === 'EVM' && (!isAddress(taker) || !isAddress(sellToken) || !isAddress(buyToken))) throw new Error('EVM 钱包和 Token 必须填写有效的 0x 地址');
     if (chain === 'EVM' && sellToken.toLowerCase() === buyToken.toLowerCase()) throw new Error('卖出和买入 Token 不能相同');
+    const tokenMatches = sellMetadata && (chain === 'EVM' ? sellMetadata.token.toLowerCase() === sellToken.toLowerCase() : sellMetadata.token === sellToken);
+    if (!sellMetadata || sellMetadata.chain !== chain || !tokenMatches || (chain === 'EVM' && sellMetadata.chainId !== evmChainId)) throw new Error('尚未从公开数据源验证卖出 Token 精度，已停止报价');
     return {
       chain,
       ...(chain === 'EVM' ? { chainId: evmChainId } : {}),
       sellToken: chain === 'EVM' ? getAddress(sellToken) : sellToken,
       buyToken: chain === 'EVM' ? getAddress(buyToken) : buyToken,
-      sellAmount: parseUnits(amount, decimals).toString(),
+      sellAmount: parseUnits(amount, sellMetadata.decimals).toString(),
+      sellDecimals: sellMetadata.decimals,
       taker: chain === 'EVM' ? getAddress(taker) : taker,
       slippageBps: validateSlippage(slippage),
     };
-  }, [amount, buyToken, chain, decimals, evmChainId, sellToken, slippage, taker]);
+  }, [amount, buyToken, chain, evmChainId, sellMetadata, sellToken, slippage, taker]);
 
   function invalidateQuotes() {
     setQuotes([]);
@@ -105,6 +129,7 @@ export function Swap() {
         try {
           const candidates = event.data.candidates ?? [];
           const best = bestRoute(candidates);
+          if (!best.display || best.display.sellDecimals !== input.sellDecimals) throw new Error('报价缺少经链上验证的金额精度，已停止报价');
           validateImpact(best.priceImpactPct);
           setQuotes(candidates);
           setSelected(best);
@@ -185,19 +210,20 @@ export function Swap() {
         <label>钱包地址<input value={taker} disabled={busy || executing} onChange={event => { setTaker(event.target.value.trim()); invalidateQuotes(); }} placeholder="公开签名地址"/></label>
         <label>卖出 Token<input value={sellToken} disabled={busy || executing} onChange={event => { setSellToken(event.target.value.trim()); invalidateQuotes(); }} placeholder="Token 地址或 Mint"/></label>
         <label>买入 Token<input value={buyToken} disabled={busy || executing} onChange={event => { setBuyToken(event.target.value.trim()); invalidateQuotes(); }} placeholder="Token 地址或 Mint"/></label>
-        <div className="swap-pair"><label>卖出数量<input value={amount} disabled={busy || executing} inputMode="decimal" onChange={event => { setAmount(event.target.value); invalidateQuotes(); }}/></label><label>Decimals<input type="number" min="0" max="30" value={decimals} disabled={busy || executing} onChange={event => { setDecimals(Number(event.target.value)); invalidateQuotes(); }}/></label></div>
+        <div className="swap-pair"><label>卖出数量<input value={amount} disabled={busy || executing} inputMode="decimal" onChange={event => { setAmount(event.target.value); invalidateQuotes(); }}/></label><label>Decimals（自动验证）<input type="number" value={sellMetadata?.decimals ?? ''} readOnly disabled aria-label="链上验证的 Token decimals" placeholder={metadataLoading ? '读取中' : '—'}/></label></div>
+        {metadataLoading ? <div className="notice">正在从公开数据源读取卖出 Token 精度…</div> : sellMetadata ? <div className="notice"><ShieldCheck size={18}/>已验证 {sellMetadata.symbol ? `${sellMetadata.symbol} · ` : ''}{sellMetadata.decimals} decimals · {sellMetadata.source}</div> : metadataError ? <div className="batch-error">{metadataError}；未验证前不能报价。</div> : null}
         <label>滑点：{slippage}%<input type="range" min="0.1" max="5" step="0.1" value={slippage} disabled={busy || executing} onChange={event => { setSlippage(Number(event.target.value)); invalidateQuotes(); }}/></label>
         <label className="dry-run"><input type="checkbox" checked={dryRun} disabled={busy || executing} onChange={event => setDryRun(event.target.checked)}/> Dry Run（默认开启）</label>
         <label className="dry-run"><input type="checkbox" checked={autoRefresh} disabled={executing} onChange={event => setAutoRefresh(event.target.checked)}/> 每 30 秒自动刷新报价 · 最后更新 {lastUpdated || '尚未报价'}</label>
         <div className="notice"><ShieldCheck size={18}/>不接收私钥；Approve 使用精确卖出量。EVM 使用 LI.FI 同链聚合并公开显示 Provider 费用和预计 Gas；TRON 通过官方 SUN.io Smart Router 重新取路由。全部交易仅由浏览器钱包签名。</div>
         {error && <div className="batch-error">{error}</div>}{recordError && <div className="batch-error">{recordError}</div>}
-        <button onClick={quote} disabled={busy || executing || !currentProvider?.available || !taker || !sellToken || !buyToken || !amount}>{busy ? '聚合报价中…' : '获取最优报价'}</button>
+        <button onClick={quote} disabled={busy || executing || metadataLoading || !sellMetadata || Boolean(metadataError) || !currentProvider?.available || !taker || !sellToken || !buyToken || !amount}>{busy ? '聚合报价中…' : '获取最优报价'}</button>
       </section>
       <section className="panel">
         <div className="panel-head"><h3>聚合报价</h3><span>{quotes.length} 条 · {elapsed} ms</span></div>
-        {selected ? <><div className="best-route"><small>BEST ROUTE · {selected.provider}</small><strong>{selected.amountOut}</strong><p>最低收到 {selected.minReceived}</p><p>价格影响 {selected.priceImpactPct.toFixed(4)}%</p>{selected.feeUsd ? <p>Provider 费用约 ${selected.feeUsd}</p> : null}{selected.gasCostUsd ? <p>预计网络 Gas 约 ${selected.gasCostUsd}</p> : null}{selected.expiresAt ? <p>报价有效至 {new Date(selected.expiresAt).toLocaleTimeString()}</p> : null}<code>{selected.route.join(' → ') || 'Direct'}</code></div><div className="quote-list">{quotes.map((item, index) => <button className={item === selected ? 'selected' : ''} key={`${item.provider}-${index}`} onClick={() => { try { validateImpact(item.priceImpactPct); setSelected(item); } catch (cause) { setError(cause instanceof Error ? cause.message : '高风险报价'); } }}><b>{item.provider}</b><span>{item.amountOut}</span><small>{item.priceImpactPct.toFixed(3)}%</small></button>)}</div><button className="swap-submit" onClick={() => void run()} disabled={executing}>{executing ? '正在保存审计结果…' : dryRun ? '保存并运行 Dry Run' : '保存后 Approve 并 Swap'}</button></> : <div className="mini-empty"><ArrowLeftRight/><p>输入 Token 和数量获取实时聚合报价</p></div>}
+        {selected ? <><div className="best-route"><small>BEST ROUTE · {selected.provider}</small><strong>{selected.display ? `${selected.display.amountOut} ${selected.display.buySymbol}` : `${selected.amountOut}（最小单位）`}</strong><p>卖出 {selected.display ? `${selected.display.amountIn} ${selected.display.sellSymbol}` : `${selected.amountIn}（最小单位）`}</p><p>最低收到 {selected.display ? `${selected.display.minReceived} ${selected.display.buySymbol}` : `${selected.minReceived}（最小单位）`}</p><p>价格影响 {selected.priceImpactPct.toFixed(4)}%</p>{selected.display && !selected.display.usdValuationAvailable ? <p>目标 Token 暂无可靠 USD 估值；此处仅为池内兑换数量，不代表美元市场价。</p> : null}{selected.feeUsd ? <p>Provider 费用约 ${selected.feeUsd}</p> : null}{selected.gasCostUsd ? <p>预计网络 Gas 约 ${selected.gasCostUsd}</p> : null}{selected.expiresAt ? <p>报价有效至 {new Date(selected.expiresAt).toLocaleTimeString()}</p> : null}<code>{selected.route.join(' → ') || 'Direct'}</code></div><div className="quote-list">{quotes.map((item, index) => <button className={item === selected ? 'selected' : ''} key={`${item.provider}-${index}`} onClick={() => { try { validateImpact(item.priceImpactPct); setSelected(item); } catch (cause) { setError(cause instanceof Error ? cause.message : '高风险报价'); } }}><b>{item.provider}</b><span>{item.display ? `${item.display.amountOut} ${item.display.buySymbol}` : `${item.amountOut} raw`}</span><small>{item.priceImpactPct.toFixed(3)}%</small></button>)}</div><button className="swap-submit" onClick={() => void run()} disabled={executing}>{executing ? '正在保存审计结果…' : dryRun ? '保存并运行 Dry Run' : '保存后 Approve 并 Swap'}</button></> : <div className="mini-empty"><ArrowLeftRight/><p>输入 Token 和数量获取实时聚合报价</p></div>}
       </section>
     </div>
-    <section className="panel transfer-history swap-history"><div className="panel-head"><div><p className="eyebrow">AUDIT TRAIL</p><h3><History size={16}/>最近兑换历史</h3></div><button onClick={() => void loadHistory()} title="刷新兑换历史"><RefreshCw size={15}/></button></div><div className="transfer-history-table"><div><b>创建时间</b><b>网络 / 路由</b><b>卖出</b><b>买入</b><b>状态</b></div>{history.map(job => <div key={job.id}><span>{new Date(job.created_at).toLocaleString()}</span><span>{job.payload.chain} · {job.payload.provider}</span><span>{job.payload.amountIn}</span><span>{job.payload.amountOut}</span><em className={job.status}>{job.result.status}</em></div>)}</div>{!history.length && <p className="transfer-history-empty">尚无已保存的闪电兑换任务。</p>}</section>
+    <section className="panel transfer-history swap-history"><div className="panel-head"><div><p className="eyebrow">AUDIT TRAIL</p><h3><History size={16}/>最近兑换历史</h3></div><button onClick={() => void loadHistory()} title="刷新兑换历史"><RefreshCw size={15}/></button></div><div className="transfer-history-table"><div><b>创建时间</b><b>网络 / 路由</b><b>卖出（最小单位）</b><b>买入（最小单位）</b><b>状态</b></div>{history.map(job => <div key={job.id}><span>{new Date(job.created_at).toLocaleString()}</span><span>{job.payload.chain} · {job.payload.provider}</span><span>{job.payload.amountIn}</span><span>{job.payload.amountOut}</span><em className={job.status}>{job.result.status}</em></div>)}</div>{!history.length && <p className="transfer-history-empty">尚无已保存的闪电兑换任务。</p>}</section>
   </>;
 }

@@ -4,7 +4,7 @@ import { fetchQuotes } from './quote';
 import { executeSwap } from './executor';
 import type { SwapRequest } from './types';
 
-const request: SwapRequest = { chain: 'SOL', sellToken: 'a', buyToken: 'b', sellAmount: '1', taker: '11111111111111111111111111111111', slippageBps: 50 };
+const request: SwapRequest = { chain: 'SOL', sellToken: 'a', buyToken: 'b', sellAmount: '1', sellDecimals: 9, taker: '11111111111111111111111111111111', slippageBps: 50 };
 const response = { data: [{ provider: 'test', amountIn: '1', amountOut: '2', minReceived: '1', priceImpactPct: 0, route: [], raw: {} }] };
 
 describe('swap resilience', () => {

@@ -9,22 +9,28 @@ TRON_NATIVE=${TRON_NATIVE:-T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb}
 TRON_USDT=${TRON_USDT:-TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t}
 TRON_TAKER=${TRON_TAKER:-T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb}
 SELL_AMOUNT=${SELL_AMOUNT:-1000000}
+SELL_DECIMALS=${SELL_DECIMALS:-6}
 SLIPPAGE_BPS=${SLIPPAGE_BPS:-50}
 EVM_CHAIN_ID=${EVM_CHAIN_ID:-1}
 EVM_SELL_TOKEN=${EVM_SELL_TOKEN:-0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48}
 EVM_BUY_TOKEN=${EVM_BUY_TOKEN:-0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2}
 EVM_TAKER=${EVM_TAKER:-0x42BAe181b2Fbd5cc8F04762770942C719Dd4d30a}
 EVM_SELL_AMOUNT=${EVM_SELL_AMOUNT:-1000000}
+EVM_SELL_DECIMALS=${EVM_SELL_DECIMALS:-6}
 
 case "$API_ORIGIN" in https://*) : ;; *) echo 'API_ORIGIN must use HTTPS.' >&2; exit 2 ;; esac
 case "$CLIENT_ORIGIN" in https://*) : ;; *) echo 'CLIENT_ORIGIN must use HTTPS.' >&2; exit 2 ;; esac
 case "$SELL_AMOUNT" in ''|*[!0-9]*) echo 'SELL_AMOUNT must be a positive raw integer.' >&2; exit 2 ;; esac
 test "$SELL_AMOUNT" -gt 0 || { echo 'SELL_AMOUNT must be greater than zero.' >&2; exit 2; }
+case "$SELL_DECIMALS" in ''|*[!0-9]*) echo 'SELL_DECIMALS must be an integer from 0 to 30.' >&2; exit 2 ;; esac
+test "$SELL_DECIMALS" -ge 0 && test "$SELL_DECIMALS" -le 30 || { echo 'SELL_DECIMALS must be from 0 to 30.' >&2; exit 2; }
 case "$SLIPPAGE_BPS" in ''|*[!0-9]*) echo 'SLIPPAGE_BPS must be an integer from 1 to 500.' >&2; exit 2 ;; esac
 test "$SLIPPAGE_BPS" -ge 1 && test "$SLIPPAGE_BPS" -le 500 || { echo 'SLIPPAGE_BPS must be from 1 to 500.' >&2; exit 2; }
 case "$EVM_CHAIN_ID" in 1|56|137|8453|42161) : ;; *) echo 'EVM_CHAIN_ID is not supported.' >&2; exit 2 ;; esac
 case "$EVM_SELL_AMOUNT" in ''|*[!0-9]*) echo 'EVM_SELL_AMOUNT must be a positive raw integer.' >&2; exit 2 ;; esac
 test "$EVM_SELL_AMOUNT" -gt 0 || { echo 'EVM_SELL_AMOUNT must be greater than zero.' >&2; exit 2; }
+case "$EVM_SELL_DECIMALS" in ''|*[!0-9]*) echo 'EVM_SELL_DECIMALS must be an integer from 0 to 30.' >&2; exit 2 ;; esac
+test "$EVM_SELL_DECIMALS" -ge 0 && test "$EVM_SELL_DECIMALS" -le 30 || { echo 'EVM_SELL_DECIMALS must be from 0 to 30.' >&2; exit 2; }
 printf '%s\n%s\n%s\n' "$EVM_SELL_TOKEN" "$EVM_BUY_TOKEN" "$EVM_TAKER" | grep -Eqv '^0x[0-9a-fA-F]{40}$' && { echo 'EVM Token and taker values must be public 0x addresses.' >&2; exit 2; }
 
 command -v "$CURL_BIN" >/dev/null 2>&1 || { echo 'curl is required.' >&2; exit 1; }
@@ -40,9 +46,10 @@ payload=$("$JQ_BIN" -cn \
   --arg sellToken "$TRON_NATIVE" \
   --arg buyToken "$TRON_USDT" \
   --arg sellAmount "$SELL_AMOUNT" \
+  --argjson sellDecimals "$SELL_DECIMALS" \
   --arg taker "$TRON_TAKER" \
   --argjson slippageBps "$SLIPPAGE_BPS" \
-  '{chain:"TRON",sellToken:$sellToken,buyToken:$buyToken,sellAmount:$sellAmount,taker:$taker,slippageBps:$slippageBps}')
+  '{chain:"TRON",sellToken:$sellToken,buyToken:$buyToken,sellAmount:$sellAmount,sellDecimals:$sellDecimals,taker:$taker,slippageBps:$slippageBps}')
 
 "$CURL_BIN" --silent --show-error --max-time 20 \
   --output "$BODY" --dump-header "$HEADERS" --write-out '%{http_code} %{time_total}' \
@@ -68,6 +75,7 @@ grep -i '^access-control-allow-origin:' "$HEADERS" | grep -Fq "$CLIENT_ORIGIN" |
 
 "$JQ_BIN" -e \
   --arg amount "$SELL_AMOUNT" \
+  --argjson sellDecimals "$SELL_DECIMALS" \
   --arg sell "$TRON_NATIVE" \
   --arg buy "$TRON_USDT" '
   (.data | type == "array") and
@@ -78,6 +86,10 @@ grep -i '^access-control-allow-origin:' "$HEADERS" | grep -Fq "$CLIENT_ORIGIN" |
     (.amountOut | type == "string" and test("^[0-9]+$") and . != "0") and
     (.minReceived | type == "string" and test("^[0-9]+$")) and
     (.priceImpactPct | type == "number" and . >= 0 and . <= 100) and
+    .display.sellDecimals == $sellDecimals and (.display.buyDecimals | type == "number" and . >= 0 and . <= 30) and
+    (.display.amountIn | type == "string" and length > 0) and
+    (.display.amountOut | type == "string" and length > 0) and
+    (.display.minReceived | type == "string" and length > 0) and
     .raw.network == "mainnet" and
     .raw.verifiedHooksOnly == true and
     .raw.sunRoute.containsUnverifiedHook == false and
@@ -100,9 +112,10 @@ payload=$("$JQ_BIN" -cn \
   --arg sellToken "$EVM_SELL_TOKEN" \
   --arg buyToken "$EVM_BUY_TOKEN" \
   --arg sellAmount "$EVM_SELL_AMOUNT" \
+  --argjson sellDecimals "$EVM_SELL_DECIMALS" \
   --arg taker "$EVM_TAKER" \
   --argjson slippageBps "$SLIPPAGE_BPS" \
-  '{chain:"EVM",chainId:$chainId,sellToken:$sellToken,buyToken:$buyToken,sellAmount:$sellAmount,taker:$taker,slippageBps:$slippageBps}')
+  '{chain:"EVM",chainId:$chainId,sellToken:$sellToken,buyToken:$buyToken,sellAmount:$sellAmount,sellDecimals:$sellDecimals,taker:$taker,slippageBps:$slippageBps}')
 
 "$CURL_BIN" --silent --show-error --max-time 20 \
   --output "$BODY" --dump-header "$HEADERS" --write-out '%{http_code} %{time_total}' \
@@ -128,6 +141,7 @@ grep -i '^access-control-allow-origin:' "$HEADERS" | grep -Fq "$CLIENT_ORIGIN" |
 
 "$JQ_BIN" -e \
   --arg amount "$EVM_SELL_AMOUNT" \
+  --argjson sellDecimals "$EVM_SELL_DECIMALS" \
   --argjson chainId "$EVM_CHAIN_ID" '
   (.data | type == "array") and
   (.data | length > 0) and
@@ -137,6 +151,9 @@ grep -i '^access-control-allow-origin:' "$HEADERS" | grep -Fq "$CLIENT_ORIGIN" |
     (.amountOut | type == "string" and test("^[0-9]+$") and . != "0") and
     (.minReceived | type == "string" and test("^[0-9]+$") and . != "0") and
     (.priceImpactPct | type == "number" and . >= 0 and . <= 100) and
+    .display.sellDecimals == $sellDecimals and (.display.buyDecimals | type == "number" and . >= 0 and . <= 30) and
+    (.display.amountIn | type == "string" and length > 0) and
+    (.display.amountOut | type == "string" and length > 0) and
     (.allowanceTarget | type == "string" and test("^0x[0-9a-fA-F]{40}$")) and
     (.transaction.to | type == "string" and test("^0x[0-9a-fA-F]{40}$")) and
     (.transaction.data | type == "string" and test("^0x([0-9a-fA-F]{2})+$")) and

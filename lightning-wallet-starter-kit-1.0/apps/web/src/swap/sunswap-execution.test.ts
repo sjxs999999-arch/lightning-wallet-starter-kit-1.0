@@ -3,14 +3,15 @@ import { ensureExactSunSwapAllowance, validateExecutableSunRoute } from './sunsw
 import type { SwapCandidate, SwapRequest } from './types';
 import type { InjectedTronWeb, SunSwapWallet } from './tron-wallet';
 
-const request: SwapRequest = { chain: 'TRON', sellToken: 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb', buyToken: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', sellAmount: '1000000', taker: 'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA', slippageBps: 50 };
+const request: SwapRequest = { chain: 'TRON', sellToken: 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb', buyToken: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', sellAmount: '1000000', sellDecimals: 6, taker: 'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA', slippageBps: 50 };
 const sunRoute = { amountIn: '1.000000', amountInRaw: '1000000', amountOut: '0.340000', amountOutRaw: '340000', amountOutMinimum: '0.340000', amountOutMinimumRaw: '340000', inUsd: '0.34', outUsd: '0.339', impact: '-0.0215', fee: '0.0005', containsUnverifiedHook: false, tokens: [request.sellToken, 'TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR', request.buyToken], symbols: ['TRX', 'WTRX', 'USDT'], poolFees: ['0', '500', '0'], poolVersions: ['v2', 'v3'], poolKeys: [null, null], stepAmountsOut: ['1.000000', '0.340000'] };
-const quote: SwapCandidate = { provider: 'SUN.io Smart Router', amountIn: '1000000', amountOut: '340000', minReceived: '338300', priceImpactPct: 0.0215, route: ['TRX', 'WTRX', 'USDT'], raw: { source: 'SUN.io Smart Router', network: 'mainnet', poolVersions: ['v2', 'v3'], verifiedHooksOnly: true, sunRoute } };
+const quote: SwapCandidate = { provider: 'SUN.io Smart Router', amountIn: '1000000', amountOut: '340000', minReceived: '338300', priceImpactPct: 2.15, route: ['TRX', 'WTRX', 'USDT'], display: { amountIn: '1', amountOut: '0.34', minReceived: '0.3383', sellSymbol: 'TRX', buySymbol: 'USDT', sellDecimals: 6, buyDecimals: 6, usdValuationAvailable: true }, raw: { source: 'SUN.io Smart Router', network: 'mainnet', poolVersions: ['v2', 'v3'], verifiedHooksOnly: true, sunRoute } };
 
 describe('verified SUN.io execution plan', () => {
   it('accepts an exact verified quote and rejects tampering', () => {
     expect(validateExecutableSunRoute(request, quote)).toMatchObject({ amountInRaw: request.sellAmount, amountOutRaw: quote.amountOut });
     expect(() => validateExecutableSunRoute(request, { ...quote, minReceived: '1' })).toThrow('验证失败');
+    expect(() => validateExecutableSunRoute(request, { ...quote, display: { ...quote.display!, amountOut: '340000' } })).toThrow('验证失败');
   });
 
 

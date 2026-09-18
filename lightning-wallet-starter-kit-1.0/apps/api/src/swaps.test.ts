@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSwapJob, listSwapJobs, swapPlanSchema, swapResultSchema, updateSwapJob } from './swaps.js';
+import { createSwapJob, listSwapJobs, swapPlanSchema, swapQuoteInputSchema, swapResultSchema, updateSwapJob } from './swaps.js';
 
 const plan = { idempotencyKey: '00000000-0000-4000-8000-000000000021', chain: 'SOL' as const, dryRun: true, taker: '11111111111111111111111111111111', sellToken: 'So11111111111111111111111111111111111111112', buyToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', sellAmount: '1000000', slippageBps: 50, provider: 'Jupiter', amountIn: '1000000', amountOut: '150000', minReceived: '149000', priceImpactPct: 0.1, route: ['Raydium'] };
 
 describe('swap persistence', () => {
+  it('accepts a legacy quote without decimals so the server can resolve them on-chain', () => {
+    expect(swapQuoteInputSchema.parse({ chain: 'TRON', sellToken: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', buyToken: 'TDBrchanWjSwgkPzPGGoSfv2sPoaVbGioM', sellAmount: '30000000', taker: 'TPxqxJiNbT5XNbQFuC1LNX2pyEztrJcJEA', slippageBps: 50 }).sellDecimals).toBeUndefined();
+  });
   it('accepts public quote metadata and rejects secret or transaction fields', () => {
     expect(swapPlanSchema.parse(plan).provider).toBe('Jupiter');
     expect(() => swapPlanSchema.parse({ ...plan, privateKey: 'blocked' })).toThrow();

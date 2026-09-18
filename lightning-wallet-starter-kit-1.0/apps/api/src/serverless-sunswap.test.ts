@@ -7,6 +7,9 @@ describe('Vercel SUN.io route parity', () => {
     expect(source).toContain('https://rot.endjgfsv.link/swap/routerUniversal?');
     expect(source).toContain("includeUnverifiedV4Hook:'false'");
     expect(source).toContain("provider:'SUN.io Smart Router'");
+    expect(source).toContain("impact=Math.abs(Number(item?.impact??0))*100");
+    expect(source).toContain('sellDecimals!==input.sellDecimals');
+    expect(source).toContain('usdValuationAvailable:Number(item.outUsd)>0');
     expect(source).not.toContain('TRON_SWAP_PROVIDER_URL');
   });
 });

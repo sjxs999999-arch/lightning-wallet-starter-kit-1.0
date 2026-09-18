@@ -1,5 +1,6 @@
 import type { SwapCandidate, SwapRequest } from './types';
 import { TRON_NATIVE_TOKEN, type InjectedTronWeb, type SunSwapWallet } from './tron-wallet';
+import { formatAtomic } from '../amount';
 
 const SUNSWAP_UNIVERSAL_ROUTER = 'TSJEtPuqHpvSaVnSwvCsngaeBxrGUzp95Q';
 const SUNSWAP_PERMIT2 = 'TTJxU3P8rHycAyFY4kVtGNfmnMH4ezcuM9';
@@ -16,6 +17,10 @@ const record = (value: unknown): JsonRecord => value !== null && typeof value ==
 const stringArray = (value: unknown) => Array.isArray(value) && value.every(item => typeof item === 'string') ? value as string[] : null;
 const decimal = (value: unknown) => typeof value === 'string' && /^-?\d+(?:\.\d+)?$/.test(value) && value.length <= 100 ? value : null;
 const rawAmount = (value: unknown) => typeof value === 'string' && /^\d+$/.test(value) && BigInt(value) > 0n ? value : null;
+const canonicalDecimal = (value: string) => {
+  const [whole, fraction = ''] = value.split('.'), normalizedWhole = whole!.replace(/^0+(?=\d)/, '') || '0', normalizedFraction = fraction.replace(/0+$/, '');
+  return normalizedFraction ? `${normalizedWhole}.${normalizedFraction}` : normalizedWhole;
+};
 
 function safePoolKeys(value: unknown, tokens: string[], poolFees: string[], poolVersions: string[]) {
   if (!Array.isArray(value) || value.length !== poolVersions.length) return null;
@@ -46,10 +51,19 @@ export function validateExecutableSunRoute(request: SwapRequest, quote: SwapCand
     || route.containsUnverifiedHook !== false
     || !tokens || !symbols || !poolFees || !poolVersions || !poolKeys || !stepAmountsOut
     || poolVersions.length < 1 || poolVersions.length > 11 || poolVersions.some(value => !SAFE_POOL_VERSIONS.has(value))
-    || tokens.length !== poolVersions.length + 1 || poolFees.length !== tokens.length || poolKeys.length !== poolVersions.length || stepAmountsOut.length !== poolVersions.length
+    || tokens.length !== poolVersions.length + 1 || symbols.length !== tokens.length || poolFees.length !== tokens.length || poolKeys.length !== poolVersions.length || stepAmountsOut.length !== poolVersions.length
     || tokens[0] !== request.sellToken || tokens.at(-1) !== request.buyToken
     || amountInRaw !== request.sellAmount || amountInRaw !== quote.amountIn || amountOutRaw !== quote.amountOut
     || (BigInt(amountOutRaw ?? '0') * BigInt(10_000 - request.slippageBps) / 10_000n).toString() !== quote.minReceived
+    || !quote.display
+    || quote.display.sellDecimals !== request.sellDecimals
+    || quote.display.amountIn !== formatAtomic(BigInt(amountInRaw ?? '0'), quote.display.sellDecimals)
+    || quote.display.amountOut !== formatAtomic(BigInt(amountOutRaw ?? '0'), quote.display.buyDecimals)
+    || quote.display.minReceived !== formatAtomic(BigInt(quote.minReceived), quote.display.buyDecimals)
+    || quote.display.amountIn !== canonicalDecimal(String(route.amountIn ?? ''))
+    || quote.display.amountOut !== canonicalDecimal(String(route.amountOut ?? ''))
+    || quote.display.sellSymbol !== symbols[0]
+    || quote.display.buySymbol !== symbols.at(-1)
     || !tokens.every(value => /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(value))
     || !symbols.every(value => /^[A-Za-z0-9 ._-]{1,32}$/.test(value))
     || !poolFees.every(value => /^\d{1,8}$/.test(value))

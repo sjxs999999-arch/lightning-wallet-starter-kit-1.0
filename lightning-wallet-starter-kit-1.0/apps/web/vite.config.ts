@@ -1,7 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
-const RELEASE_VERSION = '2.40.0';
+const RELEASE_VERSION = '2.41.0';
 const releaseManifest = (environment: Record<string, string>): Plugin => ({
   name: 'lightning-release-manifest',
   generateBundle() {

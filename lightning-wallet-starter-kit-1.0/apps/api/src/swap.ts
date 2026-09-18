@@ -1,3 +1,5 @@
+import { cachedSwapTokenMetadata, type SwapTokenMetadata } from './swap-token-metadata.js';
+
 export type SwapChain = 'EVM' | 'SOL' | 'TRON';
 
 export interface SwapQuoteInput {
@@ -6,8 +8,20 @@ export interface SwapQuoteInput {
   sellToken: string;
   buyToken: string;
   sellAmount: string;
+  sellDecimals?: number;
   taker: string;
   slippageBps: number;
+}
+
+export interface SwapAmountDisplay {
+  amountIn: string;
+  amountOut: string;
+  minReceived: string;
+  sellSymbol: string;
+  buySymbol: string;
+  sellDecimals: number;
+  buyDecimals: number;
+  usdValuationAvailable: boolean;
 }
 
 export interface SwapCandidate {
@@ -22,6 +36,7 @@ export interface SwapCandidate {
   feeUsd?: string;
   gasCostUsd?: string;
   expiresAt?: string;
+  display?: SwapAmountDisplay;
   raw: unknown;
 }
 
@@ -74,6 +89,62 @@ const usdTotal = (value: unknown) => Array.isArray(value) ? value.reduce((total,
   return total + (Number.isFinite(amount) && amount > 0 ? amount : 0);
 }, 0) : 0;
 const usdString = (value: number) => value > 0 ? value.toFixed(4) : undefined;
+const tokenDecimals = (value: unknown) => Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 30 ? Number(value) : null;
+const tokenSymbol = (value: unknown, fallback: string) => typeof value === 'string' && /^[A-Za-z0-9._-]{1,24}$/.test(value) ? value : fallback;
+
+function decimalToAtomic(value: string, decimals: number) {
+  if (!/^\d+(?:\.\d+)?$/.test(value)) return null;
+  const [whole, fraction = ''] = value.split('.');
+  if (fraction.length > decimals) return null;
+  return BigInt(whole!) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, '0') || '0');
+}
+
+function decimalScale(value: string, raw: string) {
+  for (let decimals = 0; decimals <= 30; decimals++) if (decimalToAtomic(value, decimals) === BigInt(raw)) return decimals;
+  return null;
+}
+
+function formatAtomic(raw: string, decimals: number) {
+  if (decimals === 0) return raw;
+  const value = raw.padStart(decimals + 1, '0');
+  return `${value.slice(0, -decimals)}.${value.slice(-decimals)}`.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+}
+
+interface VerifiedTokenPair { sell: SwapTokenMetadata; buy: SwapTokenMetadata }
+
+async function resolveQuoteTokenPair(input: SwapQuoteInput): Promise<VerifiedTokenPair> {
+  const options = input.chain === 'SOL'
+    ? { solanaRpcUrls: [process.env.SOLANA_RPC_URL ?? 'https://solana-rpc.publicnode.com', ...(process.env.SOLANA_RPC_FALLBACK_URLS ?? 'https://api.mainnet-beta.solana.com').split(',')].map(value => value.trim()).filter((value, index, values) => value && values.indexOf(value) === index) }
+    : input.chain === 'TRON'
+      ? { tronRpcUrl: process.env.TRON_RPC_URL ?? 'https://api.trongrid.io', tronGridApiKey: process.env.TRONGRID_API_KEY }
+      : {};
+  const [sell, buy] = await Promise.all([
+    cachedSwapTokenMetadata({ chain: input.chain, chainId: input.chainId, token: input.sellToken }, options),
+    cachedSwapTokenMetadata({ chain: input.chain, chainId: input.chainId, token: input.buyToken }, options),
+  ]);
+  if (input.sellDecimals !== undefined && sell.decimals !== input.sellDecimals) throw new Error('Sell-token decimals do not match on-chain metadata');
+  return { sell, buy };
+}
+
+function bindVerifiedDisplay(input: SwapQuoteInput, candidate: SwapCandidate, metadata: VerifiedTokenPair): SwapCandidate {
+  if (candidate.amountIn !== input.sellAmount) throw new Error('Quote amount does not match request');
+  if (candidate.display && (candidate.display.sellDecimals !== metadata.sell.decimals || candidate.display.buyDecimals !== metadata.buy.decimals)) throw new Error('Quote token decimals do not match on-chain metadata');
+  const family = input.chain === 'EVM' ? 'ERC-20' : input.chain === 'TRON' ? 'TRC-20' : 'SPL';
+  return {
+    ...candidate,
+    display: {
+      amountIn: formatAtomic(candidate.amountIn, metadata.sell.decimals),
+      amountOut: formatAtomic(candidate.amountOut, metadata.buy.decimals),
+      minReceived: formatAtomic(candidate.minReceived, metadata.buy.decimals),
+      sellSymbol: metadata.sell.symbol ?? family,
+      buySymbol: metadata.buy.symbol ?? family,
+      sellDecimals: metadata.sell.decimals,
+      buyDecimals: metadata.buy.decimals,
+      usdValuationAvailable: candidate.display?.usdValuationAvailable === true,
+    },
+    raw: { ...record(candidate.raw), tokenMetadataSource: { sell: metadata.sell.source, buy: metadata.buy.source } },
+  };
+}
 
 function executableSunRoute(item: JsonRecord) {
   if (!Array.isArray(item.tokens) || !Array.isArray(item.symbols) || !Array.isArray(item.poolFees) || !Array.isArray(item.poolVersions) || !Array.isArray(item.poolKeys) || !Array.isArray(item.stepAmountsOut)) return null;
@@ -94,7 +165,7 @@ function executableSunRoute(item: JsonRecord) {
   });
   const stepAmountsOut = item.stepAmountsOut.map(safeDecimal);
   if ([...tokens, ...symbols, ...poolFees, ...poolVersions, ...stepAmountsOut].some(value => value === null) || poolKeys.some(value => value === undefined)) return null;
-  if (poolVersions.length < 1 || poolVersions.length > 11 || tokens.length !== poolVersions.length + 1 || poolFees.length !== tokens.length || poolKeys.length !== poolVersions.length || stepAmountsOut.length !== poolVersions.length) return null;
+  if (poolVersions.length < 1 || poolVersions.length > 11 || tokens.length !== poolVersions.length + 1 || symbols.length !== tokens.length || poolFees.length !== tokens.length || poolKeys.length !== poolVersions.length || stepAmountsOut.length !== poolVersions.length) return null;
   const amountIn = safeDecimal(item.amountIn), amountOut = safeDecimal(item.amountOut), amountOutMinimum = safeDecimal(item.amountOutMinimum), inUsd = safeDecimal(item.inUsd), outUsd = safeDecimal(item.outUsd), impact = safeDecimal(item.impact), fee = safeDecimal(item.fee);
   const amountInRaw = positiveInteger(item.amountInRaw), amountOutRaw = positiveInteger(item.amountOutRaw), amountOutMinimumRaw = typeof item.amountOutMinimumRaw === 'string' && /^\d+$/.test(item.amountOutMinimumRaw) ? item.amountOutMinimumRaw : null;
   if (!amountIn || !amountOut || !amountOutMinimum || !inUsd || !outUsd || !impact || !fee || !amountInRaw || !amountOutRaw || amountOutMinimumRaw === null) return null;
@@ -124,7 +195,9 @@ export function normalizeSunSwapRoutes(input: SwapQuoteInput, payload: unknown):
     const tokens = sunRoute?.tokens ?? [];
     const symbols = sunRoute?.symbols ?? [];
     const poolVersions = sunRoute?.poolVersions ?? [];
-    const impact = Math.abs(number(item.impact));
+    const impact = Math.abs(number(item.impact)) * 100;
+    const sellDecimals = sunRoute ? decimalScale(sunRoute.amountIn, sunRoute.amountInRaw) : null;
+    const buyDecimals = sunRoute ? decimalScale(sunRoute.amountOut, sunRoute.amountOutRaw) : null;
 
     if (
       amountIn !== input.sellAmount
@@ -132,18 +205,32 @@ export function normalizeSunSwapRoutes(input: SwapQuoteInput, payload: unknown):
       || !sunRoute
       || !Number.isFinite(impact)
       || impact > 100
+      || sellDecimals === null
+      || buyDecimals === null
+      || sellDecimals !== input.sellDecimals
       || item.containsUnverifiedHook === true
       || tokens[0] !== input.sellToken
       || tokens.at(-1) !== input.buyToken
     ) return [];
 
+    const minReceived = slippageFloor(amountOut, input.slippageBps);
     return [{
       provider: 'SUN.io Smart Router',
       amountIn,
       amountOut,
-      minReceived: slippageFloor(amountOut, input.slippageBps),
+      minReceived,
       priceImpactPct: impact,
       route: symbols.length ? symbols : tokens,
+      display: {
+        amountIn: formatAtomic(amountIn, sellDecimals),
+        amountOut: formatAtomic(amountOut, buyDecimals),
+        minReceived: formatAtomic(minReceived, buyDecimals),
+        sellSymbol: tokenSymbol(symbols[0], 'TRC-20'),
+        buySymbol: tokenSymbol(symbols.at(-1), 'TRC-20'),
+        sellDecimals,
+        buyDecimals,
+        usdValuationAvailable: number(sunRoute.outUsd) > 0,
+      },
       raw: { source: 'SUN.io Smart Router', network: 'mainnet', poolVersions, verifiedHooksOnly: true, sunRoute },
     }];
   });
@@ -172,6 +259,7 @@ export function normalizeLiFiEvmQuote(input: SwapQuoteInput, payload: unknown, n
   if (input.chain !== 'EVM' || !input.chainId || !SUPPORTED_EVM_CHAIN_IDS.has(input.chainId) || !evmAddress(input.taker)) throw new Error('LI.FI EVM request is invalid');
   const raw = record(payload), action = record(raw.action), estimate = record(raw.estimate), transaction = record(raw.transactionRequest);
   const fromToken = record(action.fromToken), toToken = record(action.toToken);
+  const sellDecimals = tokenDecimals(fromToken.decimals), buyDecimals = tokenDecimals(toToken.decimals);
   const amountIn = positiveInteger(estimate.fromAmount), amountOut = positiveInteger(estimate.toAmount), minReceived = positiveInteger(estimate.toAmountMin);
   const to = evmAddress(transaction.to), data = hexData(transaction.data), value = hexQuantity(transaction.value ?? '0'), gas = hexQuantity(transaction.gasLimit ?? transaction.gas), gasPrice = hexQuantity(transaction.gasPrice);
   const responseChainId = Number(transaction.chainId ?? action.fromChainId), toChainId = Number(action.toChainId);
@@ -186,6 +274,9 @@ export function normalizeLiFiEvmQuote(input: SwapQuoteInput, payload: unknown, n
     || amountIn !== input.sellAmount
     || !tokenMatches(fromToken, input.sellToken)
     || !tokenMatches(toToken, input.buyToken)
+    || sellDecimals === null
+    || buyDecimals === null
+    || sellDecimals !== input.sellDecimals
     || !amountOut
     || !minReceived
     || BigInt(minReceived) > BigInt(amountOut)
@@ -217,6 +308,16 @@ export function normalizeLiFiEvmQuote(input: SwapQuoteInput, payload: unknown, n
     feeUsd: usdString(usdTotal(estimate.feeCosts)),
     gasCostUsd: usdString(usdTotal(estimate.gasCosts)),
     expiresAt: new Date(now + 55_000).toISOString(),
+    display: {
+      amountIn: formatAtomic(amountIn, sellDecimals),
+      amountOut: formatAtomic(amountOut, buyDecimals),
+      minReceived: formatAtomic(minReceived, buyDecimals),
+      sellSymbol: tokenSymbol(fromToken.symbol, 'ERC-20'),
+      buySymbol: tokenSymbol(toToken.symbol, 'ERC-20'),
+      sellDecimals,
+      buyDecimals,
+      usdValuationAvailable: toUsd > 0,
+    },
     raw: { source: 'LI.FI', quoteId: typeof raw.id === 'string' ? raw.id.slice(0, 120) : undefined, tool, chainId: input.chainId, sameChain: true },
   };
 }
@@ -264,31 +365,38 @@ export function normalizeExternalEvmCandidate(input: SwapQuoteInput, value: unkn
 }
 
 export async function fetchSwapCandidates(input: SwapQuoteInput) {
+  const metadata = await resolveQuoteTokenPair(input);
+  const verifiedInput: SwapQuoteInput = { ...input, sellDecimals: metadata.sell.decimals };
   const candidates: SwapCandidate[] = [];
-  if (input.chain === 'EVM') {
-    const settled = await Promise.allSettled([fetchLiFiEvmCandidate(input), ...(process.env.ZEROX_API_KEY ? [fetchZeroXCandidate(input)] : [])]);
-    candidates.push(...settled.filter((item): item is PromiseFulfilledResult<SwapCandidate> => item.status === 'fulfilled').map(item => item.value));
-  } else if (input.chain === 'SOL') {
-    const query = new URLSearchParams({ inputMint: input.sellToken, outputMint: input.buyToken, amount: input.sellAmount, slippageBps: String(input.slippageBps), restrictIntermediateTokens: 'true' });
+  if (verifiedInput.chain === 'EVM') {
+    const settled = await Promise.allSettled([fetchLiFiEvmCandidate(verifiedInput), ...(process.env.ZEROX_API_KEY ? [fetchZeroXCandidate(verifiedInput)] : [])]);
+    candidates.push(...settled.flatMap(item => {
+      if (item.status !== 'fulfilled') return [];
+      try { return [bindVerifiedDisplay(verifiedInput, item.value, metadata)]; }
+      catch { return []; }
+    }));
+  } else if (verifiedInput.chain === 'SOL') {
+    const query = new URLSearchParams({ inputMint: verifiedInput.sellToken, outputMint: verifiedInput.buyToken, amount: verifiedInput.sellAmount, slippageBps: String(verifiedInput.slippageBps), restrictIntermediateTokens: 'true' });
     const raw = await read(await fetch(`https://lite-api.jup.ag/swap/v1/quote?${query}`));
-    candidates.push({
-      provider: 'Jupiter', amountIn: String(raw.inAmount), amountOut: String(raw.outAmount), minReceived: String(raw.otherAmountThreshold),
+    const amountIn = String(raw.inAmount), amountOut = String(raw.outAmount), minReceived = String(raw.otherAmountThreshold);
+    candidates.push(bindVerifiedDisplay(verifiedInput, {
+      provider: 'Jupiter', amountIn, amountOut, minReceived,
       priceImpactPct: number(raw.priceImpactPct) * 100,
       route: Array.isArray(raw.routePlan) ? raw.routePlan.map(step => record(record(step).swapInfo).label).filter((label): label is string => typeof label === 'string') : [],
       raw,
-    });
+    }, metadata));
   } else {
-    candidates.push(...await fetchSunSwapCandidates(input));
+    candidates.push(...(await fetchSunSwapCandidates(verifiedInput)).map(candidate => bindVerifiedDisplay(verifiedInput, candidate, metadata)));
   }
 
-  const extra = input.chain === 'EVM' ? (process.env.SWAP_PROVIDER_URLS ?? '').split(',').map(value => value.trim()).filter(Boolean) : [];
+  const extra = verifiedInput.chain === 'EVM' ? (process.env.SWAP_PROVIDER_URLS ?? '').split(',').map(value => value.trim()).filter(Boolean) : [];
   for (const endpoint of extra) {
     try {
       if (new URL(endpoint).protocol !== 'https:') continue;
-      const raw = await read(await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input), signal: AbortSignal.timeout(12_000) }));
+      const raw = await read(await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(verifiedInput), signal: AbortSignal.timeout(12_000) }));
       const values = Array.isArray(raw.candidates) ? raw.candidates : [raw];
       for (const value of values) {
-        try { candidates.push(normalizeExternalEvmCandidate(input, value, endpoint)); }
+        try { candidates.push(bindVerifiedDisplay(verifiedInput, normalizeExternalEvmCandidate(verifiedInput, value, endpoint), metadata)); }
         catch { continue; }
       }
     } catch { continue; }

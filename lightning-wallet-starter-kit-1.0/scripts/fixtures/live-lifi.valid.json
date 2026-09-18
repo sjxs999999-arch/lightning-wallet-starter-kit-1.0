@@ -17,6 +17,16 @@
       "feeUsd": "0.0035",
       "gasCostUsd": "0.7592",
       "expiresAt": "2027-01-01T00:00:00.000Z",
+      "display": {
+        "amountIn": "1",
+        "amountOut": "0.000436232556501834",
+        "minReceived": "0.000434051393719324",
+        "sellSymbol": "USDC",
+        "buySymbol": "WETH",
+        "sellDecimals": 6,
+        "buyDecimals": 18,
+        "usdValuationAvailable": true
+      },
       "raw": {
         "source": "LI.FI",
         "chainId": 1,

@@ -3,15 +3,15 @@ import { fetchLiFiEvmCandidate, normalizeExternalEvmCandidate, normalizeLiFiEvmQ
 
 const input: SwapQuoteInput = {
   chain: 'EVM', chainId: 1, sellToken: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', buyToken: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', sellAmount: '1000000',
-  taker: '0x42BAe181b2Fbd5cc8F04762770942C719Dd4d30a', slippageBps: 50,
+  sellDecimals: 6, taker: '0x42BAe181b2Fbd5cc8F04762770942C719Dd4d30a', slippageBps: 50,
 };
 
 const quote = {
   id: 'quote-1', tool: 'sushiswap', toolDetails: { name: 'SushiSwap Aggregator' },
   action: {
     fromChainId: 1, toChainId: 1, fromAmount: input.sellAmount, fromAddress: input.taker, toAddress: input.taker,
-    fromToken: { address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', symbol: 'USDC' },
-    toToken: { address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', symbol: 'WETH' },
+    fromToken: { address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', symbol: 'USDC', decimals: 6 },
+    toToken: { address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', symbol: 'WETH', decimals: 18 },
   },
   estimate: {
     fromAmount: '1000000', toAmount: '436232556501834', toAmountMin: '434051393719324',
@@ -30,6 +30,7 @@ describe('LI.FI same-chain EVM Swap', () => {
       allowanceTarget: quote.estimate.approvalAddress,
       transaction: { to: quote.transactionRequest.to, data: '0x1234', value: '0x0', gas: '0x9eff5', gasPrice: '0x278fb72d' },
       feeUsd: '0.0035', gasCostUsd: '0.7592', expiresAt: '2023-11-14T22:14:15.000Z',
+      display: { amountIn: '1', amountOut: '0.000436232556501834', minReceived: '0.000434051393719324', sellSymbol: 'USDC', buySymbol: 'WETH', sellDecimals: 6, buyDecimals: 18, usdValuationAvailable: true },
       raw: { source: 'LI.FI', quoteId: 'quote-1', tool: 'sushiswap', chainId: 1, sameChain: true },
     });
   });
@@ -41,6 +42,7 @@ describe('LI.FI same-chain EVM Swap', () => {
       { ...quote, estimate: { ...quote.estimate, fromAmount: '999999' } },
       { ...quote, action: { ...quote.action, toToken: { ...quote.action.toToken, address: '0x1111111111111111111111111111111111111111' } } },
       { ...quote, estimate: { ...quote.estimate, toAmountMin: '999999999999999' } },
+      { ...quote, action: { ...quote.action, fromToken: { ...quote.action.fromToken, decimals: 18 } } },
       { ...quote, transactionRequest: { ...quote.transactionRequest, data: 'not-hex' } },
     ]) expect(() => normalizeLiFiEvmQuote(input, value)).toThrow(/LI\.FI/);
   });

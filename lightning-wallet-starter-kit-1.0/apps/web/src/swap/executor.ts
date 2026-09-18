@@ -1,6 +1,7 @@
 import { Buffer } from 'buffer';
 import { Interface, isAddress } from 'ethers';
 import { api } from '../api';
+import { formatAtomic } from '../amount';
 import { getSolanaProvider, resolveEvmProvider, type SolanaProvider } from '../batch-transfer/executor';
 import { assertSolanaRpcNetwork } from '../batch-transfer/execution-policy';
 import { connectedEvmProvider, connectedSolanaProvider, requireConnectedWallet } from '../wallet-providers/module-session';
@@ -22,6 +23,10 @@ export function revalidatedEvmQuote(request: SwapRequest, selected: SwapCandidat
   if (BigInt(fresh.amountOut) < BigInt(selected.minReceived) || BigInt(fresh.minReceived) < BigInt(selected.minReceived)) throw new Error('EVM 实时报价低于原最低收到数量，请重新报价');
   if (!Number.isFinite(fresh.priceImpactPct) || fresh.priceImpactPct > 3) throw new Error('EVM 实时价格影响超过 3%，已停止签名');
   if (!fresh.transaction?.to || !fresh.transaction.data || !isAddress(fresh.transaction.to)) throw new Error('EVM 聚合器最新交易数据不可用');
+  if (!fresh.display || fresh.display.sellDecimals !== request.sellDecimals
+    || fresh.display.amountIn !== formatAtomic(BigInt(fresh.amountIn), fresh.display.sellDecimals)
+    || fresh.display.amountOut !== formatAtomic(BigInt(fresh.amountOut), fresh.display.buyDecimals)
+    || fresh.display.minReceived !== formatAtomic(BigInt(fresh.minReceived), fresh.display.buyDecimals)) throw new Error('EVM 报价金额显示未通过链上精度校验，已停止签名');
   if (fresh.expiresAt && Date.parse(fresh.expiresAt) <= now + 5_000) throw new Error('EVM 实时报价即将过期，请重新报价');
   return fresh;
 }
@@ -100,9 +105,14 @@ async function executeTron(request: SwapRequest, quote: SwapCandidate, wallet?: 
 
 export async function executeSwap(request: SwapRequest, quote: SwapCandidate, options: { wallet?: ConnectedWallet } = {}) {
   if (import.meta.env.VITE_MAINNET_EXECUTION_ENABLED !== 'true' || import.meta.env.VITE_ENABLE_MAINNET_SWAP !== 'true') throw new Error('主网 Swap 未通过双重生产开关；仅允许 Dry Run');
+  if (!quote.display || quote.display.sellDecimals !== request.sellDecimals
+    || quote.display.amountIn !== formatAtomic(BigInt(quote.amountIn), quote.display.sellDecimals)
+    || quote.display.amountOut !== formatAtomic(BigInt(quote.amountOut), quote.display.buyDecimals)
+    || quote.display.minReceived !== formatAtomic(BigInt(quote.minReceived), quote.display.buyDecimals)) throw new Error('报价金额显示未通过链上精度校验，已停止签名');
   const executable = request.chain === 'EVM' ? revalidatedEvmQuote(request, quote, await fetchQuotes(request)) : quote;
   const cost = executable.feeUsd || executable.gasCostUsd ? `\nProvider 费用：$${executable.feeUsd ?? '0'}；预计 Gas：$${executable.gasCostUsd ?? '0'}` : '';
-  return confirmedWalletAction(() => window.confirm(`确认使用 ${executable.provider} 路由并请求钱包签名？\n最低收到：${executable.minReceived}${cost}${request.chain === 'TRON' ? '\nSUN.io 单笔 Swap feeLimit 上限 500 TRX；实际消耗以 Energy 与钱包确认页为准。' : ''}`), async () => {
+  const minimum = executable.display ? `${executable.display.minReceived} ${executable.display.buySymbol}` : `${executable.minReceived}（最小单位）`;
+  return confirmedWalletAction(() => window.confirm(`确认使用 ${executable.provider} 路由并请求钱包签名？\n最低收到：${minimum}${cost}${request.chain === 'TRON' ? '\nSUN.io 单笔 Swap feeLimit 上限 500 TRX；实际消耗以 Energy 与钱包确认页为准。' : ''}`), async () => {
     if (request.chain === 'EVM') return executeEvm(request, executable, options.wallet);
     if (request.chain === 'SOL') return executeSolana(request, executable, options.wallet);
     return executeTron(request, executable, options.wallet);
