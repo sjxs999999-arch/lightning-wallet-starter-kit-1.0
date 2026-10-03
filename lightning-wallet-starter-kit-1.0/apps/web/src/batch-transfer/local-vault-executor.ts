@@ -1,6 +1,9 @@
 import type { VaultEnvelope, VaultWallet } from '../wallet-center/vault';
 import type { LocalSignedPayload, LocalTransferDraft } from '../wallet-center/local-transfer-types';
 import type { TransferChain, TransferTask } from './types';
+import { localEvmNetwork, localEvmMainnetEnabled } from '../wallet-center/local-evm-network';
+import type { PortfolioNetworkId } from '../wallet-center/portfolio-networks';
+import { assertExecutionPolicy, executionPolicyConfig } from './execution-policy';
 
 export type LocalVaultBatchResult = {
   index: number;
@@ -10,6 +13,7 @@ export type LocalVaultBatchResult = {
 };
 
 type LocalVaultBatchOptions = {
+  networkId?: PortfolioNetworkId;
   waitUntilResumed(): Promise<void>;
   shouldStop(): boolean;
   onStart(index: number): void;
@@ -38,9 +42,10 @@ function nativeAsset(chain: TransferChain) {
   return { symbol: 'Testnet TRX', decimals: 6 };
 }
 
-export function localDraft(task: TransferTask, wallet: VaultWallet): LocalTransferDraft {
+export function localDraft(task: TransferTask, wallet: VaultWallet, networkId?: PortfolioNetworkId): LocalTransferDraft {
   if (!sameAddress(task.chain, task.from, wallet.address)) throw new Error('本地钱包与任务发送地址不一致');
   return {
+    ...(task.chain === 'EVM' && networkId ? { networkId } : {}),
     walletId: wallet.id,
     chain: task.chain,
     from: task.from,
@@ -48,11 +53,17 @@ export function localDraft(task: TransferTask, wallet: VaultWallet): LocalTransf
     amount: task.amount,
     asset: task.token
       ? { symbol: 'Token', address: task.token, decimals: task.decimals! }
-      : nativeAsset(task.chain),
+      : task.chain === 'EVM' && networkId ? { symbol: localEvmNetwork(networkId).nativeSymbol, decimals: 18 } : nativeAsset(task.chain),
   };
 }
 
 export async function executeLocalVaultBatch(tasks: TransferTask[], wallet: VaultWallet, vaultKey: CryptoKey, options: LocalVaultBatchOptions) {
+  if (!tasks.length) throw new Error('没有可执行交易');
+  if (tasks.some(task => task.chain !== wallet.chain || !sameAddress(task.chain, task.from, wallet.address))) throw new Error('批次任务与本地钱包不一致');
+  if (wallet.chain === 'EVM') {
+    const network = localEvmNetwork(options.networkId);
+    assertExecutionPolicy(tasks, network.evmChainId!, { ...executionPolicyConfig(), mainnetEnabled: localEvmMainnetEnabled() });
+  }
   const [{ planLocalTransfer, broadcastLocalTransfer }, { signWithLocalWorker }] = await Promise.all([
     import('../wallet-center/local-transfer'),
     import('../wallet-center/local-signer'),
@@ -64,7 +75,7 @@ export async function executeLocalVaultBatch(tasks: TransferTask[], wallet: Vaul
     options.onStart(index);
     let signed: LocalSignedPayload | undefined;
     try {
-      const plan = await planLocalTransfer(localDraft(task, wallet));
+      const plan = await planLocalTransfer(localDraft(task, wallet, options.networkId));
       if (options.shouldStop()) throw new Error('本地保险库已锁定；交易没有签名或广播');
       signed = await signWithLocalWorker(vaultKey, {
         id: wallet.id,
@@ -78,7 +89,7 @@ export async function executeLocalVaultBatch(tasks: TransferTask[], wallet: Vaul
       results.push(result);
       options.onResult(result);
     } catch (cause) {
-      const result: LocalVaultBatchResult = { index, error: cause instanceof Error ? cause.message : '本地测试网执行失败' };
+      const result: LocalVaultBatchResult = { index, error: cause instanceof Error ? cause.message : '本地钱包执行失败' };
       results.push(result);
       options.onResult(result);
       break;

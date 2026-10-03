@@ -23,4 +23,11 @@ describe('serverless capability fallback',()=>{
     const value=buildServerlessCapabilities({FLASH_LOAN_PROVIDER_APPROVED:'true',FLASH_LOAN_URL:'https://lightingwallet.com/flashforge/',FLASH_LOAN_API_URL:'http://flash-loan:32104/api'});
     expect(value.readiness.externalBlockers.map(item=>item.code)).toContain('FLASH_LOAN_APPLICATION');
   });
+  it('reports local EVM rollout separately from global acceptance',()=>{
+    const value=buildServerlessCapabilities({VITE_LOCAL_EVM_MAINNET_ENABLED:'true'});
+    expect(value.readiness.mainnet).toMatchObject({localEvmTransfer:true,localEvmBatch:true,execution:false});
+    expect(value.readiness.finalApproval).toBe(false);
+    expect(value.features.find(item=>item.name==='本地 EVM 批量转账')?.status).toBe('ready');
+  });
+
 });

@@ -18,6 +18,9 @@ import { useExternalWalletSession } from '../wallet-providers/ExternalWalletSess
 import { SessionWalletNotice } from '../wallet-providers/SessionWalletNotice';
 import { connectedEvmProvider } from '../wallet-providers/module-session';
 
+import { portfolioNetworks, type PortfolioNetworkId } from '../wallet-center/portfolio-networks';
+import { localEvmMainnetEnabled, localEvmNetwork } from '../wallet-center/local-evm-network';
+
 type SigningSource = 'extension' | 'local-vault';
 
 export function BatchTransfer() {
@@ -48,6 +51,8 @@ export function BatchTransfer() {
   const initialLocalWallet = chainWallets.find(wallet => requestedSender && (chain === 'EVM' ? wallet.address.toLowerCase() === requestedSender.toLowerCase() : wallet.address === requestedSender));
   const [signingSource, setSigningSource] = useState<SigningSource>(initialLocalWallet ? 'local-vault' : 'extension');
   const [localWalletId, setLocalWalletId] = useState(initialLocalWallet?.id ?? chainWallets[0]?.id ?? '');
+  const [localNetworkId, setLocalNetworkId] = useState<PortfolioNetworkId>(localEvmMainnetEnabled() ? 'ethereum' : 'sepolia');
+  const executingRef = useRef(false);
   const workerRef = useRef<Worker | null>(null);
   const pausedRef = useRef(false);
   const stopRef = useRef(false);
@@ -162,7 +167,7 @@ export function BatchTransfer() {
   }
 
   async function execute(tasks = tasksRef.current.filter(task => task.status === 'pending' || task.status === 'failed')) {
-    if (!plan || !activeJob || !tasks.length) return;
+    if (executingRef.current || running || !plan || !activeJob || !tasks.length) return;
     let executionTasks = tasks;
     let localWallet = undefined;
     if (!dryRun && signingSource === 'local-vault') {
@@ -191,8 +196,9 @@ export function BatchTransfer() {
       }
     }
     if (!dryRun && !window.confirm(signingSource === 'local-vault'
-      ? `确认使用本地加密钱包执行 ${executionTasks.length} 笔测试网交易？\n\n只确认一次；每笔在一次性 Worker 内解密签名并按顺序广播。主网仍关闭。`
+      ? `确认使用本地加密钱包执行 ${executionTasks.length} 笔交易？\n网络：${plan.chain === 'EVM' ? localEvmNetwork(localNetworkId).label : plan.chain === 'SOL' ? 'Solana Devnet' : 'TRON 测试网'}\n${plan.chain === 'EVM' && localEvmNetwork(localNetworkId).scope === 'mainnet' ? '将转出真实资产并消耗手续费。' : ''}\n每笔在一次性 Worker 内签名并按顺序广播；任一失败会停止整批。`
       : `即将请求当前钱包签名 ${executionTasks.length} 笔。确认开始？`)) return;
+    executingRef.current = true;
     setRunning(true);
     setPaused(false);
     pausedRef.current = false;
@@ -201,6 +207,7 @@ export function BatchTransfer() {
     if (!dryRun && signingSource === 'local-vault' && localWallet && vaultKey) {
       try {
         await executeLocalVaultBatch(executionTasks, localWallet, vaultKey, {
+          ...(plan.chain === 'EVM' ? { networkId: localNetworkId } : {}),
           waitUntilResumed: async () => { while (pausedRef.current && !stopRef.current) await new Promise(resolve => setTimeout(resolve, 100)); },
           shouldStop: () => stopRef.current || !isKeyActive(vaultKey),
           onStart: index => {
@@ -209,20 +216,20 @@ export function BatchTransfer() {
           },
           onResult: result => {
             const task = executionTasks[result.index]!;
-            if (result.hash && result.state) { task.txHash = result.hash;task.status = result.state;delete task.error;log(result.state === 'confirmed' ? '本地钱包测试网交易已确认' : '本地钱包测试网交易已提交', 'success', task.id); }
-            else { task.status = 'failed';task.error = result.error ?? '本地测试网执行失败';log(task.error, 'error', task.id); }
+            if (result.hash && result.state) { task.txHash = result.hash;task.status = result.state;delete task.error;log(result.state === 'confirmed' ? '本地钱包交易已确认' : '本地钱包交易已提交', 'success', task.id); }
+            else { task.status = 'failed';task.error = result.error ?? '本地钱包执行失败';log(task.error, 'error', task.id); }
             setProgress(tasksRef.current.filter(item => item.status === 'confirmed' || item.status === 'submitted' || item.status === 'failed').length);
             setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
           },
         });
       } catch (cause) {
-        const message = cause instanceof Error ? cause.message : '本地测试网批量执行失败';
+        const message = cause instanceof Error ? cause.message : '本地钱包批量执行失败';
         const current = executionTasks.find(task => task.status === 'running');
         if (current) { current.status = 'failed';current.error = message; }
         log(`${message}；整批已停止，页面与保险库保持安全`, 'error');
       } finally {
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
-        setRunning(false);
+        executingRef.current = false;setRunning(false);
         await persistResults();
         const remaining = pendingSenderCount(tasksRef.current);
         if (remaining) log(`仍有 ${remaining} 个发送账户待执行或重试`, 'info');
@@ -239,7 +246,7 @@ export function BatchTransfer() {
           results.forEach((result, index) => { const task = executionTasks[index]!; task.txHash = result.hash; task.status = result.state; if (result.error) task.error = result.error; log(result.state === 'confirmed' ? 'EVM 批量调用已确认' : result.state === 'failed' ? result.error ?? 'EVM 批量调用失败' : 'EVM 批量调用已提交', result.state === 'failed' ? 'error' : 'success', task.id); });
           setProgress(tasksRef.current.filter(task => task.status === 'confirmed' || task.status === 'submitted' || task.status === 'failed').length);
           setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
-          setRunning(false);
+          executingRef.current = false;setRunning(false);
           await persistResults();
           const remaining = pendingSenderCount(tasksRef.current);
           if (remaining) log(`当前账户任务完成；请切换钱包继续剩余 ${remaining} 个发送账户`, 'info');
@@ -252,7 +259,7 @@ export function BatchTransfer() {
         executionTasks.forEach(task => { if (task.status === 'running') { task.status = 'failed'; task.error = message; } });
         log(`${message}；整批已停止`, 'error');
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
-        setRunning(false);
+        executingRef.current = false;setRunning(false);
         await persistResults();
         return;
       }
@@ -285,7 +292,7 @@ export function BatchTransfer() {
         log(`${message}；整批已停止`, 'error');
       } finally {
         setPlan(current => current ? { ...current, tasks: [...tasksRef.current] } : current);
-        setRunning(false);
+        executingRef.current = false;setRunning(false);
         await persistResults();
         const remaining = pendingSenderCount(tasksRef.current);
         if (remaining) log(`仍有 ${remaining} 个发送账户待执行或重试；保持或切换到对应钱包后继续`, 'info');
@@ -315,7 +322,7 @@ export function BatchTransfer() {
         await new Promise(resolve => setTimeout(resolve, 0));
       }
     } finally {
-      setRunning(false);
+      executingRef.current = false;setRunning(false);
       await persistResults();
       const remaining = pendingSenderCount(tasksRef.current);
       if (!dryRun && remaining) log(`仍有 ${remaining} 个发送账户待执行或重试；保持或切换到对应钱包后继续`, 'info');
@@ -334,21 +341,22 @@ export function BatchTransfer() {
         <h3>创建转账任务</h3>
         {signingSource === 'extension' && <SessionWalletNotice wallet={connected} family={chain} usage="identity"/>}
         <label>网络<select value={chain} disabled={running} onChange={event => { setChain(event.target.value as TransferChain); setPlan(null); }}><option>EVM</option><option value="SOL">Solana</option><option>TRON</option></select></label>
-        <label>模式<select value={mode} disabled={running} onChange={event => setMode(event.target.value as TransferMode)}><option value="one-to-many">一对多</option><option value="many-to-one">多对一</option><option value="many-to-many">多对多</option></select></label>
-        <label>签名来源<select value={signingSource} disabled={running || !dryRun && saving} onChange={event => setSigningSource(event.target.value as SigningSource)}><option value="extension">浏览器扩展钱包</option><option value="local-vault">本地加密钱包（仅测试网）</option></select></label>
-        {signingSource === 'local-vault' && <label>本地钱包<select value={localWalletId} disabled={running || !chainWallets.length} onChange={event => setLocalWalletId(event.target.value)}><option value="">{chainWallets.length ? '请选择钱包' : '当前网络没有本地钱包'}</option>{chainWallets.map(wallet => <option key={wallet.id} value={wallet.id}>{wallet.name} · {wallet.address.slice(0, 8)}…{wallet.address.slice(-6)}</option>)}</select></label>}
+        <label>模式<select value={mode} disabled={running} onChange={event => { setMode(event.target.value as TransferMode);setPlan(null);setActiveJob(null); }}><option value="one-to-many">一对多</option><option value="many-to-one">多对一</option><option value="many-to-many">多对多</option></select></label>
+        <label>签名来源<select value={signingSource} disabled={running || !dryRun && saving} onChange={event => { setSigningSource(event.target.value as SigningSource);setPlan(null);setActiveJob(null); }}><option value="extension">浏览器扩展钱包</option><option value="local-vault">本地加密钱包</option></select></label>
+        {signingSource === 'local-vault' && <label>本地钱包<select value={localWalletId} disabled={running || !chainWallets.length} onChange={event => { setLocalWalletId(event.target.value);setPlan(null);setActiveJob(null); }}><option value="">{chainWallets.length ? '请选择钱包' : '当前网络没有本地钱包'}</option>{chainWallets.map(wallet => <option key={wallet.id} value={wallet.id}>{wallet.name} · {wallet.address.slice(0, 8)}…{wallet.address.slice(-6)}</option>)}</select></label>}
+        {signingSource === 'local-vault' && chain === 'EVM' && <label>转账网络<select value={localNetworkId} disabled={running || saving} onChange={event => { setLocalNetworkId(event.target.value as PortfolioNetworkId);setPlan(null);setActiveJob(null); }} >{portfolioNetworks('EVM').map(network => <option key={network.id} value={network.id} disabled={network.scope === 'mainnet' && !localEvmMainnetEnabled()}>{network.label} · {network.nativeSymbol}{network.scope === 'mainnet' ? '（真实资产）' : '（测试网）'}</option>)}</select></label>}
         {requestedSender && <div className="notice"><ShieldCheck size={18}/>已从钱包中心带入发送地址。下载当前网络模板后只需填写接收地址、金额和可选 Token。</div>}
         <div className="template-actions"><button onClick={() => downloadTransferTemplate('EVM',chain==='EVM'?requestedSender:undefined)}>下载 EVM 模板</button><button onClick={() => downloadTransferTemplate('SOL',chain==='SOL'?requestedSender:undefined)}>下载 Solana 模板</button><button onClick={() => downloadTransferTemplate('TRON',chain==='TRON'?requestedSender:undefined)}>下载 TRON 模板</button><button onClick={() => setShowExample(value => !value)}>{showExample ? '收起 CSV 示例' : '查看 CSV 格式示例'}</button></div>
         {showExample && <pre className="csv-example">{transferCsvExample(chain)}</pre>}
         <label>CSV 导入<input type="file" accept=".csv,text/csv" disabled={running} onChange={event => void importCsv(event.target.files?.[0])}/></label>
-        <label className="dry-run"><input type="checkbox" checked={dryRun} disabled={running} onChange={event => setDryRun(event.target.checked)}/> Dry Run（默认开启，不广播）</label>
-        <div className="notice"><ShieldCheck size={18}/>{signingSource === 'local-vault' ? `本地钱包模式固定使用 Sepolia / Solana Devnet / TRON Nile-Shasta；${vaultKey ? '保险库已解锁' : '保险库当前锁定'}。一次确认后由隔离 Worker 逐笔签名，主网不会开启。` : unfinishedSenders > 1 ? `检测到 ${unfinishedSenders} 个发送账户：每次只执行当前已连接钱包对应的任务，切换钱包后继续。` : solBatch ? 'Solana 原生币和 Token 都使用钱包批量签名：同一发送账户一次授权；私钥始终留在钱包。' : chain === 'EVM' ? '支持 EIP-5792 的钱包可整批授权；不支持时安全回退为逐笔确认。' : 'CSV 只允许公开地址、金额和 Token 地址；服务端会拒绝任何密钥字段。'}</div>
+        <label className="dry-run"><input type="checkbox" checked={dryRun} disabled={running} onChange={event => { setDryRun(event.target.checked);setPlan(null);setActiveJob(null); }}/> Dry Run（默认开启，不广播）</label>
+        <div className="notice"><ShieldCheck size={18}/>{signingSource === 'local-vault' ? `本地 EVM 支持选择主网；Solana / TRON 使用测试网；${vaultKey ? '保险库已解锁' : '保险库当前锁定'}。一次确认后由隔离 Worker 逐笔签名，失败即停止。` : unfinishedSenders > 1 ? `检测到 ${unfinishedSenders} 个发送账户：每次只执行当前已连接钱包对应的任务，切换钱包后继续。` : solBatch ? 'Solana 原生币和 Token 都使用钱包批量签名：同一发送账户一次授权；私钥始终留在钱包。' : chain === 'EVM' ? '支持 EIP-5792 的钱包可整批授权；不支持时安全回退为逐笔确认。' : 'CSV 只允许公开地址、金额和 Token 地址；服务端会拒绝任何密钥字段。'}</div>
         {error && <div className="batch-error">{error}</div>}{recordError && <div className="batch-error">{recordError}</div>}
         <button onClick={prepare} disabled={running || saving || !inputs.length}>{saving ? '正在保存审计记录…' : `校验、估算并保存${inputs.length ? ` · ${inputs.length} 笔` : ''}`}</button>
       </section>
       <section className="panel">
         <div className="panel-head"><h3>执行预览</h3><span>{plan?.tasks.length ?? 0} 笔</span></div>
-        {plan ? <><div className="transfer-summary"><b>总金额 {plan.totalAmount}</b><b>预计手续费 {plan.totalEstimatedFee}</b><small>Worker 规划 {planningMs} ms</small><small>待处理发送账户：{unfinishedSenders}</small><small>任务记录：{activeJob ? `${activeJob.id.slice(0, 8)} · ${activeJob.status}` : saving ? '保存中' : '未保存'}</small>{signingSource === 'local-vault' && <small>⚠ 实际测试网手续费在每笔签名前重新估算</small>}{plan.risks.map(risk => <small key={risk}>⚠ {risk}</small>)}</div><div className="export-actions"><button onClick={() => void execute()} disabled={running || saving || !activeJob}>{dryRun ? '运行模拟并记录' : signingSource === 'local-vault' ? '一次确认并按序执行' : unfinishedSenders > 1 ? '执行当前钱包对应任务' : solBatch ? '开始批量签名（一次授权）' : '开始逐笔签名'}</button>{running && <button onClick={togglePause}>{paused ? '恢复' : '暂停'}</button>}<button onClick={retry} disabled={running || saving || !plan.tasks.some(task => task.status === 'failed')}>失败重试</button><button onClick={() => exportResults(plan.tasks)}>导出结果</button></div><div className="transfer-progress"><span style={{ width: `${plan.tasks.length ? progress / plan.tasks.length * 100 : 0}%` }}/></div><div className="wallet-list">{plan.tasks.slice(0, 100).map(task => <div key={task.id}><b>{task.row - 1}. {task.status} · {task.amount} {task.token ? 'Token' : '原生币'}</b><code>{task.from} → {task.to}</code>{task.error && <small>{task.error}</small>}</div>)}</div></> : <div className="mini-empty"><Send/><p>导入 CSV 后进行地址校验和 Dry Run</p></div>}
+        {plan ? <><div className="transfer-summary"><b>总金额 {plan.totalAmount}</b><b>预计手续费 {plan.totalEstimatedFee}</b><small>Worker 规划 {planningMs} ms</small><small>待处理发送账户：{unfinishedSenders}</small><small>任务记录：{activeJob ? `${activeJob.id.slice(0, 8)} · ${activeJob.status}` : saving ? '保存中' : '未保存'}</small>{signingSource === 'local-vault' && <small>⚠ 实际所选网络手续费在每笔签名前重新估算</small>}{plan.risks.map(risk => <small key={risk}>⚠ {risk}</small>)}</div><div className="export-actions"><button onClick={() => void execute()} disabled={running || saving || !activeJob}>{dryRun ? '运行模拟并记录' : signingSource === 'local-vault' ? '一次确认并按序执行' : unfinishedSenders > 1 ? '执行当前钱包对应任务' : solBatch ? '开始批量签名（一次授权）' : '开始逐笔签名'}</button>{running && <button onClick={togglePause}>{paused ? '恢复' : '暂停'}</button>}<button onClick={retry} disabled={running || saving || !plan.tasks.some(task => task.status === 'failed')}>失败重试</button><button onClick={() => exportResults(plan.tasks)}>导出结果</button></div><div className="transfer-progress"><span style={{ width: `${plan.tasks.length ? progress / plan.tasks.length * 100 : 0}%` }}/></div><div className="wallet-list">{plan.tasks.slice(0, 100).map(task => <div key={task.id}><b>{task.row - 1}. {task.status} · {task.amount} {task.token ? 'Token' : '原生币'}</b><code>{task.from} → {task.to}</code>{task.error && <small>{task.error}</small>}</div>)}</div></> : <div className="mini-empty"><Send/><p>导入 CSV 后进行地址校验和 Dry Run</p></div>}
       </section>
     </div>
     <section className="panel transfer-history"><div className="panel-head"><div><p className="eyebrow">AUDIT TRAIL</p><h3><History size={16}/>最近任务历史</h3></div><button onClick={() => void loadHistory()} title="刷新任务历史"><RefreshCw size={15}/></button></div><div className="transfer-history-table"><div><b>创建时间</b><b>网络 / 模式</b><b>数量</b><b>结果</b><b>状态</b></div>{history.map(job => <div key={job.id}><span>{new Date(job.created_at).toLocaleString()}</span><span>{job.payload.chain} · {job.payload.mode}</span><span>{job.payload.count}</span><span>{job.result.confirmed ?? 0} 成功 / {job.result.failed ?? 0} 失败</span><em className={job.status}>{job.status}</em></div>)}</div>{!history.length && <p className="transfer-history-empty">尚无已保存的批量转账任务。</p>}</section>

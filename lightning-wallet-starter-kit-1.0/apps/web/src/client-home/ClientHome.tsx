@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeftRight, Boxes, CircleDollarSign, History, Send, ShieldCheck, WalletCards } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { api } from '../api';
+import { localEvmCapabilities, localEvmMainnetEnabled } from '../wallet-center/local-evm-network';
 import { loadLocalActivity } from '../activity/history';
 
 type Capability = { name: string; mode: string; status: string };
@@ -28,7 +29,8 @@ export function ClientHome() {
       .catch(() => setStatusError(true));
   }, []);
 
-  const ready = capabilities?.features.filter(feature => feature.status === 'ready').length ?? 0;
+  const features = [...localEvmCapabilities(), ...(capabilities?.features ?? []).filter(feature => !feature.name.startsWith('本地 EVM'))];
+  const ready = features.filter(feature => feature.status === 'ready').length;
   return <>
     <div className="page-head"><div><p className="eyebrow">NON-CUSTODIAL CLIENT</p><h1>闪电钱包首页</h1><p>连接钱包、本地生成密钥，并从同一个客户端进入多链资产工具。</p></div></div>
     <div className="client-home-safety"><ShieldCheck size={18}/><div><b>私钥始终留在本机</b><span>服务端签名：关闭 · 服务端广播：关闭 · 私钥上传：0 · 真实交易必须由钱包确认</span></div></div>
@@ -38,8 +40,9 @@ export function ClientHome() {
       <section className="panel"><span>本地公开记录</span><strong>{activity.length}</strong><small>不包含私钥或签名内容</small></section>
       <section className="panel"><span>已就绪模块</span><strong>{capabilities ? ready : '—'}</strong><small>{statusError ? '状态服务暂时不可用' : '其余模块按准入状态显示'}</small></section>
     </div>
-    {capabilities?.readiness && <section className={`client-readiness ${capabilities.readiness.finalApproval ? 'approved' : 'blocked'}`}><ShieldCheck size={18}/><div><b>{capabilities.readiness.finalApproval ? '最终生产验收已通过' : '主网钱包会话已上线，交易执行继续受验收门禁保护'}</b><span>主网钱包会话：{capabilities.readiness.mainnet.walletSession ? '已开启' : '关闭'} · {capabilities.readiness.externalBlockers.length} 项外部依赖未完成{capabilities.readiness.walletAcceptanceRequired ? ' · 钱包签名验收待完成' : ''} · 主网执行：{capabilities.readiness.mainnet.execution ? '已开启' : '关闭'}</span></div></section>}
+    {capabilities?.readiness && <section className={`client-readiness ${capabilities.readiness.finalApproval ? 'approved' : 'blocked'}`}><ShieldCheck size={18}/><div><b>{capabilities.readiness.finalApproval ? '最终生产验收已通过' : '项目分阶段开放，其他模块按验收状态开放'}</b><span>主网钱包会话：{capabilities.readiness.mainnet.walletSession ? '已开启' : '关闭'} · {capabilities.readiness.externalBlockers.length} 项外部依赖未完成{capabilities.readiness.walletAcceptanceRequired ? ' · 钱包签名验收待完成' : ''} · 其他模块主网执行：{capabilities.readiness.mainnet.execution ? '已开启' : '关闭'}</span></div></section>}
+    <section className="panel"><h3>本地 EVM 转账</h3><p>{localEvmMainnetEnabled() ? '单笔与批量主网转账已开放：Ethereum、BNB Chain、Polygon、Base、Arbitrum。' : '当前开放测试网转账。'}</p><p>进入钱包中心解锁本地钱包；批量转账选择“本地加密钱包”和目标网络。Dry Run 默认开启，真实执行前需确认金额、地址与手续费。</p></section>
     <section className="client-home-links">{quickLinks.map(({ title, detail, path, icon: Icon }) => <NavLink to={path} className="panel" key={path}><span><Icon size={20}/></span><div><b>{title}</b><small>{detail}</small></div><strong>进入</strong></NavLink>)}</section>
-    <section className="panel client-home-capabilities"><div className="panel-head"><div><p className="eyebrow">LIVE CAPABILITY GATES</p><h3>模块准入状态</h3></div><span>{capabilities?.features.length ?? 0} 项</span></div>{capabilities?.features.map(feature => <div key={feature.name}><div><b>{feature.name}</b><small>{feature.mode}</small></div><em className={feature.status === 'ready' ? 'ready' : 'gated'}>{feature.status}</em></div>)}{!capabilities && <p>{statusError ? '状态服务暂时无法读取；钱包本地功能仍可使用。' : '正在读取正式环境能力清单…'}</p>}</section>
+    <section className="panel client-home-capabilities"><div className="panel-head"><div><p className="eyebrow">LIVE CAPABILITY GATES</p><h3>模块准入状态</h3></div><span>{features.length} 项</span></div>{features.map(feature => <div key={feature.name}><div><b>{feature.name}</b><small>{feature.mode}</small></div><em className={feature.status === 'ready' ? 'ready' : 'gated'}>{feature.status}</em></div>)}{!capabilities && <p>{statusError ? '状态服务暂时无法读取；钱包本地功能仍可使用。' : '正在读取正式环境能力清单…'}</p>}</section>
   </>;
 }

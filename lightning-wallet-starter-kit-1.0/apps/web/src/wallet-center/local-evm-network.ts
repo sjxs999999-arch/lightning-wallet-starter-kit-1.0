@@ -54,3 +54,11 @@ export function assertLocalEvmExecutionPolicy(task: TransferTask, network: strin
   if (task.chain !== 'EVM') throw new Error('本地主网发送仅适用于 EVM');
   assertExecutionPolicy([task], network, { ...executionPolicyConfig(), mainnetEnabled: localEvmMainnetEnabled() });
 }
+
+export function localEvmCapabilities() {
+  const status = localEvmMainnetEnabled() ? 'ready' : 'testnet-only';
+  return [
+    { name: '本地 EVM 转账', mode: 'local-worker-signed', status },
+    { name: '本地 EVM 批量转账', mode: 'local-worker-sequential', status },
+  ];
+}

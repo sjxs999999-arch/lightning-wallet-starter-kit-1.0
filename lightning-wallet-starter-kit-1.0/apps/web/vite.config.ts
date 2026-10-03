@@ -15,6 +15,8 @@ const releaseManifest = (environment: Record<string, string>): Plugin => ({
         version: RELEASE_VERSION,
         commit,
         mainnet: {
+          localEvmTransfer: enabled('VITE_LOCAL_EVM_MAINNET_ENABLED') || enabled('VITE_MAINNET_EXECUTION_ENABLED'),
+          localEvmBatch: enabled('VITE_LOCAL_EVM_MAINNET_ENABLED') || enabled('VITE_MAINNET_EXECUTION_ENABLED'),
           execution: enabled('VITE_MAINNET_EXECUTION_ENABLED'),
           swap: enabled('VITE_ENABLE_MAINNET_SWAP'),
           launchpad: enabled('VITE_ENABLE_MAINNET_LAUNCHPAD'),

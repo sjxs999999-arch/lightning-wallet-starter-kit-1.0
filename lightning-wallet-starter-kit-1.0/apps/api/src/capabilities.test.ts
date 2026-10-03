@@ -21,4 +21,11 @@ describe('production capability contract',()=>{
     expect(buildCapabilities({...complete,mainnetBridgeEnabled:false}).readiness.finalApproval).toBe(false);
     expect(buildCapabilities({...complete,walletAcceptanceApproved:false}).readiness.finalApproval).toBe(false);
   });
+  it('reports local EVM rollout separately from global acceptance',()=>{
+    const value=buildCapabilities({...complete,localEvmMainnetEnabled:true,mainnetExecutionEnabled:false,walletAcceptanceApproved:false});
+    expect(value.readiness.mainnet).toMatchObject({localEvmTransfer:true,localEvmBatch:true,execution:false});
+    expect(value.readiness.finalApproval).toBe(false);
+    expect(value.features.find(item=>item.name==='本地 EVM 批量转账')?.status).toBe('ready');
+  });
+
 });

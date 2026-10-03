@@ -10,6 +10,7 @@ export type CapabilityInput={
   flashLoanConfigured:boolean;
   automationDeliveryConfigured:boolean;
   walletAcceptanceApproved:boolean;
+  localEvmMainnetEnabled?:boolean;
   mainnetExecutionEnabled:boolean;
   mainnetSwapEnabled:boolean;
   mainnetLaunchpadEnabled:boolean;
@@ -29,7 +30,9 @@ export function buildCapabilities(input:CapabilityInput){
   ];
   const mainnet={
     walletSession:true,
-    walletCenterBroadcast:false,
+    walletCenterBroadcast:Boolean(input.localEvmMainnetEnabled),
+    localEvmTransfer:Boolean(input.localEvmMainnetEnabled),
+    localEvmBatch:Boolean(input.localEvmMainnetEnabled),
     execution:input.mainnetExecutionEnabled,
     swap:input.mainnetSwapEnabled,
     launchpad:input.mainnetLaunchpadEnabled,
@@ -48,6 +51,8 @@ export function buildCapabilities(input:CapabilityInput){
     operator:'separate-admin-surface',
     chains:input.chains,
     features:[
+      {name:'本地 EVM 转账',mode:'local-worker-signed',status:mainnet.localEvmTransfer?'ready':'testnet-only'},
+      {name:'本地 EVM 批量转账',mode:'local-worker-sequential',status:mainnet.localEvmBatch?'ready':'testnet-only'},
       {name:'多链钱包',mode:'mainnet-provider-session-and-local-worker',status:'ready'},
       {name:'批量转账',mode:'wallet-signed',status:walletReady?'ready':'acceptance-required'},
       {name:'资产归集',mode:'wallet-signed',status:walletReady?'ready':'acceptance-required'},

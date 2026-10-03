@@ -19,6 +19,7 @@ const task: TransferTask = { id: 'task-1', row: 2, chain: 'EVM', from: wallet.ad
 describe('local vault batch selection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     mocks.plan.mockResolvedValue({ signingPayload: { chain: 'EVM', transaction: {} } });
     mocks.sign.mockResolvedValue({ chain: 'EVM', signedTransaction: '0xsigned' });
     mocks.broadcast.mockResolvedValue({ hash: '0xhash', state: 'confirmed' });
@@ -54,4 +55,34 @@ describe('local vault batch selection', () => {
     expect(mocks.broadcast).not.toHaveBeenCalled();
     expect(onResult).toHaveBeenCalledWith({ index: 0, error: '本地保险库已锁定；已签名交易没有广播' });
   });
+  it('plans a BNB mainnet batch on the explicitly selected network', async () => {
+    vi.stubEnv('VITE_LOCAL_EVM_MAINNET_ENABLED', 'true');
+    await executeLocalVaultBatch([task], wallet, {} as CryptoKey, { networkId: 'bsc', waitUntilResumed: async () => {}, shouldStop: () => false, onStart: vi.fn(), onResult: vi.fn() });
+    expect(mocks.plan).toHaveBeenCalledWith(expect.objectContaining({ networkId: 'bsc', asset: { symbol: 'BNB', decimals: 18 } }));
+    expect(mocks.broadcast).toHaveBeenCalledOnce();
+  });
+  it('rejects mainnet before planning or signing when the rollout flag is closed', async () => {
+    vi.stubEnv('VITE_LOCAL_EVM_MAINNET_ENABLED', 'false');
+    vi.stubEnv('VITE_MAINNET_EXECUTION_ENABLED', 'false');
+    await expect(executeLocalVaultBatch([task], wallet, {} as CryptoKey, { networkId: 'bsc', waitUntilResumed: async () => {}, shouldStop: () => false, onStart: vi.fn(), onResult: vi.fn() })).rejects.toThrow('主网真实执行');
+    expect(mocks.plan).not.toHaveBeenCalled();
+    expect(mocks.sign).not.toHaveBeenCalled();
+  });
+  it('rejects duplicate mainnet transfers before signing', async () => {
+    vi.stubEnv('VITE_LOCAL_EVM_MAINNET_ENABLED', 'true');
+    await expect(executeLocalVaultBatch([task, { ...task, id: 'task-2', row: 3 }], wallet, {} as CryptoKey, { networkId: 'ethereum', waitUntilResumed: async () => {}, shouldStop: () => false, onStart: vi.fn(), onResult: vi.fn() })).rejects.toThrow('重复交易');
+    expect(mocks.sign).not.toHaveBeenCalled();
+  });
+  it('stops remaining transfers on the first failure', async () => {
+    mocks.broadcast.mockRejectedValue(new Error('RPC unavailable'));
+    const onResult = vi.fn();
+    await executeLocalVaultBatch([task, { ...task, id: 'task-2', amount: '0.002' }], wallet, {} as CryptoKey, { waitUntilResumed: async () => {}, shouldStop: () => false, onStart: vi.fn(), onResult });
+    expect(mocks.sign).toHaveBeenCalledOnce();
+    expect(onResult).toHaveBeenCalledOnce();
+  });
+  it('rejects mixed senders before signing', async () => {
+    await expect(executeLocalVaultBatch([{ ...task, from: task.to }], wallet, {} as CryptoKey, { waitUntilResumed: async () => {}, shouldStop: () => false, onStart: vi.fn(), onResult: vi.fn() })).rejects.toThrow('不一致');
+    expect(mocks.sign).not.toHaveBeenCalled();
+  });
+
 });
