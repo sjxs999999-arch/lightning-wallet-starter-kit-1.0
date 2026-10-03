@@ -3,6 +3,7 @@ import { RefreshCw, ShieldCheck } from 'lucide-react';
 import './portfolio.css';
 import type { ScannedAsset } from '../asset-collector/types';
 import { defaultPortfolioNetwork, portfolioNetworks, type PortfolioNetworkId } from './portfolio-networks';
+import { localEvmMainnetEnabled } from './local-evm-network';
 import type { CustomToken } from './public-metadata';
 import type { VaultWallet } from './vault';
 
@@ -21,7 +22,7 @@ export function WalletPortfolio({ wallet, tokens }: { wallet: VaultWallet; token
   const [warning, setWarning] = useState('');
   const [updatedAt, setUpdatedAt] = useState('');
   const networks = portfolioNetworks(wallet.chain);
-  const [networkId, setNetworkId] = useState<PortfolioNetworkId>(() => defaultPortfolioNetwork(wallet.chain).id);
+  const [networkId, setNetworkId] = useState<PortfolioNetworkId>(() => wallet.chain === 'EVM' && localEvmMainnetEnabled() ? 'ethereum' : defaultPortfolioNetwork(wallet.chain).id);
   const network = networks.find(item => item.id === networkId) ?? networks[0]!;
 
   useEffect(() => () => { requestId.current += 1; }, []);

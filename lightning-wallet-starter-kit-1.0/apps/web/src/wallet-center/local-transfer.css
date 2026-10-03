@@ -24,3 +24,6 @@
 .local-transfer-history code{overflow:hidden;text-overflow:ellipsis;color:#7baea4}.local-transfer-history a{display:flex;gap:4px;align-items:center;color:#80b7ff;text-decoration:none}
 @media(max-width:1050px){.local-transfer-fields{grid-template-columns:1fr 1fr}.local-transfer-fields label:nth-child(2){grid-column:1/-1}}
 @media(max-width:650px){.local-transfer-fields{grid-template-columns:1fr}.local-transfer-fields label:nth-child(2){grid-column:auto}.local-transfer-history>div{grid-template-columns:1fr auto}.local-transfer-history code{grid-column:1/-1}}
+
+.local-transfer-panel>label{display:flex;flex-direction:column;gap:6px;color:#849baa;font-size:11px;margin-top:12px}
+.local-transfer-panel>label select{background:#07141e;color:#eaf2f7;border:1px solid #254052;border-radius:7px;padding:10px;max-width:360px}

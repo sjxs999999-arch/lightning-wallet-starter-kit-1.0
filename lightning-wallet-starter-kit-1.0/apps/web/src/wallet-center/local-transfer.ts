@@ -1,4 +1,4 @@
-import { Interface, JsonRpcProvider, Transaction, formatEther, formatUnits, isAddress, parseUnits } from 'ethers';
+import { Contract, FetchRequest, Interface, JsonRpcProvider, Transaction, formatEther, formatUnits, isAddress, parseUnits } from 'ethers';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { assertExecutionPolicy, assertSolanaRpcNetwork } from '../batch-transfer/execution-policy';
 import { buildSolanaBatchTransactions } from '../batch-transfer/solana-batch';
@@ -6,7 +6,7 @@ import { validateAddress } from '../batch-transfer/validation';
 import type { TransferTask } from '../batch-transfer/types';
 import type { LocalSignedPayload, LocalTransferDraft, LocalTransferPlan } from './local-transfer-types';
 
-const EVM_RPC = () => import.meta.env.VITE_LOCAL_EVM_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com';
+import { localEvmNetwork, assertEvmPlanAndSignature, assertLocalEvmExecutionPolicy } from './local-evm-network';
 const SOLANA_RPC = () => import.meta.env.VITE_LOCAL_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 const TRON_RPC = () => import.meta.env.VITE_LOCAL_TRON_RPC_URL || 'https://nile.trongrid.io';
 const MAX_TRON_TOKEN_FEE = 100_000_000;
@@ -56,18 +56,37 @@ function commonPlan(draft: LocalTransferDraft, network: string, feeLabel: string
     network,
     draft,
     feeLabel,
-    risk: ['仅测试网', '签名前核对接收地址与金额', '广播后链上交易不可撤销'],
+    risk: [draft.chain === 'EVM' && localEvmNetwork(draft.networkId).scope === 'mainnet' ? '主网真实资产' : '仅测试网', '签名前核对接收地址与金额', '广播后链上交易不可撤销'],
     signingPayload,
   };
 }
 
+async function connectLocalEvm(draft: LocalTransferDraft) {
+  const selected = localEvmNetwork(draft.networkId);
+  for (const rpcUrl of selected.rpcUrls) {
+    const request = new FetchRequest(rpcUrl);
+    request.timeout = 12_000;
+    const provider = new JsonRpcProvider(request, undefined, { staticNetwork: false });
+    let network;
+    try { network = await provider.getNetwork(); }
+    catch { provider.destroy();continue; }
+    const chainId = Number(network.chainId);
+    if (chainId !== Number(selected.evmChainId)) { provider.destroy();throw new Error(`RPC 与 ${selected.label} Chain ID 不匹配，已停止规划`); }
+    assertLocalEvmExecutionPolicy(transferTask(draft), `0x${chainId.toString(16)}`);
+    return { selected, provider, rpcUrl, chainId };
+  }
+  throw new Error(`${selected.label} RPC 暂时不可用，请稍后重试`);
+}
+
 async function planEvm(draft: LocalTransferDraft) {
   const amount = validateDraft(draft);
-  const provider = new JsonRpcProvider(EVM_RPC(), undefined, { staticNetwork: false });
-  const network = await provider.getNetwork();
-  const chainId = Number(network.chainId);
-  assertExecutionPolicy([transferTask(draft)], `0x${chainId.toString(16)}`);
-  if (chainId !== 11155111) throw new Error(`EVM RPC 不是 Sepolia（返回 Chain ID ${chainId}），已停止规划`);
+  const { selected, provider, rpcUrl, chainId } = await connectLocalEvm(draft);
+  if (draft.asset.address) {
+    const token = new Contract(draft.asset.address, ['function decimals() view returns (uint8)', 'function balanceOf(address) view returns (uint256)'], provider);
+    const [decimals, balance] = await Promise.all([token.getFunction('decimals')(), token.getFunction('balanceOf')(draft.from)]);
+    if (Number(decimals) !== draft.asset.decimals) throw new Error('Token decimals 与所选网络的链上合约不匹配');
+    if (BigInt(balance) < amount) throw new Error('Token 余额不足');
+  }
   const data = draft.asset.address
     ? new Interface(['function transfer(address,uint256)']).encodeFunctionData('transfer', [draft.to, amount])
     : undefined;
@@ -78,7 +97,7 @@ async function planEvm(draft: LocalTransferDraft) {
     provider.getFeeData(),
   ]);
   const maxFee = fees.maxFeePerGas ?? fees.gasPrice;
-  if (!maxFee) throw new Error('Sepolia RPC 未返回 Gas 价格');
+  if (!maxFee) throw new Error('RPC 未返回 Gas 价格');
   const signingTransaction: Record<string, string | number> = {
     chainId,
     nonce,
@@ -90,7 +109,9 @@ async function planEvm(draft: LocalTransferDraft) {
       ? { type: 2, maxFeePerGas: fees.maxFeePerGas.toString(), maxPriorityFeePerGas: fees.maxPriorityFeePerGas.toString() }
       : { type: 0, gasPrice: maxFee.toString() }),
   };
-  return commonPlan(draft, 'Sepolia', `上限 ${formatEther(gasLimit * maxFee)} Sepolia ETH`, { chain: 'EVM', transaction: signingTransaction });
+  const balance = await provider.getBalance(draft.from, 'pending');
+  if (balance < transaction.value + gasLimit * maxFee) throw new Error(`${selected.nativeSymbol} 余额不足以支付金额和手续费上限`);
+  return { ...commonPlan({ ...draft, networkId: selected.id }, selected.label, `上限 ${formatEther(gasLimit * maxFee)} ${selected.nativeSymbol}`, { chain: 'EVM', transaction: signingTransaction }), evmRpcUrl: rpcUrl };
 }
 
 function toBase64(value: Uint8Array) {
@@ -175,15 +196,20 @@ function assertFresh(plan: LocalTransferPlan, signed: LocalSignedPayload) {
 }
 
 async function broadcastEvm(plan: LocalTransferPlan, signed: Extract<LocalSignedPayload, { chain: 'EVM' }>) {
-  const provider = new JsonRpcProvider(EVM_RPC(), undefined, { staticNetwork: false });
+  const selected = localEvmNetwork(plan.draft.networkId);
+  const rpcUrl = plan.evmRpcUrl ?? selected.rpcUrls[0]!;
+  if (!selected.rpcUrls.includes(rpcUrl)) throw new Error('规划的 RPC 已不在所选网络配置中，未广播');
+  const request = new FetchRequest(rpcUrl);request.timeout = 12_000;
+  const provider = new JsonRpcProvider(request, undefined, { staticNetwork: false });
   const network = await provider.getNetwork();
-  if (network.chainId !== 11155111n) throw new Error('EVM RPC 已离开 Sepolia，未广播');
+  assertLocalEvmExecutionPolicy(transferTask(plan.draft), `0x${network.chainId.toString(16)}`);
+  if (network.chainId !== BigInt(selected.evmChainId!)) throw new Error('RPC 网络在规划后发生变化，未广播');
   const parsed = Transaction.from(signed.signedTransaction);
-  if (parsed.from?.toLowerCase() !== plan.draft.from.toLowerCase() || Number(parsed.chainId) !== 11155111) throw new Error('签名交易与规划不匹配，未广播');
+  assertEvmPlanAndSignature(plan, parsed);
   const response = await provider.broadcastTransaction(signed.signedTransaction);
   try {
     const receipt = await Promise.race([response.wait(1), new Promise<null>(resolve => window.setTimeout(() => resolve(null), 45_000))]);
-    if (receipt?.status === 0) throw new Error(`Sepolia 交易执行失败：${response.hash}`);
+    if (receipt?.status === 0) throw new Error(`EVM 交易执行失败：${response.hash}`);
     return { hash: response.hash, state: receipt ? 'confirmed' as const : 'submitted' as const };
   } catch (cause) {
     if (cause instanceof Error && /执行失败/.test(cause.message)) throw cause;

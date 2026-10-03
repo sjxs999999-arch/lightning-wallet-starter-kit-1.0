@@ -1,3 +1,4 @@
+import type { PortfolioNetworkId } from './portfolio-networks';
 import type { BatchChain, EncryptedValue } from '../batch-wallet/types';
 
 export type LocalTransferAsset = {
@@ -8,6 +9,7 @@ export type LocalTransferAsset = {
 
 export type LocalTransferDraft = {
   walletId: string;
+  networkId?: PortfolioNetworkId;
   chain: BatchChain;
   from: string;
   to: string;
@@ -34,6 +36,7 @@ export type LocalTransferPlan = {
   network: string;
   draft: LocalTransferDraft;
   feeLabel: string;
+  evmRpcUrl?: string;
   risk: string[];
   signingPayload: LocalSigningPayload;
   confirmation?: { blockhash: string; lastValidBlockHeight: number };
